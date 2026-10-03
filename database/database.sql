@@ -239,9 +239,6 @@ CREATE TABLE orders (
     CONSTRAINT fk_orders_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
-    CONSTRAINT fk_orders_promo
-        FOREIGN KEY (promo_id) REFERENCES promo_codes(promo_id)
-        ON DELETE SET NULL ON UPDATE CASCADE,
     UNIQUE KEY uk_orders_number (order_number),
     INDEX idx_orders_user (user_id),
     INDEX idx_orders_status (status)
