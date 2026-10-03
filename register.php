@@ -248,3 +248,5 @@ include 'includes/header.php';
 </section>
 
 <?php include 'includes/footer.php'; ?>
+
+<script src="js/register.js"></script>
