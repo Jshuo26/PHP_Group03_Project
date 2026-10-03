@@ -120,7 +120,7 @@ INSERT INTO security_policy (policy_id) VALUES (1);
 CREATE TABLE audit_logs (
     log_id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id         INT UNSIGNED NULL,
-    action          VARCHAR(100) NOT NULL,
+    action          ENUM('login','logout','create','update','delete','approve','reject','lock','unlock') NOT NULL,
     description     VARCHAR(500) NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_audit_user
@@ -160,6 +160,7 @@ CREATE TABLE books (
     isbn            VARCHAR(20) NULL,
     genre_id        INT UNSIGNED NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     CONSTRAINT fk_books_genre
         FOREIGN KEY (genre_id) REFERENCES genres(genre_id)
         ON DELETE RESTRICT ON UPDATE CASCADE,
