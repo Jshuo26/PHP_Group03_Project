@@ -5,33 +5,26 @@
   --secondary-color: #f3efec;
   --accent-color: #c4b5aa;
 
-
   --white: #ffffff;
   --black: #1f1f1f;
 
-
   --text-color: #3f3a37;
   --muted-text: #6c6865;
-
 
   --success-color: #198754;
   --warning-color: #ffc107;
   --danger-color: #dc3545;
   --info-color: #0dcaf0;
 
-
   --background-color: #faf9f7;
   --border-color: #ddd7d2;
 
-
   --font-family: Arial, Helvetica, sans-serif;
-
 
   --heading-xl: 2.5rem;
   --heading-lg: 2rem;
   --heading-md: 1.5rem;
   --heading-sm: 1.25rem;
-
 
   --space-xs: 0.25rem;
   --space-sm: 0.5rem;
@@ -39,28 +32,22 @@
   --space-lg: 1.5rem;
   --space-xl: 2rem;
 
-
   --border-radius: 8px;
   --border-radius-lg: 12px;
-
 
   --shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.08);
   --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.12);
 
-
   --container-width: 1200px;
 }
-
 
 * {
   box-sizing: border-box;
 }
 
-
 html {
   scroll-behavior: smooth;
 }
-
 
 body {
   margin: 0;
@@ -70,24 +57,20 @@ body {
   line-height: 1.6;
 }
 
-
 img {
   max-width: 100%;
   height: auto;
   display: block;
 }
 
-
 a {
   color: var(--primary-color);
   text-decoration: none;
 }
 
-
 a:hover {
   color: var(--primary-dark);
 }
-
 
 .container {
   width: 90%;
@@ -95,12 +78,10 @@ a:hover {
   margin: 0 auto;
 }
 
-
 .main-content {
   min-height: 70vh;
   padding: var(--space-xl) 0;
 }
-
 
 .site-header {
   background-color: var(--white);
@@ -108,7 +89,6 @@ a:hover {
   position: relative;
   z-index: 100;
 }
-
 
 .navbar {
   min-height: 70px;
@@ -118,7 +98,6 @@ a:hover {
   gap: var(--space-lg);
 }
 
-
 .site-logo {
   color: var(--primary-color);
   font-size: 1.6rem;
@@ -126,18 +105,15 @@ a:hover {
   white-space: nowrap;
 }
 
-
 .site-logo:hover {
   color: var(--primary-dark);
 }
-
 
 .main-navigation {
   display: flex;
   align-items: center;
   gap: var(--space-lg);
 }
-
 
 .nav-link {
   color: var(--text-color);
@@ -146,11 +122,9 @@ a:hover {
   transition: color 0.2s ease;
 }
 
-
 .nav-link:hover {
   color: var(--primary-color);
 }
-
 
 .hero-section {
   background-color: var(--secondary-color);
@@ -160,11 +134,9 @@ a:hover {
   box-shadow: var(--shadow-sm);
 }
 
-
 .hero-content {
   max-width: 700px;
 }
-
 
 .hero-title {
   margin: 0 0 var(--space-md);
@@ -173,13 +145,11 @@ a:hover {
   line-height: 1.2;
 }
 
-
 .hero-description {
   margin: 0 0 var(--space-lg);
   color: var(--text-color);
   font-size: 1.1rem;
 }
-
 
 .btn {
   display: inline-block;
@@ -197,18 +167,15 @@ a:hover {
     border-color 0.2s ease;
 }
 
-
 .btn-primary {
   background-color: var(--primary-color);
   color: var(--white);
 }
 
-
 .btn-primary:hover {
   background-color: var(--primary-dark);
   color: var(--white);
 }
-
 
 .btn-secondary {
   background-color: var(--white);
@@ -216,17 +183,14 @@ a:hover {
   border-color: var(--primary-color);
 }
 
-
 .btn-secondary:hover {
   background-color: var(--primary-color);
   color: var(--white);
 }
 
-
 .section {
   padding: var(--space-lg) 0;
 }
-
 
 .section-title {
   margin: 0 0 var(--space-lg);
@@ -234,13 +198,11 @@ a:hover {
   font-size: var(--heading-lg);
 }
 
-
 .spotlight-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);
   gap: var(--space-lg);
 }
-
 
 .card {
   background-color: var(--white);
@@ -250,7 +212,6 @@ a:hover {
   box-shadow: var(--shadow-sm);
 }
 
-
 .card-title {
   margin-top: 0;
   margin-bottom: var(--space-sm);
@@ -258,12 +219,10 @@ a:hover {
   font-size: var(--heading-md);
 }
 
-
 .card-text {
   margin: 0;
   color: var(--muted-text);
 }
-
 
 .site-footer {
   margin-top: 3rem;
@@ -273,18 +232,15 @@ a:hover {
   text-align: center;
 }
 
-
 .footer-title {
   margin: 0 0 var(--space-sm);
   font-size: var(--heading-sm);
 }
 
-
 .footer-text {
   margin: 0 0 var(--space-sm);
   color: #eee9e5;
 }
-
 
 .footer-copyright {
   margin: 0;
@@ -292,16 +248,13 @@ a:hover {
   font-size: 0.9rem;
 }
 
-
 @media (max-width: 768px) {
-
 
   .navbar {
   flex-direction: column;
   justify-content: center;
   padding: var(--space-md) 0;
   }
-
 
   .main-navigation {
     width: 100%;
@@ -310,16 +263,13 @@ a:hover {
     gap: var(--space-md);
   }
 
-
   .hero-section {
     padding: 2.5rem 1.5rem;
   }
 
-
   .hero-title {
     font-size: 2rem;
   }
-
 
   .spotlight-grid {
     grid-template-columns: 1fr;
@@ -327,30 +277,23 @@ a:hover {
 }
 
 
-
-
 @media (max-width: 480px) {
-
 
   .container {
     width: 92%;
   }
 
-
   .hero-section {
     padding: 2rem 1.25rem;
   }
-
 
   .hero-title {
     font-size: 1.75rem;
   }
 
-
   .hero-description {
     font-size: 1rem;
   }
-
 
   .main-navigation {
     flex-direction: column;
