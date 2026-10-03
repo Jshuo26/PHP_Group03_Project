@@ -249,4 +249,4 @@ include 'includes/header.php';
 
 <?php include 'includes/footer.php'; ?>
 
-<script src="js/register.js"></script>
+<script src="/js/register.js"></script>

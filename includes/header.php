@@ -9,7 +9,7 @@
 
   <title>aklAAAt! - Online Bookstore</title>
 
-  <link rel="stylesheet" href="css/styles.css">
+  <link rel="stylesheet" href="/css/styles.css">
 
 </head>
 
@@ -21,13 +21,13 @@
 
     <nav class="navbar">
 
-      <a class="site-logo" href="index.php">
+      <a class="site-logo" href="/index.php">
           aklAAAt!
       </a>
 
       <div class="main-navigation">
 
-          <a class="nav-link" href="index.php">
+          <a class="nav-link" href="/index.php">
             Home
           </a>
 
