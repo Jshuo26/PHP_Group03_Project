@@ -5,6 +5,7 @@ require_once 'includes/db.php';
 require_once 'includes/csrf.php';
 
 $errors = [];
+$lock_seconds_left = 0;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -57,14 +58,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($user) {
 
+
             $lockStmt = $pdo->prepare(
-                'SELECT locked_at
+                'SELECT TIMESTAMPDIFF(
+                            SECOND,
+                            NOW(),
+                            DATE_ADD(locked_at, INTERVAL ? MINUTE)
+                        ) AS seconds_left
                  FROM locked_accounts
                  WHERE user_id = ?
                  LIMIT 1'
             );
 
             $lockStmt->execute([
+                $lockout_minutes,
                 $user['user_id']
             ]);
 
@@ -72,11 +79,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if ($locked) {
 
-                $locked_until =
-                    strtotime($locked['locked_at']) +
-                    ($lockout_minutes * 60);
+                if ((int) $locked['seconds_left'] > 0) {
 
-                if (time() < $locked_until) {
+                    $lock_seconds_left = (int) $locked['seconds_left'];
 
                     $errors[] =
                         'Your account is temporarily locked. ' .
@@ -165,6 +170,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             $user['user_id'],
                             'Too many failed login attempts.'
                         ]);
+
+                        $lock_seconds_left = $lockout_minutes * 60;
 
                         $errors[] =
                             'Too many failed attempts. ' .
@@ -263,6 +270,17 @@ include 'includes/header.php';
 
         <?php endif; ?>
 
+        <?php if ($lock_seconds_left > 0): ?>
+            <div
+                class="lock-countdown"
+                id="lockCountdown"
+                data-seconds="<?php echo (int) $lock_seconds_left; ?>"
+            >
+                You can try again in
+                <strong id="lockTimer">--:--</strong>
+            </div>
+
+            <?php endif; ?>
 
         <form method="POST" action="login.php">
 
@@ -307,7 +325,9 @@ include 'includes/header.php';
 
             <button
                 type="submit"
+                id="loginButton"
                 class="btn btn-primary"
+                <?php echo $lock_seconds_left > 0 ? 'disabled' : ''; ?>
             >
                 Login
             </button>
@@ -325,5 +345,7 @@ include 'includes/header.php';
     </div>
 
 </section>
+
+<script src="<?= $base ?? '' ?>/js/lockout.js" defer></script>
 
 <?php include 'includes/footer.php'; ?>
