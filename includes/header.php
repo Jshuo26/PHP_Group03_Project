@@ -21,10 +21,13 @@
 
     <nav class="navbar">
 
-      <a class="site-logo" href="/index.php">
-          aklAAAt!
+      <a href="/" class="brand">
+        <img
+            src="/images/aklAAAt-logo.png"
+            alt="aklAAAt! Online Bookstore"
+            class="site-logo"
+        >
       </a>
-
       <div class="main-navigation">
 
           <a class="nav-link" href="/index.php">

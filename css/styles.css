@@ -99,10 +99,10 @@ a:hover {
 }
 
 .site-logo {
-  color: var(--primary-color);
-  font-size: 1.6rem;
-  font-weight: bold;
-  white-space: nowrap;
+    width: 140px;
+    height: 70px;
+    object-fit: contain;
+    display: block;
 }
 
 .site-logo:hover {
