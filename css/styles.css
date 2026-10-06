@@ -300,3 +300,30 @@ a:hover {
     gap: var(--space-sm);
   }
 }
+
+.password-field {
+    position: relative;
+    display: inline-block;
+}
+
+.password-field input {
+    padding-right: 4rem;   /* leaves room for the button */
+}
+
+.toggle-password {
+    position: absolute;
+    right: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    background: none;
+    border: 0;
+    padding: 0.25rem;
+    color: var(--primary-dark);
+    font-size: 0.8rem;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.toggle-password:hover {
+    text-decoration: underline;
+}

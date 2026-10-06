@@ -3,6 +3,7 @@
 require_once 'includes/session.php';
 require_once 'includes/db.php';
 require_once 'includes/csrf.php';
+require_once 'includes/recaptcha.php';
 
 $errors = [];
 $success = '';
@@ -51,6 +52,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // Confirm password
     if ($password !== $confirm_password) {
         $errors[] = 'Passwords do not match.';
+    }
+
+    if (!verifyRecaptcha(
+        $_POST['g-recaptcha-response'] ?? '',
+        $config['RECAPTCHA_SECRET_KEY']
+    )) {
+    $errors[] = 'Please confirm that you are not a robot.';
     }
 
     // Check if email already exists
@@ -201,7 +209,7 @@ include 'includes/header.php';
                         Password
                     </label>
 
-                    <input
+                    <input 
                         type="password"
                         id="password"
                         name="password"
@@ -212,7 +220,6 @@ include 'includes/header.php';
                         At least 12 characters, including uppercase,
                         lowercase, number, and special character.
                     </small>
-
                 </div>
 
 
@@ -231,6 +238,12 @@ include 'includes/header.php';
 
                 </div>
 
+                <div class="form-group">
+                    <div class="g-recaptcha"
+                        data-sitekey="<?php echo htmlspecialchars($config['RECAPTCHA_SITE_KEY']); ?>">
+                    </div>
+                </div>
+
 
                 <button
                     type="submit"
@@ -247,6 +260,8 @@ include 'includes/header.php';
 
 </section>
 
-<?php include 'includes/footer.php'; ?>
+<script src="https://www.google.com/recaptcha/api.js" async defer></script>
 
-<script src="/js/register.js"></script>
+<script src="/js/register.js" defer></script>
+
+<?php include 'includes/footer.php'; ?>
