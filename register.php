@@ -5,32 +5,56 @@ require_once 'includes/db.php';
 require_once 'includes/csrf.php';
 require_once 'includes/recaptcha.php';
 
-$errors = [];
+$errors  = [];
 $success = '';
+
+$old = [
+    'full_name'     => '',
+    'email'         => '',
+    'mobile_number' => '',
+];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     requireCsrfToken();
-
-    $full_name = trim($_POST['full_name'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $mobile_number = trim($_POST['mobile_number'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $full_name        = trim($_POST['full_name'] ?? '');
+    $email            = trim($_POST['email'] ?? '');
+    $mobile_number    = trim($_POST['mobile_number'] ?? '');
+    $password         = $_POST['password'] ?? '';
     $confirm_password = $_POST['confirm_password'] ?? '';
 
-    // Full name validation
+    $old['full_name']     = $full_name;
+    $old['email']         = $email;
+    $old['mobile_number'] = $mobile_number;
+
     if ($full_name === '') {
         $errors[] = 'Full name is required.';
+    } elseif (mb_strlen($full_name) < 2 || mb_strlen($full_name) > 150) {
+        $errors[] = 'Full name must be between 2 and 150 characters.';
+    } elseif (!preg_match('/^[\p{L}\p{M}\s.\'\-]+$/u', $full_name)) {
+        $errors[] = 'Full name may only contain letters, spaces, periods, apostrophes, and hyphens.';
     }
 
-    // Email validation
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if ($email === '') {
+        $errors[] = 'Email address is required.';
+    } elseif (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) {
         $errors[] = 'Please enter a valid email address.';
     }
 
-    // Password validation
+    if ($mobile_number !== '') {
+        $mobile_check = preg_replace('/[\s\-]/', '', $mobile_number);
+
+        if (!preg_match('/^(\+63|0)9[0-9]{9}$/', $mobile_check)) {
+            $errors[] = 'Please enter a valid mobile number, for example 09123456789.';
+        }
+    }
+
     if (strlen($password) < 12) {
         $errors[] = 'Password must be at least 12 characters long.';
+    }
+
+    if (strlen($password) > 72) {
+        $errors[] = 'Password must not be longer than 72 characters.';
     }
 
     if (!preg_match('/[A-Z]/', $password)) {
@@ -49,7 +73,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Password must contain at least one special character.';
     }
 
-    // Confirm password
     if ($password !== $confirm_password) {
         $errors[] = 'Passwords do not match.';
     }
@@ -58,10 +81,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_POST['g-recaptcha-response'] ?? '',
         $config['RECAPTCHA_SECRET_KEY']
     )) {
-    $errors[] = 'Please confirm that you are not a robot.';
+        $errors[] = 'Please confirm that you are not a robot.';
     }
 
-    // Check if email already exists
+    if (empty($errors)) {
+
+        $full_name = strip_tags($full_name);
+        $full_name = preg_replace('/\s+/', ' ', $full_name);
+        $email = strtolower(filter_var($email, FILTER_SANITIZE_EMAIL));
+        $mobile_number = preg_replace('/[\s\-]/', '', $mobile_number);
+    }
+
     if (empty($errors)) {
 
         $stmt = $pdo->prepare(
@@ -75,29 +105,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    // Create account
     if (empty($errors)) {
 
-        $password_hash = password_hash(
-            $password,
-            PASSWORD_DEFAULT
-        );
+        $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
-        $stmt = $pdo->prepare(
-            'INSERT INTO users
-            (full_name, email, mobile_number, password_hash)
-            VALUES (?, ?, ?, ?)'
-        );
+        try {
 
-        $stmt->execute([
-            $full_name,
-            $email,
-            $mobile_number !== '' ? $mobile_number : null,
-            $password_hash
-        ]);
+            $stmt = $pdo->prepare(
+                'INSERT INTO users
+                (full_name, email, mobile_number, password_hash)
+                VALUES (?, ?, ?, ?)'
+            );
 
-        $success = 'Registration successful! You can now log in.';
+            $stmt->execute([
+                $full_name,
+                $email,
+                $mobile_number !== '' ? $mobile_number : null,
+                $password_hash
+            ]);
+
+            $success = 'Registration successful! You can now log in.';
+
+            $old = ['full_name' => '', 'email' => '', 'mobile_number' => ''];
+
+        } catch (PDOException $e) {
+
+            if ($e->getCode() === '23000') {
+                $errors[] = 'An account with this email already exists.';
+            } else {
+                error_log('Registration failed: ' . $e->getMessage());
+                $errors[] = 'Registration failed. Please try again later.';
+            }
+        }
     }
+
 }
 
 include 'includes/header.php';
@@ -118,7 +159,7 @@ include 'includes/header.php';
                 <?php foreach ($errors as $error): ?>
 
                     <p>
-                        <?php echo htmlspecialchars($error); ?>
+                        <?php echo htmlspecialchars($error, ENT_QUOTES, 'UTF-8'); ?>
                     </p>
 
                 <?php endforeach; ?>
@@ -132,7 +173,7 @@ include 'includes/header.php';
 
             <div class="form-success">
                 <p>
-                    <?php echo htmlspecialchars($success); ?>
+                    <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?>
                 </p>
 
                 <a
@@ -150,7 +191,7 @@ include 'includes/header.php';
                 <input
                     type="hidden"
                     name="csrf_token"
-                    value="<?php echo htmlspecialchars(generateCsrfToken()); ?>"
+                    value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>"
                 >
 
                 <div class="form-group">
@@ -163,8 +204,10 @@ include 'includes/header.php';
                         type="text"
                         id="full_name"
                         name="full_name"
+                        maxlength="150"
+                        autocomplete="name"
                         required
-                        value="<?php echo htmlspecialchars($_POST['full_name'] ?? ''); ?>"
+                        value="<?php echo htmlspecialchars($old['full_name'], ENT_QUOTES, 'UTF-8'); ?>"
                     >
 
                 </div>
@@ -180,8 +223,10 @@ include 'includes/header.php';
                         type="email"
                         id="email"
                         name="email"
+                        maxlength="255"
+                        autocomplete="email"
                         required
-                        value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
+                        value="<?php echo htmlspecialchars($old['email'], ENT_QUOTES, 'UTF-8'); ?>"
                     >
 
                 </div>
@@ -190,14 +235,17 @@ include 'includes/header.php';
                 <div class="form-group">
 
                     <label for="mobile_number">
-                        Mobile Number
+                        Mobile Number (optional)
                     </label>
 
                     <input
-                        type="text"
+                        type="tel"
                         id="mobile_number"
                         name="mobile_number"
-                        value="<?php echo htmlspecialchars($_POST['mobile_number'] ?? ''); ?>"
+                        maxlength="20"
+                        placeholder="09XXXXXXXXX"
+                        autocomplete="tel"
+                        value="<?php echo htmlspecialchars($old['mobile_number'], ENT_QUOTES, 'UTF-8'); ?>"
                     >
 
                 </div>
@@ -209,15 +257,16 @@ include 'includes/header.php';
                         Password
                     </label>
 
-                    <input 
+                    <input
                         type="password"
                         id="password"
                         name="password"
+                        autocomplete="new-password"
                         required
                     >
 
                     <small>
-                        At least 12 characters, including uppercase,
+                        12 to 72 characters, including uppercase,
                         lowercase, number, and special character.
                     </small>
                 </div>
@@ -233,6 +282,7 @@ include 'includes/header.php';
                         type="password"
                         id="confirm_password"
                         name="confirm_password"
+                        autocomplete="new-password"
                         required
                     >
 
@@ -240,7 +290,7 @@ include 'includes/header.php';
 
                 <div class="form-group">
                     <div class="g-recaptcha"
-                        data-sitekey="<?php echo htmlspecialchars($config['RECAPTCHA_SITE_KEY']); ?>">
+                        data-sitekey="<?php echo htmlspecialchars($config['RECAPTCHA_SITE_KEY'], ENT_QUOTES, 'UTF-8'); ?>">
                     </div>
                 </div>
 
