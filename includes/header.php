@@ -1,15 +1,27 @@
+<?php
+
+require_once __DIR__ . '/session.php';
+
+$isLoggedIn = !empty($_SESSION['user_id']);
+
+$isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
+
+?>
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
 
-  <meta charset="UTF-8">
+    <meta charset="UTF-8">
 
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-  <title>aklAAAt! - Online Bookstore</title>
+    <title>aklAAAt! - Online Bookstore</title>
 
-  <link rel="stylesheet" href="/css/styles.css">
+    <link rel="icon" type="image/png" href="/images/aklAAAt!-favicon.png">
+    <link rel="apple-touch-icon" href="/images/aklAAAt!-favicon.png">
+
+    <link rel="stylesheet" href="/css/styles.css">
 
 </head>
 
@@ -17,40 +29,77 @@
 
 <header class="site-header">
 
-  <div class="container">
+    <div class="header-container">
 
-    <nav class="navbar">
+        <a href="/index.php" class="brand">
 
-      <a href="/" class="brand">
-        <img
-            src="/images/aklAAAt-logo.png"
-            alt="aklAAAt! Online Bookstore"
-            class="site-logo"
-        >
-      </a>
-      <div class="main-navigation">
+            <img
+                src="/images/aklAAAt!-wordmark.png"
+                alt="aklAAAt! Online Bookstore"
+                class="site-logo"
+            >
 
-          <a class="nav-link" href="/index.php">
-            Home
-          </a>
+        </a>
 
-          <a class="nav-link" href="">
-            Browse Books
-          </a>
+        <nav class="main-navigation">
 
-          <a class="nav-link" href="">
-            Authors
-          </a>
+            <a class="nav-link" href="/index.php">
+                Featured
+            </a>
 
-          <a class="nav-link" href="">
-            Cart
-          </a>
+            <a class="nav-link" href="/books.php">
+                Books
+            </a>
 
-      </div>
+            <a class="nav-link" href="/genres.php">
+                Genres
+            </a>
 
-    </nav>
+            <a class="nav-link" href="/authors.php">
+                Filipino Authors
+            </a>
 
-  </div>
+        </nav>
+
+        <div class="header-actions">
+
+        <form class="search-form" action="/books.php" method="GET">
+
+                <input
+                    type="search"
+                    name="search"
+                    class="search-input"
+                    placeholder="Search titles, authors..."
+                    aria-label="Search books and authors"
+                >
+
+            </form>
+
+            <a href="/cart.php" class="cart-link" aria-label="Shopping cart">
+
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    viewBox="0 0 20 20"
+                    fill="currentColor"
+                    class="cart-icon"
+                    aria-hidden="true"
+                >
+                    <path d="M1 1.75A.75.75 0 0 1 1.75 1h1.628a1.75 1.75 0 0 1 1.734 1.51L5.18 3a65.25 65.25 0 0 1 13.36 1.412.75.75 0 0 1 .58.875 48.645 48.645 0 0 1-1.618 6.2.75.75 0 0 1-.712.513H6a2.503 2.503 0 0 0-2.292 1.5H17.25a.75.75 0 0 1 0 1.5H2.76a.75.75 0 0 1-.748-.807 4.002 4.002 0 0 1 2.716-3.486L3.626 2.716a.25.25 0 0 0-.248-.216H1.75A.75.75 0 0 1 1 1.75ZM6 17.5a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0ZM15.5 19a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" />
+                </svg>
+
+            </a>
+
+            <?php if (!$isLoggedIn && !$isLoginPage): ?>
+
+                <a class="login-button" href="/login.php">
+                    Login / Register
+                </a>
+
+            <?php endif; ?>
+
+        </div>
+
+    </div>
 
 </header>
 
