@@ -1,7 +1,14 @@
 <?php
 
 require_once __DIR__ . '/includes/session.php';
+require_once __DIR__ . '/includes/csrf.php';
 
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    header('Location: /index.php');
+    exit;
+}
+
+requireCsrfToken();
 $_SESSION = [];
 
 if (ini_get('session.use_cookies')) {
@@ -19,5 +26,5 @@ if (ini_get('session.use_cookies')) {
 }
 
 session_destroy();
-header('Location: index.php');
+header('Location: /index.php');
 exit;

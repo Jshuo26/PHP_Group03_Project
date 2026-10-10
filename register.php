@@ -4,9 +4,16 @@ require_once 'includes/session.php';
 require_once 'includes/db.php';
 require_once 'includes/csrf.php';
 require_once 'includes/recaptcha.php';
+require_once 'includes/input.php';
 
 $errors  = [];
 $success = '';
+$recaptchaSiteKey = trim((string) ($config['RECAPTCHA_SITE_KEY'] ?? ''));
+$recaptchaSecretKey = trim((string) ($config['RECAPTCHA_SECRET_KEY'] ?? ''));
+$recaptchaConfigured = $recaptchaSiteKey !== ''
+    && $recaptchaSecretKey !== ''
+    && $recaptchaSiteKey !== 'your_site_key_here'
+    && $recaptchaSecretKey !== 'your_secret_key_here';
 
 $old = [
     'full_name'     => '',
@@ -17,11 +24,11 @@ $old = [
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     requireCsrfToken();
-    $full_name        = trim($_POST['full_name'] ?? '');
-    $email            = trim($_POST['email'] ?? '');
-    $mobile_number    = trim($_POST['mobile_number'] ?? '');
-    $password         = $_POST['password'] ?? '';
-    $confirm_password = $_POST['confirm_password'] ?? '';
+    $full_name        = trim(requestString($_POST, 'full_name'));
+    $email            = trim(requestString($_POST, 'email'));
+    $mobile_number    = trim(requestString($_POST, 'mobile_number'));
+    $password         = requestString($_POST, 'password');
+    $confirm_password = requestString($_POST, 'confirm_password');
 
     $old['full_name']     = $full_name;
     $old['email']         = $email;
@@ -77,9 +84,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Passwords do not match.';
     }
 
-    if (!verifyRecaptcha(
-        $_POST['g-recaptcha-response'] ?? '',
-        $config['RECAPTCHA_SECRET_KEY']
+    if (!$recaptchaConfigured) {
+        $errors[] = 'Registration is unavailable until the reCAPTCHA site and secret keys are configured.';
+    } elseif (!verifyRecaptcha(
+        requestString($_POST, 'g-recaptcha-response'),
+        $recaptchaSecretKey
     )) {
         $errors[] = 'Please confirm that you are not a robot.';
     }
@@ -289,15 +298,20 @@ include 'includes/header.php';
                 </div>
 
                 <div class="form-group">
-                    <div class="g-recaptcha"
-                        data-sitekey="<?php echo htmlspecialchars($config['RECAPTCHA_SITE_KEY'], ENT_QUOTES, 'UTF-8'); ?>">
-                    </div>
+                    <?php if ($recaptchaConfigured): ?>
+                        <div class="g-recaptcha"
+                            data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>">
+                        </div>
+                    <?php else: ?>
+                        <p class="form-errors" role="alert">Registration is temporarily unavailable because reCAPTCHA is not configured.</p>
+                    <?php endif; ?>
                 </div>
 
 
                 <button
                     type="submit"
                     class="btn btn-primary"
+                    <?php echo !$recaptchaConfigured ? 'disabled' : ''; ?>
                 >
                     Create Account
                 </button>
@@ -310,7 +324,9 @@ include 'includes/header.php';
 
 </section>
 
-<script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<?php if ($recaptchaConfigured): ?>
+    <script src="https://www.google.com/recaptcha/api.js" async defer></script>
+<?php endif; ?>
 
 <script src="/js/register.js" defer></script>
 

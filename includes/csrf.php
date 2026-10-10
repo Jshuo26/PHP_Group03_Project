@@ -12,6 +12,7 @@ function generateCsrfToken()
 function validateCsrfToken($token)
 {
   if (
+    !is_string($token) ||
     empty($token) ||
     empty($_SESSION['csrf_token'])
   ) {

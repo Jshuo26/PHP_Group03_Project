@@ -3,6 +3,7 @@
 require_once 'includes/session.php';
 require_once 'includes/db.php';
 require_once 'includes/csrf.php';
+require_once 'includes/input.php';
 
 $errors = [];
 $lock_seconds_left = 0;
@@ -11,8 +12,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     requireCsrfToken();
 
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $email = trim(requestString($_POST, 'email'));
+    $password = requestString($_POST, 'password');
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
         $errors[] = 'Please enter a valid email address.';
@@ -208,7 +209,7 @@ include 'includes/header.php';
           class="form-input"
           autocomplete="email"
           required
-          value="<?php echo htmlspecialchars($_POST['email'] ?? ''); ?>"
+          value="<?php echo htmlspecialchars(requestString($_POST, 'email'), ENT_QUOTES, 'UTF-8'); ?>"
         >
         <span class="field-error" id="emailError"></span>
       </div>
@@ -256,10 +257,6 @@ include 'includes/header.php';
       </button>
 
     </form>
-
-    <p class="login-links">
-      <a href="forgot-password.php">Forgot password?</a>
-    </p>
 
     <p class="login-links">
       Don't have an account yet?

@@ -26,6 +26,12 @@ include '../includes/header.php';
             <?php echo htmlspecialchars($_SESSION['role']); ?>
         </p>
 
+        <nav class="admin-shortcuts" aria-label="Administration">
+            <a class="btn btn-primary" href="/admin/products.php">Manage books</a>
+            <a class="btn btn-secondary" href="/admin/genres.php">Manage categories</a>
+            <a class="btn btn-secondary" href="/admin/orders.php">Manage orders</a>
+        </nav>
+
     </div>
 
 </section>

@@ -1,6 +1,7 @@
 <?php
 
 require_once __DIR__ . '/session.php';
+require_once __DIR__ . '/csrf.php';
 
 $isLoggedIn = !empty($_SESSION['user_id']);
 
@@ -18,8 +19,8 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
     <title>aklAAAt! - Online Bookstore</title>
 
-    <link rel="icon" type="image/png" href="/images/aklAAAt!-favicon.png">
-    <link rel="apple-touch-icon" href="/images/aklAAAt!-favicon.png">
+    <link rel="icon" type="image/png" href="/images/logo/aklAAAt!-favicon.png">
+    <link rel="apple-touch-icon" href="/images/logo/aklAAAt!-favicon.png">
 
     <link rel="stylesheet" href="/css/styles.css">
 
@@ -34,7 +35,7 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
         <a href="/index.php" class="brand">
 
             <img
-                src="/images/aklAAAt!-wordmark.png"
+                src="/images/logo/aklAAAt!-wordmark.png"
                 alt="aklAAAt! Online Bookstore"
                 class="site-logo"
             >
@@ -58,6 +59,12 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
             <a class="nav-link" href="/authors.php">
                 Filipino Authors
             </a>
+
+            <?php if ($isLoggedIn && ($_SESSION['role'] ?? '') === 'customer'): ?>
+                <a class="nav-link" href="/account.php">My Account</a>
+            <?php elseif ($isLoggedIn && in_array($_SESSION['role'] ?? '', ['admin', 'staff'], true)): ?>
+                <a class="nav-link" href="/admin/index.php">Admin</a>
+            <?php endif; ?>
 
         </nav>
 
@@ -94,6 +101,13 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
                 <a class="login-button" href="/login.php">
                     Login / Register
                 </a>
+
+            <?php elseif ($isLoggedIn): ?>
+
+                <form class="logout-form" method="post" action="/logout.php">
+                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+                    <button class="login-button" type="submit">Log out</button>
+                </form>
 
             <?php endif; ?>
 
