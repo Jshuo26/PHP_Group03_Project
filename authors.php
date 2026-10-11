@@ -7,7 +7,8 @@ $stmt = $pdo->query(
      FROM authors a
      JOIN book_authors ba ON ba.author_id = a.author_id
      JOIN books b ON b.book_id = ba.book_id
-     JOIN genres g ON g.genre_id = b.genre_id AND g.status = 'active'
+     JOIN book_genres bg ON bg.book_id = b.book_id
+     JOIN genres g ON g.genre_id = bg.genre_id AND g.status = 'active'
      JOIN book_editions e ON e.book_id = b.book_id
      GROUP BY a.author_id, a.full_name, a.bio
      ORDER BY a.full_name"

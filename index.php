@@ -8,11 +8,10 @@ $newBooks = [];
 $genres = [];
 
 try {
-    $spotlightQuery = $pdo->query("SELECT ds.book_id, ds.author_id, a.full_name AS author_name, a.bio AS author_bio, b.title AS book_title, b.description AS book_description, g.genre_name, be.cover_image_path, (SELECT GROUP_CONCAT(a2.full_name ORDER BY a2.full_name SEPARATOR ', ') FROM book_authors ba2 JOIN authors a2 ON a2.author_id = ba2.author_id WHERE ba2.book_id = b.book_id) AS book_authors
+    $spotlightQuery = $pdo->query("SELECT ds.book_id, ds.author_id, a.full_name AS author_name, a.bio AS author_bio, b.title AS book_title, b.description AS book_description, (SELECT GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') FROM book_genres bg JOIN genres g ON g.genre_id = bg.genre_id WHERE bg.book_id = b.book_id) AS genre_name, be.cover_image_path, (SELECT GROUP_CONCAT(a2.full_name ORDER BY a2.full_name SEPARATOR ', ') FROM book_authors ba2 JOIN authors a2 ON a2.author_id = ba2.author_id WHERE ba2.book_id = b.book_id) AS book_authors
         FROM daily_spotlight ds
         JOIN authors a ON a.author_id = ds.author_id
         JOIN books b ON b.book_id = ds.book_id
-        JOIN genres g ON g.genre_id = b.genre_id
         LEFT JOIN book_editions be ON be.book_id = b.book_id
         WHERE ds.spotlight_date = CURDATE()
         ORDER BY be.edition_id
@@ -31,9 +30,8 @@ try {
             LIMIT 1");
         $eligibleAuthor = $authorQuery->fetch();
 
-        $bookQuery = $pdo->query("SELECT b.book_id, b.title, b.description, g.genre_name, be.cover_image_path, (SELECT GROUP_CONCAT(a2.full_name ORDER BY a2.full_name SEPARATOR ', ') FROM book_authors ba2 JOIN authors a2 ON a2.author_id = ba2.author_id WHERE ba2.book_id = b.book_id) AS book_authors
+        $bookQuery = $pdo->query("SELECT b.book_id, b.title, b.description, (SELECT GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') FROM book_genres bg JOIN genres g ON g.genre_id = bg.genre_id WHERE bg.book_id = b.book_id) AS genre_name, be.cover_image_path, (SELECT GROUP_CONCAT(a2.full_name ORDER BY a2.full_name SEPARATOR ', ') FROM book_authors ba2 JOIN authors a2 ON a2.author_id = ba2.author_id WHERE ba2.book_id = b.book_id) AS book_authors
             FROM books b
-            JOIN genres g ON g.genre_id = b.genre_id
             LEFT JOIN book_editions be ON be.book_id = b.book_id
             WHERE NOT EXISTS (
                 SELECT 1 FROM daily_spotlight ds
@@ -83,7 +81,7 @@ try {
         JOIN book_editions be ON be.book_id = b.book_id
         LEFT JOIN book_authors ba ON ba.book_id = b.book_id
         LEFT JOIN authors a ON a.author_id = ba.author_id
-        JOIN genres g ON g.genre_id = b.genre_id AND g.status = 'active'
+        WHERE EXISTS (SELECT 1 FROM book_genres bg JOIN genres g ON g.genre_id = bg.genre_id WHERE bg.book_id = b.book_id AND g.status = 'active')
         GROUP BY b.book_id, b.title, b.created_at, be.edition_id, be.price, be.cover_image_path
         ORDER BY b.created_at DESC, b.book_id DESC
         LIMIT 5");
