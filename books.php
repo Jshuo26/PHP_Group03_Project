@@ -35,8 +35,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 "SELECT e.stock_quantity
                  FROM book_editions e
                  JOIN books b ON b.book_id = e.book_id
-                 JOIN genres g ON g.genre_id = b.genre_id
-                 WHERE e.edition_id = ? AND g.status = 'active'
+                 WHERE e.edition_id = ?
+                   AND EXISTS (
+                       SELECT 1
+                       FROM book_genres bg
+                       JOIN genres g ON g.genre_id = bg.genre_id
+                       WHERE bg.book_id = b.book_id AND g.status = 'active'
+                   )
                  FOR UPDATE"
             );
             $editionStmt->execute([$editionId]);
@@ -93,7 +98,7 @@ unset($_SESSION['store_flash']);
 $genreStmt = $pdo->query("SELECT genre_id, genre_name FROM genres WHERE status = 'active' ORDER BY genre_name");
 $genres = $genreStmt->fetchAll();
 
-$conditions = ["g.status = 'active'"];
+$conditions = ['1 = 1'];
 $params = [];
 if ($query !== '') {
     $conditions[] = '(b.title LIKE ? OR a.full_name LIKE ?)';
@@ -101,7 +106,7 @@ if ($query !== '') {
     $params[] = '%' . $query . '%';
 }
 if ($genreId > 0) {
-    $conditions[] = 'b.genre_id = ?';
+    $conditions[] = 'EXISTS (SELECT 1 FROM book_genres bgf WHERE bgf.book_id = b.book_id AND bgf.genre_id = ?)';
     $params[] = $genreId;
 }
 if ($bookId > 0) {
@@ -109,16 +114,18 @@ if ($bookId > 0) {
     $params[] = $bookId;
 }
 
-$sql = 'SELECT b.book_id, b.title, b.description, b.isbn, g.genre_name,
+$sql = 'SELECT b.book_id, b.title, b.description, b.isbn,
                e.edition_id, e.format, e.price, e.stock_quantity, e.cover_image_path,
+               GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ", ") AS genre_names,
                GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ", ") AS authors
         FROM books b
-        JOIN genres g ON g.genre_id = b.genre_id
+        JOIN book_genres bg ON bg.book_id = b.book_id
+        JOIN genres g ON g.genre_id = bg.genre_id AND g.status = \'active\'
         JOIN book_editions e ON e.book_id = b.book_id
         LEFT JOIN book_authors ba ON ba.book_id = b.book_id
         LEFT JOIN authors a ON a.author_id = ba.author_id
         WHERE ' . implode(' AND ', $conditions) . '
-        GROUP BY b.book_id, b.title, b.description, b.isbn, g.genre_name,
+        GROUP BY b.book_id, b.title, b.description, b.isbn,
                  e.edition_id, e.format, e.price, e.stock_quantity, e.cover_image_path
         ORDER BY b.created_at DESC, b.title, e.format';
 $bookStmt = $pdo->prepare($sql);
@@ -165,7 +172,7 @@ include __DIR__ . '/includes/header.php';
                     <?php if ($book['cover_image_path']): ?><img class="catalog-cover" src="<?= htmlspecialchars(catalogCover($book['cover_image_path']), ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($book['title'], ENT_QUOTES, 'UTF-8') ?> cover" loading="lazy"><?php endif; ?>
                     <h2><?= htmlspecialchars($book['title'], ENT_QUOTES, 'UTF-8') ?></h2>
                     <p><strong>Author:</strong> <?= htmlspecialchars($book['authors'] ?: 'Not listed', ENT_QUOTES, 'UTF-8') ?></p>
-                    <p><strong>Genre:</strong> <?= htmlspecialchars($book['genre_name'], ENT_QUOTES, 'UTF-8') ?></p>
+                    <p><strong>Genre:</strong> <?= htmlspecialchars($book['genre_names'], ENT_QUOTES, 'UTF-8') ?></p>
                     <?php if ($book['isbn']): ?><p><strong>ISBN:</strong> <?= htmlspecialchars($book['isbn'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
                     <?php if ($book['description']): ?><p><?= nl2br(htmlspecialchars($book['description'], ENT_QUOTES, 'UTF-8')) ?></p><?php endif; ?>
                     <p><strong><?= htmlspecialchars(ucfirst($book['format']), ENT_QUOTES, 'UTF-8') ?></strong> · ₱<?= number_format((float) $book['price'], 2) ?></p>

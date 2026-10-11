@@ -1,4 +1,3 @@
-
 CREATE DATABASE IF NOT EXISTS aklaaat_db
     CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 USE aklaaat_db;
@@ -158,14 +157,23 @@ CREATE TABLE books (
     title           VARCHAR(255) NOT NULL,
     description     TEXT NULL,
     isbn            VARCHAR(20) NULL,
-    genre_id        INT UNSIGNED NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    CONSTRAINT fk_books_genre
-        FOREIGN KEY (genre_id) REFERENCES genres(genre_id)
-        ON DELETE RESTRICT ON UPDATE CASCADE,
     UNIQUE KEY uk_books_isbn (isbn),
     INDEX idx_books_title (title)
+) ENGINE=InnoDB;
+
+CREATE TABLE book_genres (
+    book_id         INT UNSIGNED NOT NULL,
+    genre_id        INT UNSIGNED NOT NULL,
+    PRIMARY KEY (book_id, genre_id),
+    CONSTRAINT fk_bg_book
+        FOREIGN KEY (book_id) REFERENCES books(book_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_bg_genre
+        FOREIGN KEY (genre_id) REFERENCES genres(genre_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX idx_book_genres_genre (genre_id)
 ) ENGINE=InnoDB;
 
 CREATE TABLE book_authors (
