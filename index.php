@@ -161,45 +161,7 @@ include 'includes/header.php';
     </div>
 </section>
 
-<section class="home-section">
-    <div class="section-container">
-        <h2 class="section-title">Today's Spotlight</h2>
-        <div class="spotlight-grid">
-            <article class="spotlight-card author-spotlight">
-                <div class="spotlight-content">
-                    <span class="spotlight-label">Author of the Day</span>
-                    <div class="author-image-placeholder">
-                        <img src="/images/authors/author-1.jpg" alt="Filipino author" loading="lazy">
-                    </div>
-                    <div class="spotlight-info">
-                        <h3><?= $spotlightAuthor ? htmlspecialchars($spotlightAuthor['name']) : 'Author Spotlight Coming Soon' ?></h3>
-                        <p><?= $spotlightAuthor ? htmlspecialchars(homepageText($spotlightAuthor['bio'], 160) ?: 'Discover the story behind this Filipino author.') : 'Add authors to your catalog to start the daily spotlight.' ?></p>
-                        <a href="/authors.php" class="text-link">View Author Profile →</a>
-                    </div>
-                </div>
-            </article>
-            <article class="spotlight-card book-spotlight">
-                <div class="spotlight-content">
-                    <span class="spotlight-label">Book of the Day</span>
-                    <div class="book-image-placeholder">
-                        <?php if (!empty($spotlightBook['cover'])): ?>
-                            <img src="<?= htmlspecialchars(homepageBookCover($spotlightBook['cover'])) ?>" alt="<?= htmlspecialchars($spotlightBook['title']) ?> cover">
-                        <?php else: ?>
-                            <span>Book Cover</span>
-                        <?php endif; ?>
-                    </div>
-                    <div class="spotlight-info">
-                        <h3><?= $spotlightBook ? htmlspecialchars($spotlightBook['title']) : 'Book Spotlight Coming Soon' ?></h3>
-                        <p><?= $spotlightBook ? htmlspecialchars($spotlightBook['authors'] ?: $spotlightBook['genre']) : 'Book author' ?></p>
-                        <p><?= $spotlightBook ? htmlspecialchars($spotlightBook['genre']) : 'Book genre' ?></p>
-                        <p class="spotlight-synopsis"><?= $spotlightBook ? htmlspecialchars(homepageText($spotlightBook['description'], 150) ?: 'Explore this title from our catalog.') : 'Add books and authors to begin showing a daily selection.' ?></p>
-                        <a href="/books.php" class="text-link">View Book →</a>
-                    </div>
-                </div>
-            </article>
-        </div>
-    </div>
-</section>
+   <?php include __DIR__ . '/includes/spotlight_section.php'; ?>
 
 <section class="home-section featured-books-section">
     <div class="section-container">
