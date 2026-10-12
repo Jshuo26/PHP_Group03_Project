@@ -1,5 +1,8 @@
 document.addEventListener('DOMContentLoaded', function () {
 
+  /* ===========================
+     Password toggle
+     =========================== */
   document.querySelectorAll('.password-toggle').forEach(function (button) {
     button.addEventListener('click', function () {
       var input = document.getElementById(button.dataset.target);
@@ -16,6 +19,51 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   });
 
+  /* ===========================
+     Logout confirmation modal
+     =========================== */
+  var logoutModal = document.getElementById('logoutModal');
+  var logoutCancelBtn = logoutModal ? logoutModal.querySelector('.logout-cancel-button') : null;
+
+  // All elements that should open the logout modal
+  var logoutTriggers = document.querySelectorAll('.account-logout-button');
+
+  logoutTriggers.forEach(function (trigger) {
+    trigger.addEventListener('click', function () {
+      if (logoutModal) {
+        logoutModal.hidden = false;
+        document.body.classList.add('modal-open');
+        if (logoutCancelBtn) logoutCancelBtn.focus();
+      }
+    });
+  });
+
+  if (logoutCancelBtn) {
+    logoutCancelBtn.addEventListener('click', function () {
+      logoutModal.hidden = true;
+      document.body.classList.remove('modal-open');
+    });
+  }
+
+  if (logoutModal) {
+    logoutModal.addEventListener('click', function (e) {
+      if (e.target === logoutModal) {
+        logoutModal.hidden = true;
+        document.body.classList.remove('modal-open');
+      }
+    });
+
+    document.addEventListener('keydown', function (e) {
+      if (e.key === 'Escape' && !logoutModal.hidden) {
+        logoutModal.hidden = true;
+        document.body.classList.remove('modal-open');
+      }
+    });
+  }
+
+  /* ===========================
+     Login form validation
+     =========================== */
   var form = document.getElementById('loginForm');
   if (!form) {
     return;
@@ -78,4 +126,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-});
+});

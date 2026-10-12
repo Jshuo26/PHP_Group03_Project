@@ -4,6 +4,7 @@ require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/csrf.php';
 
 $isLoggedIn = !empty($_SESSION['user_id']);
+$userRole = $_SESSION['role'] ?? '';
 
 $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
@@ -60,17 +61,19 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
                 Filipino Authors
             </a>
 
-            <?php if ($isLoggedIn && ($_SESSION['role'] ?? '') === 'customer'): ?>
-                <a class="nav-link" href="/account.php">My Account</a>
-            <?php elseif ($isLoggedIn && in_array($_SESSION['role'] ?? '', ['admin', 'staff'], true)): ?>
-                <a class="nav-link" href="/admin/index.php">Admin</a>
+            <?php if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
+
+                <a class="nav-link" href="/admin/index.php">
+                    Admin
+                </a>
+
             <?php endif; ?>
 
         </nav>
 
         <div class="header-actions">
 
-        <form class="search-form" action="/books.php" method="GET">
+            <form class="search-form" action="/books.php" method="GET">
 
                 <input
                     type="search"
@@ -82,7 +85,11 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
             </form>
 
-            <a href="/cart.php" class="cart-link" aria-label="Shopping cart">
+            <a
+                href="/cart.php"
+                class="cart-link"
+                aria-label="Shopping cart"
+            >
 
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -96,17 +103,79 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
             </a>
 
-            <?php if (!$isLoggedIn && !$isLoginPage): ?>
+            <?php if ($isLoggedIn && $userRole === 'customer'): ?>
+
+                <div class="account-menu">
+
+                    <button
+                        type="button"
+                        class="account-menu-button"
+                        aria-label="Account menu"
+                        aria-expanded="false"
+                    >
+
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="1.8"
+                            class="account-icon"
+                            aria-hidden="true"
+                        >
+                            <circle cx="12" cy="8" r="4"></circle>
+                            <path d="M4 21a8 8 0 0 1 16 0"></path>
+                        </svg>
+
+                    </button>
+
+                    <div class="account-dropdown">
+
+                        <a href="/account.php" class="account-dropdown-link">
+                            Account
+                        </a>
+
+                        <a href="/orders.php" class="account-dropdown-link">
+                            Orders
+                        </a>
+
+                        <div class="account-dropdown-divider"></div>
+
+                        <button
+                            type="button"
+                            class="account-dropdown-link account-logout-button dropdown-danger"
+                        >
+                            Logout
+                        </button>
+
+                    </div>
+
+                </div>
+
+            <?php elseif (!$isLoggedIn && !$isLoginPage): ?>
 
                 <a class="login-button" href="/login.php">
                     Login / Register
                 </a>
 
-            <?php elseif ($isLoggedIn): ?>
+            <?php elseif ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
 
                 <form class="logout-form" method="post" action="/logout.php">
-                    <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
-                    <button class="login-button" type="submit">Log out</button>
+
+                    <input
+                        type="hidden"
+                        name="csrf_token"
+                        value="<?php echo htmlspecialchars(
+                            generateCsrfToken(),
+                            ENT_QUOTES,
+                            'UTF-8'
+                        ); ?>"
+                    >
+
+                    <button class="login-button" type="submit">
+                        Log out
+                    </button>
+
                 </form>
 
             <?php endif; ?>
@@ -115,6 +184,33 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
     </div>
 
+
 </header>
 
-<main class="main-content">
+<?php if ($isLoggedIn && $userRole === 'customer'): ?>
+
+<!-- Logout Confirmation Modal -->
+<div class="logout-modal" id="logoutModal" hidden role="dialog" aria-modal="true" aria-labelledby="logoutModalTitle">
+    <div class="logout-modal-content">
+        <div class="logout-modal-icon" aria-hidden="true">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/>
+                <line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+        </div>
+        <h2 id="logoutModalTitle">Log out of your account?</h2>
+        <p>You will need to sign in again to access your account.</p>
+        <div class="logout-modal-actions">
+            <button type="button" class="btn btn-outline logout-cancel-button">Cancel</button>
+            <form method="post" action="/logout.php" style="margin:0">
+                <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
+                <button class="btn btn-danger" type="submit">Log Out</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<main class="main-content">
