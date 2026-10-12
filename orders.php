@@ -139,7 +139,65 @@ function e($value)
 include __DIR__ . '/includes/header.php';
 ?>
 
-<section class="container orders-page">
+<div class="account-page-layout container">
+
+    <!-- ========== SIDEBAR ========== -->
+    <aside class="account-sidebar">
+        <nav class="account-sidebar-nav" aria-label="Account navigation">
+
+            <p class="account-sidebar-section-label">Settings</p>
+
+            <a href="/account.php" class="account-sidebar-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="12" cy="8" r="4"></circle>
+                    <path d="M4 21a8 8 0 0 1 16 0"></path>
+                </svg>
+                Account
+            </a>
+
+            <a href="/security.php" class="account-sidebar-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+                </svg>
+                Security
+            </a>
+
+            <a href="/addresses.php" class="account-sidebar-item">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7z"/>
+                    <circle cx="12" cy="9" r="2.5"/>
+                </svg>
+                Manage Addresses
+            </a>
+
+            <div class="account-sidebar-divider"></div>
+
+            <a href="/orders.php" class="account-sidebar-item active" aria-current="page">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
+                    <rect x="9" y="3" width="6" height="4" rx="1"/>
+                    <line x1="9" y1="12" x2="15" y2="12"/>
+                    <line x1="9" y1="16" x2="13" y2="16"/>
+                </svg>
+                Orders
+            </a>
+
+            <div class="account-sidebar-divider"></div>
+
+            <button type="button" class="account-sidebar-item account-sidebar-logout account-logout-button">
+                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                    <polyline points="16 17 21 12 16 7"/>
+                    <line x1="21" y1="12" x2="9" y2="12"/>
+                </svg>
+                Logout
+            </button>
+
+        </nav>
+    </aside>
+
+    <!-- ========== MAIN CONTENT ========== -->
+    <section class="account-main-content orders-page">
 
     <div class="page-heading">
         <h1 class="page-title">My Orders</h1>
@@ -418,6 +476,8 @@ include __DIR__ . '/includes/header.php';
 
     <?php endif; ?>
 
-</section>
+    </section><!-- /.account-main-content -->
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+</div><!-- /.account-page-layout -->
+
+<?php include __DIR__ . '/includes/footer.php'; ?>
