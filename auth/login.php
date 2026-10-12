@@ -1,9 +1,9 @@
 <?php
 
-require_once 'includes/session.php';
-require_once 'includes/db.php';
-require_once 'includes/csrf.php';
-require_once 'includes/input.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/input.php';
 
 $errors = [];
 $lock_seconds_left = 0;
@@ -149,18 +149,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['last_activity'] = time();
 
                 if ($user['role'] === 'admin' || $user['role'] === 'staff') {
-                    header('Location: admin/index.php');
+                    header('Location: /admin/index.php');
                     exit;
                 }
 
-                header('Location: index.php');
+                header('Location: /index.php');
                 exit;
             }
         }
     }
 }
 
-include 'includes/header.php';
+include __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="container auth-section">
@@ -190,7 +190,7 @@ include 'includes/header.php';
       </div>
     <?php endif; ?>
 
-    <form id="loginForm" method="POST" action="login.php" novalidate>
+    <form id="loginForm" method="POST" action="/auth/login.php" novalidate>
 
       <input
         type="hidden"
@@ -260,13 +260,13 @@ include 'includes/header.php';
 
     <p class="login-links">
       Don't have an account yet?
-      <a href="register.php">Register now</a>
+      <a href="/auth/register.php">Register now</a>
     </p>
 
   </div>
 
 </section>
 
-<script src="<?= $base ?? '' ?>/js/lockout.js" defer></script>
+<script src="/js/lockout.js" defer></script>
 
-<?php include 'includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

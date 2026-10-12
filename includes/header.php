@@ -131,11 +131,11 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
                     <div class="account-dropdown">
 
-                        <a href="/account.php" class="account-dropdown-link">
+                        <a href="/account/" class="account-dropdown-link">
                             Account
                         </a>
 
-                        <a href="/orders.php" class="account-dropdown-link">
+                        <a href="/account/orders.php" class="account-dropdown-link">
                             Orders
                         </a>
 
@@ -154,13 +154,13 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
             <?php elseif (!$isLoggedIn && !$isLoginPage): ?>
 
-                <a class="login-button" href="/login.php">
+                <a class="login-button" href="/auth/login.php">
                     Login / Register
                 </a>
 
             <?php elseif ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
 
-                <form class="logout-form" method="post" action="/logout.php">
+                <form class="logout-form" method="post" action="/auth/logout.php">
 
                     <input
                         type="hidden"
@@ -203,7 +203,7 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
         <p>You will need to sign in again to access your account.</p>
         <div class="logout-modal-actions">
             <button type="button" class="btn btn-outline logout-cancel-button">Cancel</button>
-            <form method="post" action="/logout.php" style="margin:0">
+            <form method="post" action="/auth/logout.php" style="margin:0">
                 <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
                 <button class="btn btn-danger" type="submit">Log Out</button>
             </form>

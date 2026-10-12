@@ -1,10 +1,10 @@
 <?php
 
-require_once 'includes/session.php';
-require_once 'includes/db.php';
-require_once 'includes/csrf.php';
-require_once 'includes/recaptcha.php';
-require_once 'includes/input.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/recaptcha.php';
+require_once __DIR__ . '/../includes/input.php';
 
 $errors  = [];
 $success = '';
@@ -150,7 +150,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 }
 
-include 'includes/header.php';
+include __DIR__ . '/../includes/header.php';
 ?>
 
 <section class="container">
@@ -186,7 +186,7 @@ include 'includes/header.php';
                 </p>
 
                 <a
-                    href="login.php"
+                    href="/auth/login.php"
                     class="btn btn-primary"
                 >
                     Go to Login
@@ -195,7 +195,7 @@ include 'includes/header.php';
 
         <?php else: ?>
 
-            <form method="POST" action="register.php">
+            <form method="POST" action="/auth/register.php">
 
                 <input
                     type="hidden"
@@ -330,4 +330,4 @@ include 'includes/header.php';
 
 <script src="/js/register.js" defer></script>
 
-<?php include 'includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

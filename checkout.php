@@ -182,7 +182,7 @@ include __DIR__ . '/includes/header.php';
             <div class="form-success" role="status">
                 <p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p>
                 <p>No online payment was processed. The store will update your order status.</p>
-                <a class="btn btn-primary" href="/orders.php">View my orders</a>
+                <a class="btn btn-primary" href="/account/orders.php">View my orders</a>
                 <a class="btn btn-secondary" href="/books.php">Continue shopping</a>
             </div>
         <?php elseif (!$items): ?>
