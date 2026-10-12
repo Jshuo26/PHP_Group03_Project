@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/includes/session.php';
-require_once __DIR__ . '/includes/db.php';
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/csrf.php';
-require_once __DIR__ . '/includes/input.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/input.php';
 
 requireRole(['customer']);
 
@@ -83,7 +83,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-include __DIR__ . '/includes/header.php';
+include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="account-page-layout container">
@@ -94,7 +94,7 @@ include __DIR__ . '/includes/header.php';
 
             <p class="account-sidebar-section-label">Settings</p>
 
-            <a href="/account.php" class="account-sidebar-item">
+            <a href="/account/" class="account-sidebar-item">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="12" cy="8" r="4"></circle>
                     <path d="M4 21a8 8 0 0 1 16 0"></path>
@@ -102,7 +102,7 @@ include __DIR__ . '/includes/header.php';
                 Account
             </a>
 
-            <a href="/security.php" class="account-sidebar-item active" aria-current="page">
+            <a href="/account/security.php" class="account-sidebar-item active" aria-current="page">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
@@ -119,7 +119,7 @@ include __DIR__ . '/includes/header.php';
 
             <div class="account-sidebar-divider"></div>
 
-            <a href="/orders.php" class="account-sidebar-item">
+            <a href="/account/orders.php" class="account-sidebar-item">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
                     <rect x="9" y="3" width="6" height="4" rx="1"/>
@@ -175,7 +175,7 @@ include __DIR__ . '/includes/header.php';
             </div>
 
             <div class="settings-card">
-                <form method="post" action="/security.php" class="settings-form">
+                <form method="post" action="/account/security.php" class="settings-form">
                     <input
                         type="hidden"
                         name="csrf_token"
@@ -185,38 +185,92 @@ include __DIR__ . '/includes/header.php';
 
                     <div class="form-group">
                         <label for="current_password">Current password</label>
-                        <input
-                            class="form-input"
-                            type="password"
-                            id="current_password"
-                            name="current_password"
-                            autocomplete="current-password"
-                            required
-                        >
+                        <div class="password-wrapper">
+                            <input
+                                class="form-input"
+                                type="password"
+                                id="current_password"
+                                name="current_password"
+                                autocomplete="current-password"
+                                required
+                            >
+                            <button
+                                type="button"
+                                class="password-toggle"
+                                data-target="current_password"
+                                aria-label="Show password"
+                                aria-pressed="false"
+                            >
+                                <svg class="icon-closed" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                </svg>
+                                <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label for="new_password">New password</label>
-                        <input
-                            class="form-input"
-                            type="password"
-                            id="new_password"
-                            name="new_password"
-                            autocomplete="new-password"
-                            required
-                        >
+                        <div class="password-wrapper">
+                            <input
+                                class="form-input"
+                                type="password"
+                                id="new_password"
+                                name="new_password"
+                                autocomplete="new-password"
+                                required
+                            >
+                            <button
+                                type="button"
+                                class="password-toggle"
+                                data-target="new_password"
+                                aria-label="Show password"
+                                aria-pressed="false"
+                            >
+                                <svg class="icon-closed" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                </svg>
+                                <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <div class="form-group">
                         <label for="confirm_password">Confirm new password</label>
-                        <input
-                            class="form-input"
-                            type="password"
-                            id="confirm_password"
-                            name="confirm_password"
-                            autocomplete="new-password"
-                            required
-                        >
+                        <div class="password-wrapper">
+                            <input
+                                class="form-input"
+                                type="password"
+                                id="confirm_password"
+                                name="confirm_password"
+                                autocomplete="new-password"
+                                required
+                            >
+                            <button
+                                type="button"
+                                class="password-toggle"
+                                data-target="confirm_password"
+                                aria-label="Show password"
+                                aria-pressed="false"
+                            >
+                                <svg class="icon-closed" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                </svg>
+                                <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+                                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
                     </div>
 
                     <p class="password-requirements">
@@ -289,4 +343,4 @@ include __DIR__ . '/includes/header.php';
 
 </div><!-- /.account-page-layout -->
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

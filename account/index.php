@@ -1,9 +1,9 @@
 <?php
-require_once __DIR__ . '/includes/session.php';
-require_once __DIR__ . '/includes/db.php';
-require_once __DIR__ . '/includes/auth.php';
-require_once __DIR__ . '/includes/csrf.php';
-require_once __DIR__ . '/includes/input.php';
+require_once __DIR__ . '/../includes/session.php';
+require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/input.php';
 
 requireRole(['customer']);
 
@@ -129,7 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-include __DIR__ . '/includes/header.php';
+include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="account-page-layout container">
@@ -140,7 +140,7 @@ include __DIR__ . '/includes/header.php';
 
             <p class="account-sidebar-section-label">Settings</p>
 
-            <a href="/account.php" class="account-sidebar-item active" aria-current="page">
+            <a href="/account/" class="account-sidebar-item active" aria-current="page">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <circle cx="12" cy="8" r="4"></circle>
                     <path d="M4 21a8 8 0 0 1 16 0"></path>
@@ -148,7 +148,7 @@ include __DIR__ . '/includes/header.php';
                 Account
             </a>
 
-            <a href="/security.php" class="account-sidebar-item">
+            <a href="/account/security.php" class="account-sidebar-item">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
                 </svg>
@@ -165,7 +165,7 @@ include __DIR__ . '/includes/header.php';
 
             <div class="account-sidebar-divider"></div>
 
-            <a href="/orders.php" class="account-sidebar-item">
+            <a href="/account/orders.php" class="account-sidebar-item">
                 <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                     <path d="M9 5H7a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V7a2 2 0 0 0-2-2h-2"/>
                     <rect x="9" y="3" width="6" height="4" rx="1"/>
@@ -252,7 +252,7 @@ include __DIR__ . '/includes/header.php';
                             </p>
                         </div>
 
-                        <form method="post" action="/account.php" class="settings-form">
+                        <form method="post" action="/account/index.php" class="settings-form">
                             <input
                                 type="hidden"
                                 name="csrf_token"
@@ -290,7 +290,7 @@ include __DIR__ . '/includes/header.php';
                             </p>
                         </div>
 
-                        <form method="post" action="/account.php" class="settings-form">
+                        <form method="post" action="/account/index.php" class="settings-form">
                             <input
                                 type="hidden"
                                 name="csrf_token"
@@ -330,7 +330,7 @@ include __DIR__ . '/includes/header.php';
                             </p>
                         </div>
 
-                        <form method="post" action="/account.php" class="settings-form">
+                        <form method="post" action="/account/index.php" class="settings-form">
                             <input
                                 type="hidden"
                                 name="csrf_token"
@@ -359,10 +359,8 @@ include __DIR__ . '/includes/header.php';
             </div>
         </div>
 
-
-
     </div><!-- /.account-main-content -->
 
 </div><!-- /.account-page-layout -->
 
-<?php include __DIR__ . '/includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>
