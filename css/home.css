@@ -1,0 +1,699 @@
+.hero-slider {
+  position: relative;
+  width: 100%;
+  height: 520px;
+  margin-top: calc(-1 * var(--space-xl));
+  overflow: hidden;
+  background-color: #777777;
+}
+
+.hero-slide {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  transition: opacity 0.8s ease;
+}
+
+.hero-slide:nth-child(1) {
+  background-image: url('/images/hero-banner/hero-1.jpg');
+}
+
+.hero-slide:nth-child(2) {
+  background-image: url('/images/hero-banner/hero-2.jpg');
+}
+
+.hero-slide:nth-child(3) {
+  background-image: url('/images/hero-banner/hero-3.jpg');
+}
+
+.hero-slide.active {
+  opacity: 1;
+}
+
+.hero-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.7) 0%,
+    rgba(0, 0, 0, 0.42) 45%,
+    rgba(0, 0, 0, 0.05) 100%
+  );
+}
+
+.hero-content {
+  position: relative;
+  z-index: 2;
+  width: min(1400px, calc(100% - 80px));
+  height: 100%;
+  margin: 0 auto;
+  padding-left: 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.hero-title {
+  max-width: 650px;
+  margin: 0 0 12px;
+  color: var(--white);
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 1.1;
+  font-weight: 800;
+}
+
+.hero-description {
+  max-width: 560px;
+  margin: 0 0 28px;
+  color: var(--white);
+  font-size: 1.05rem;
+  line-height: 1.6;
+}
+
+.hero-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 24px;
+  border-radius: 24px;
+  background-color: var(--white);
+  color: var(--primary-color);
+  text-decoration: none;
+  font-weight: 700;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.hero-button:hover {
+  color: var(--primary-color);
+  transform: translateY(-2px);
+  opacity: 0.92;
+}
+
+.hero-arrow {
+  position: absolute;
+  z-index: 5;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.85);
+  color: var(--text-color);
+  cursor: pointer;
+  font-size: 1.2rem;
+  transition: background-color 0.2s ease;
+}
+
+.hero-arrow:hover {
+  background-color: var(--white);
+}
+
+.hero-prev {
+  left: 24px;
+}
+
+.hero-next {
+  right: 24px;
+}
+
+.hero-dots {
+  position: absolute;
+  z-index: 5;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+}
+
+.hero-dot {
+  width: 9px;
+  height: 9px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background-color: rgba(255, 255, 255, 0.55);
+  cursor: pointer;
+}
+
+.hero-dot.active {
+  background-color: var(--white);
+}
+
+.home-section {
+  width: 100%;
+  padding: 42px 0;
+}
+
+.section-container {
+  width: min(1400px, calc(100% - 40px));
+  margin: 0 auto;
+}
+
+.section-title {
+  margin: 0 0 22px;
+  color: var(--primary-dark);
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+.section-heading-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 18px;
+}
+
+.section-heading-row .section-title {
+  margin-bottom: 0;
+}
+
+.view-all-link {
+  color: var(--primary-color);
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+.spotlight-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 28px;
+}
+
+.spotlight-card {
+  min-height: 230px;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background-color: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.spotlight-content {
+  height: 100%;
+  display: grid;
+  grid-template-columns: 130px minmax(0, 1fr);
+  grid-template-rows: auto 1fr;
+  column-gap: 20px;
+  align-items: center;
+}
+
+.spotlight-label {
+  grid-column: 1 / -1;
+  margin-bottom: 18px;
+  color: var(--primary-dark);
+  font-size: 1.15rem;
+  font-weight: 700;
+}
+
+.author-image-placeholder,
+.book-image-placeholder {
+  width: 130px;
+  height: 174px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--secondary-color);
+  color: var(--muted-text);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  text-align: center;
+  font-size: 0.85rem;
+  aspect-ratio: 3 / 4;
+}
+
+.author-image-placeholder img,
+.book-image-placeholder img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.spotlight-info h3 {
+  margin: 0 0 8px;
+  color: var(--primary-dark);
+  font-size: 1.2rem;
+}
+
+.spotlight-info p {
+  margin: 5px 0;
+  color: var(--text-color);
+  line-height: 1.5;
+}
+
+.spotlight-synopsis {
+  margin-top: 12px !important;
+  font-size: 0.9rem;
+}
+
+.text-link {
+  display: inline-block;
+  margin-top: 10px;
+  color: var(--primary-color);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.text-link:hover {
+  color: var(--primary-hover);
+}
+
+.featured-books-section {
+  padding-top: 10px;
+  padding-bottom: 60px;
+}
+
+.featured-books-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  justify-content: space-between;
+  gap: 22px;
+}
+
+.book-card {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  background-color: var(--white);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.book-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--shadow-md);
+}
+
+.book-card-image {
+  width: 100%;
+  aspect-ratio: 3 / 3.5;
+  max-height: 270px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--secondary-color);
+  color: var(--muted-text);
+  font-size: 0.9rem;
+}
+
+.book-card-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.book-card-content {
+  padding: 14px;
+}
+
+.book-card-title {
+  margin: 0 0 6px;
+  color: var(--primary-dark);
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.book-card-author {
+  margin: 0 0 10px;
+  color: var(--muted-text);
+  font-size: 0.85rem;
+}
+
+.book-card-price {
+  margin: 0 0 10px;
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+
+.add-cart-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 36px;
+  border-radius: 20px;
+  background-color: var(--primary-color);
+  color: var(--white);
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.add-cart-button:hover {
+  background-color: var(--primary-hover);
+  color: var(--white);
+}
+
+.filipino-banner-section {
+  position: relative;
+  min-height: 320px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  isolation: isolate;
+  background: #3a2616;
+  color: var(--white);
+}
+
+.filipino-banner-slideshow,
+.filipino-banner-image,
+.filipino-banner-overlay {
+  position: absolute;
+  inset: 0;
+}
+
+.filipino-banner-slideshow {
+  z-index: -3;
+}
+
+.filipino-banner-image {
+  background-position: center;
+  background-size: cover;
+  opacity: 0;
+  animation: filipinoBannerFade 18s infinite;
+}
+
+.filipino-banner-image-one {
+  background-image: url('/images/others/filipino-books-1.jpg');
+  animation-delay: 0s;
+}
+
+.filipino-banner-image-two {
+  background-image: url('/images/others/filipino-books-2.jpg');
+  animation-delay: 6s;
+}
+
+.filipino-banner-image-three {
+  background-image: url('/images/others/filipino-books-3.jpg');
+  animation-delay: 12s;
+}
+
+.filipino-banner-overlay {
+  z-index: -1;
+  background: linear-gradient(
+    90deg,
+    rgba(25, 15, 8, 0.82),
+    rgba(25, 15, 8, 0.35)
+  );
+}
+
+.filipino-banner-content {
+  width: min(1200px, calc(100% - 48px));
+  margin: 0 auto;
+  padding: 55px 0;
+}
+
+.filipino-banner-content .eyebrow {
+  margin: 0 0 8px;
+  color: #f4d6a7;
+  font-size: 0.85rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.filipino-banner-content h2 {
+  max-width: 600px;
+  margin: 0 0 14px;
+  color: var(--white);
+  font-size: clamp(1.8rem, 3.5vw, 2.8rem);
+  line-height: 1.15;
+}
+
+.filipino-banner-content > p:not(.eyebrow) {
+  max-width: 620px;
+  margin: 0 0 24px;
+  color: var(--white);
+}
+
+@keyframes filipinoBannerFade {
+  0%,
+  28%,
+  34%,
+  100% {
+    opacity: 0;
+  }
+
+  5%,
+  27% {
+    opacity: 1;
+  }
+}
+
+.genre-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.genre-card {
+  min-height: 100px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 20px;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--white);
+  color: var(--primary-dark);
+  font-weight: 700;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.genre-card:hover {
+  color: var(--primary-color);
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-sm);
+}
+
+.genre-card-icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--secondary-color);
+  color: var(--primary-color);
+  font-size: 1.2rem;
+}
+
+.genre-card-arrow {
+  margin-left: auto;
+}
+
+.new-books-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.new-book-card {
+  overflow: hidden;
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  background: var(--white);
+}
+
+.new-book-cover {
+  aspect-ratio: 3 / 4;
+  max-height: 260px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: var(--secondary-color);
+  color: var(--muted-text);
+}
+
+.new-book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.new-book-info {
+  padding: 14px;
+}
+
+.new-book-info h3 {
+  margin: 0 0 5px;
+  font-size: 0.98rem;
+  line-height: 1.35;
+}
+
+.new-book-info h3 a {
+  color: var(--primary-dark);
+}
+
+.new-book-info p {
+  margin: 0 0 8px;
+  color: var(--muted-text);
+  font-size: 0.85rem;
+}
+
+.new-book-info strong {
+  color: var(--primary-dark);
+}
+
+.section-empty-message {
+  padding: 20px;
+  border: 1px dashed var(--border-color);
+  border-radius: 10px;
+  color: var(--muted-text);
+  text-align: center;
+}
+
+@media (max-width: 1100px) {
+  .featured-books-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 16px;
+  }
+
+  .new-books-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 850px) {
+  .spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .hero-slider {
+    height: 460px;
+  }
+}
+
+@media (max-width: 768px) {
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .spotlight-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .spotlight-content {
+    grid-template-columns: 110px minmax(0, 1fr);
+  }
+
+  .author-image-placeholder,
+  .book-image-placeholder {
+    width: 110px;
+    height: 147px;
+  }
+
+  .featured-books-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .genre-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .filipino-banner-section {
+    min-height: 300px;
+  }
+}
+
+@media (max-width: 600px) {
+  .hero-slider {
+    height: 420px;
+  }
+
+  .hero-content {
+    width: calc(100% - 40px);
+  }
+
+  .hero-title {
+    font-size: 2rem;
+  }
+
+  .hero-description {
+    font-size: 0.9rem;
+  }
+
+  .hero-arrow {
+    display: none;
+  }
+
+  .featured-books-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .book-card-content,
+  .new-book-info {
+    padding: 10px;
+  }
+
+  .spotlight-content {
+    grid-template-columns: 1fr;
+    row-gap: 14px;
+  }
+
+  .spotlight-label {
+    margin-bottom: 0;
+  }
+
+  .author-image-placeholder,
+  .book-image-placeholder {
+    width: 125px;
+    height: 167px;
+  }
+
+  .new-books-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .genre-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .section-heading-row {
+    align-items: flex-start;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero-title {
+    font-size: 1.75rem;
+  }
+
+  .hero-description {
+    font-size: 1rem;
+  }
+
+  .featured-books-grid,
+  .new-books-grid,
+  .genre-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+  }
+
+  .book-card-title {
+    font-size: 0.85rem;
+  }
+
+  .book-card-author {
+    font-size: 0.78rem;
+  }
+
+  .book-card-price {
+    font-size: 0.9rem;
+  }
+
+  .add-cart-button {
+    font-size: 0.8rem;
+  }
+}
