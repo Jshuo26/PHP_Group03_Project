@@ -18,7 +18,7 @@ Installation / Setup:
 Install XAMPP and start Apache and MySQL.
 Copy the project into htdocs/.
 Open phpMyAdmin, create the database, and import database/database.sql.
-Copy config.sample.php to config.php and enter local DB credentials and valid Google reCAPTCHA site and secret keys. Registration requires both reCAPTCHA keys.
+Copy config/config.sample.php to config/config.php and enter local DB credentials and valid Google reCAPTCHA site and secret keys. Registration requires both reCAPTCHA keys.
 Enter in terminal php -S localhost:8000
 Open http://localhost:8000 
 

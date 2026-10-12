@@ -1,10 +1,15 @@
 <?php
 declare(strict_types=1);
 
-$configFile = __DIR__ . '/../config.php';
+$configFile = __DIR__ . '/../config/config.php';
+
+// Fallback to root directory if config.php is placed in the project root
+if (!file_exists($configFile) && file_exists(__DIR__ . '/../config.php')) {
+    $configFile = __DIR__ . '/../config.php';
+}
 
 if (!file_exists($configFile)) {
-    error_log('config.php is missing. Copy config.sample.php to config.php.');
+    error_log('config.php is missing. Copy config/config.sample.php to config/config.php.');
     http_response_code(500);
     exit('Server configuration error.');
 }

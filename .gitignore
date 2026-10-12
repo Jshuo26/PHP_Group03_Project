@@ -1,4 +1,4 @@
 config.php
+config/config.php
 exampledata.sql
-hash.php
 vendor/

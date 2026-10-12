@@ -1,1 +1,0 @@
-   <?php echo password_hash('YourStrongPass#123', PASSWORD_DEFAULT);
