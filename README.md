@@ -21,5 +21,3 @@ Open phpMyAdmin, create the database, and import database/database.sql.
 Copy config/config.sample.php to config/config.php and enter local DB credentials and valid Google reCAPTCHA site and secret keys. Registration requires both reCAPTCHA keys.
 Enter in terminal php -S localhost:8000
 Open http://localhost:8000 
-
-Customers can search and filter books, manage their cart, update account details, place orders, and view order history. Admin and staff accounts can manage books, genres, and order statuses from the Admin link. The existing schema already contains the tables used for these features; no migration is required.

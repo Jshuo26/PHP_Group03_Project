@@ -139,6 +139,7 @@ CREATE TABLE authors (
     author_id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     full_name               VARCHAR(150) NOT NULL,
     bio                     TEXT NULL,
+    author_image_path VARCHAR(255) NULL,
     verification_status     ENUM('verified','unconfirmed_self_declared','pending_review','unverified')
                              NOT NULL DEFAULT 'unverified',
     verification_confidence DECIMAL(5,2) NULL,

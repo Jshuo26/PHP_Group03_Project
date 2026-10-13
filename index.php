@@ -95,7 +95,7 @@ try {
         LEFT JOIN authors a ON a.author_id = ba.author_id
         GROUP BY b.book_id, b.title, b.created_at, be.price, be.cover_image_path
         ORDER BY b.created_at DESC, b.book_id DESC
-        LIMIT 4");
+        LIMIT 5");
     $newBooks = $newBooksQuery->fetchAll();
 
     $genreQuery = $pdo->query("SELECT genre_id, genre_name FROM genres WHERE status = 'active' ORDER BY genre_name LIMIT 6");
@@ -122,6 +122,39 @@ function homepageText(?string $value, int $limit = 150): string
     return strlen($value) > $limit ? substr($value, 0, $limit - 1) . '…' : $value;
 }
 
+function homepageViewBookButton(int $bookId): string
+{
+    return '<a href="/books.php?id=' . $bookId . '" class="view-book-btn">'
+        . '<span>View Book</span>'
+        . '<svg class="icon-outline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 0 0 6 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 0 1 6 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 0 1 6-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0 0 18 18a8.967 8.967 0 0 0-6 2.292m0-14.25v14.25" /></svg>'
+        . '<svg class="icon-solid" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M11.25 4.533A9.707 9.707 0 0 0 6 3a9.735 9.735 0 0 0-3.25.555.75.75 0 0 0-.5.707v14.25a.75.75 0 0 0 1 .707A8.237 8.237 0 0 1 6 18.75c1.995 0 3.823.707 5.25 1.886V4.533ZM12.75 20.636A8.214 8.214 0 0 1 18 18.75c.966 0 1.89.166 2.75.47a.75.75 0 0 0 1-.708V4.262a.75.75 0 0 0-.5-.707A9.735 9.735 0 0 0 18 3a9.707 9.707 0 0 0-5.25 1.533v16.103Z" /></svg>'
+        . '</a>';
+}
+
+function homepageBookTile(array $book): string
+{
+    $bookId = (int) $book['book_id'];
+    $title = htmlspecialchars((string) $book['title'], ENT_QUOTES, 'UTF-8');
+    $authors = htmlspecialchars($book['authors'] ?: 'Filipino Author', ENT_QUOTES, 'UTF-8');
+    $price = number_format((float) $book['price'], 2);
+    $coverUrl = !empty($book['cover_image_path']) ? homepageBookCover($book['cover_image_path']) : '';
+    $cover = $coverUrl !== ''
+        ? '<img src="' . htmlspecialchars($coverUrl, ENT_QUOTES, 'UTF-8') . '" alt="' . $title . ' cover" loading="lazy">'
+        : '<span>Book Cover</span>';
+
+    return '<article class="book-tile">'
+        . '<a class="book-tile-cover" href="/books.php?id=' . $bookId . '">' . $cover . '</a>'
+        . '<div class="book-tile-body">'
+        . '<h3 class="book-tile-title"><a href="/books.php?id=' . $bookId . '">' . $title . '</a></h3>'
+        . '<p class="book-tile-author">' . $authors . '</p>'
+        . '<div class="book-tile-footer">'
+        . '<p class="book-tile-price">₱' . $price . '</p>'
+        . homepageViewBookButton($bookId)
+        . '</div>'
+        . '</div>'
+        . '</article>';
+}
+
 include 'includes/header.php';
 ?>
 
@@ -131,7 +164,7 @@ include 'includes/header.php';
         <div class="hero-content">
             <h1 class="hero-title">Accessible. Assorted. Automated.</h1>
             <p class="hero-description">Discover Filipino authors and independent publishers, all in one shelf.</p>
-            <a href="/books.php" class="hero-button">Browse the Catalog</a>
+            <a href="/books.php" class="hero-cta">Browse the Catalog</a>
         </div>
     </div>
     <div class="hero-slide">
@@ -139,7 +172,7 @@ include 'includes/header.php';
         <div class="hero-content">
             <h1 class="hero-title">Discover Filipino Stories</h1>
             <p class="hero-description">Explore stories, ideas, and voices from Filipino writers.</p>
-            <a href="/books.php" class="hero-button">Browse the Catalog</a>
+            <a href="/books.php" class="hero-cta">Browse the Catalog</a>
         </div>
     </div>
     <div class="hero-slide">
@@ -147,7 +180,7 @@ include 'includes/header.php';
         <div class="hero-content">
             <h1 class="hero-title">Find Your Next Favorite Book</h1>
             <p class="hero-description">Browse our growing collection of local literature.</p>
-            <a href="/books.php" class="hero-button">Browse the Catalog</a>
+            <a href="/books.php" class="hero-cta">Browse the Catalog</a>
         </div>
     </div>
     <button class="hero-arrow hero-prev" type="button" aria-label="Previous slide">&#10094;</button>
@@ -159,7 +192,7 @@ include 'includes/header.php';
     </div>
 </section>
 
-   <?php include __DIR__ . '/includes/spotlight_section.php'; ?>
+<?php include __DIR__ . '/includes/spotlight_section.php'; ?>
 
 <section class="home-section featured-books-section">
     <div class="section-container">
@@ -167,26 +200,15 @@ include 'includes/header.php';
             <h2 class="section-title">Featured Books</h2>
             <a href="/books.php" class="view-all-link">View All →</a>
         </div>
-        <div class="featured-books-grid">
-            <?php foreach ($featuredBooks as $featured): ?>
-                <article class="book-card">
-                    <div class="book-card-image">
-                        <?php if (!empty($featured['cover_image_path'])): ?>
-                            <img src="<?= htmlspecialchars(homepageBookCover($featured['cover_image_path'])) ?>" alt="<?= htmlspecialchars($featured['title']) ?> cover" loading="lazy">
-                        <?php else: ?>
-                            <span>Book Cover</span>
-                        <?php endif; ?>
-                    </div>
-                    <div class="book-card-content">
-                        <h3 class="book-card-title"><?= htmlspecialchars($featured['title'], ENT_QUOTES, 'UTF-8') ?></h3>
-                        <p class="book-card-author"><?= htmlspecialchars($featured['authors'] ?: 'Filipino Author', ENT_QUOTES, 'UTF-8') ?></p>
-                        <p class="book-card-price">₱<?= number_format((float) $featured['price'], 2) ?></p>
-                        <a href="/books.php?id=<?= (int) $featured['book_id'] ?>" class="add-cart-button">View Book</a>
-                    </div>
-                </article>
-            <?php endforeach; ?>
-            <?php if (!$featuredBooks): ?><p class="section-empty-message">Featured books will appear here as the catalog grows.</p><?php endif; ?>
-        </div>
+        <?php if ($featuredBooks): ?>
+            <div class="book-grid">
+                <?php foreach ($featuredBooks as $featured): ?>
+                    <?= homepageBookTile($featured) ?>
+                <?php endforeach; ?>
+            </div>
+        <?php else: ?>
+            <p class="section-empty-message">Featured books will appear here as the catalog grows.</p>
+        <?php endif; ?>
     </div>
 </section>
 
@@ -200,8 +222,22 @@ include 'includes/header.php';
     <div class="filipino-banner-content">
         <p class="eyebrow">Stories from home</p>
         <h2>Why Support Filipino Books?</h2>
-        <p>Every book you choose helps Filipino voices reach more readers and keeps our stories alive for the next generation.</p>
-        <a href="/books.php" class="hero-button">Discover Filipino Books</a>
+        <p>Behind every Filipino book is a writer who dared to tell our story, and often a small independent press that made it possible. When you buy local, your support goes straight to the people who write, edit, and publish our literature, so they can keep creating.</p>
+        <ul class="filipino-banner-points">
+            <li>
+                <span class="point-icon" aria-hidden="true">✦ <b>Back the writers</b> </span>
+                <p>Your purchase directly supports Filipino authors and helps them write their next book.</p>
+            </li>
+            <li>
+                <span class="point-icon" aria-hidden="true">✦ <b>Strengthen the independent</b> </span>
+                <p>Small publishers take chances on new voices that bigger markets often overlook.</p>
+            </li>
+            <li>
+                <span class="point-icon" aria-hidden="true">✦ <b>Preserve our stories</b> </span>
+                <p>From folktales to modern fiction, local books carry our histories and everyday lives to the next generation.</p>
+            </li>
+        </ul>
+        <a href="/books.php" class="hero-cta">Discover Filipino Books</a>
     </div>
 </section>
 
@@ -234,22 +270,9 @@ include 'includes/header.php';
             <a href="/books.php" class="view-all-link">View All Books →</a>
         </div>
         <?php if ($newBooks): ?>
-            <div class="new-books-grid">
+            <div class="book-grid">
                 <?php foreach ($newBooks as $book): ?>
-                    <article class="new-book-card">
-                        <a class="new-book-cover" href="/books.php?id=<?= (int) $book['book_id'] ?>">
-                            <?php if (!empty($book['cover_image_path'])): ?>
-                                <img src="<?= htmlspecialchars(homepageBookCover($book['cover_image_path'])) ?>" alt="<?= htmlspecialchars($book['title']) ?> cover" loading="lazy">
-                            <?php else: ?>
-                                <span>Book Cover</span>
-                            <?php endif; ?>
-                        </a>
-                        <div class="new-book-info">
-                            <h3><a href="/books.php?id=<?= (int) $book['book_id'] ?>"><?= htmlspecialchars($book['title']) ?></a></h3>
-                            <p><?= htmlspecialchars($book['authors'] ?: 'Filipino Author') ?></p>
-                            <strong>₱<?= number_format((float) $book['price'], 2) ?></strong>
-                        </div>
-                    </article>
+                    <?= homepageBookTile($book) ?>
                 <?php endforeach; ?>
             </div>
         <?php else: ?>
