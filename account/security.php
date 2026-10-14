@@ -4,6 +4,8 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
+require_once __DIR__ . '/../includes/otp.php';
+require_once __DIR__ . '/../includes/mailer.php';
 
 requireRole(['customer']);
 
@@ -22,6 +24,23 @@ if (!$profile) {
     exit('Account not found.');
 }
 
+if (
+    isset($_SESSION['pw_change']) &&
+    (int) ($_SESSION['pw_change']['user_id'] ?? 0) !== $userId
+) {
+    unset($_SESSION['pw_change']);
+}
+
+function isStrongPassword(string $password): bool
+{
+    return strlen($password) >= 12
+        && strlen($password) <= 72
+        && preg_match('/[A-Z]/', $password)
+        && preg_match('/[a-z]/', $password)
+        && preg_match('/[0-9]/', $password)
+        && preg_match('/[^a-zA-Z0-9]/', $password);
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
 
@@ -36,14 +55,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Enter your current password.';
         }
 
-        if (
-            strlen($newPassword) < 12 ||
-            strlen($newPassword) > 72 ||
-            !preg_match('/[A-Z]/', $newPassword) ||
-            !preg_match('/[a-z]/', $newPassword) ||
-            !preg_match('/[0-9]/', $newPassword) ||
-            !preg_match('/[^a-zA-Z0-9]/', $newPassword)
-        ) {
+        if (!isStrongPassword($newPassword)) {
             $errors[] = 'New password must be 12 to 72 characters and include uppercase, lowercase, number, and special characters.';
         }
 
@@ -61,34 +73,141 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             if (!password_verify($currentPassword, $passwordHash)) {
                 $errors[] = 'Current password is incorrect.';
+            } elseif (password_verify($newPassword, $passwordHash)) {
+                $errors[] = 'New password must be different from your current password.';
             }
         }
 
         if (!$errors) {
-            try {
-                $updateStmt = $pdo->prepare(
-                    'UPDATE users SET password_hash = ? WHERE user_id = ?'
-                );
-                $updateStmt->execute([
-                    password_hash($newPassword, PASSWORD_DEFAULT),
-                    $userId
-                ]);
+            $wait = otpResendWait($pdo, $userId, 'password_change');
 
-                $success = 'Password changed successfully.';
-            } catch (PDOException $e) {
-                error_log('Password update failed: ' . $e->getMessage());
-                $errors[] = 'Unable to change your password right now.';
+            if ($wait > 0) {
+                $errors[] = "Please wait {$wait} seconds before requesting another code.";
+            } else {
+                $code = createOtp($pdo, $userId, 'password_change');
+
+                if (sendOtpEmail(
+                    $config,
+                    $profile['email'],
+                    $profile['full_name'],
+                    $code,
+                    'confirm your password change'
+                )) {
+                    $_SESSION['pw_change'] = [
+                        'user_id' => $userId,
+                        'hash'    => password_hash($newPassword, PASSWORD_DEFAULT),
+                    ];
+
+                    $success = 'We sent a 6-digit code to ' . maskEmail($profile['email']) . '.';
+                } else {
+                    $errors[] = 'We could not send the email right now. Please try again later.';
+                }
             }
         }
+
+    } elseif ($action === 'confirm_password_change') {
+
+        if (empty($_SESSION['pw_change'])) {
+            $errors[] = 'Your password change request expired. Please start again.';
+        } else {
+            [$ok, $message] = verifyOtp(
+                $pdo,
+                $userId,
+                'password_change',
+                requestString($_POST, 'otp_code')
+            );
+
+            if (!$ok) {
+                $errors[] = $message;
+            } else {
+                try {
+                    $updateStmt = $pdo->prepare(
+                        'UPDATE users SET password_hash = ? WHERE user_id = ?'
+                    );
+                    $updateStmt->execute([
+                        $_SESSION['pw_change']['hash'],
+                        $userId
+                    ]);
+
+                    unset($_SESSION['pw_change']);
+                    session_regenerate_id(true);
+
+                    $success = 'Password changed successfully.';
+                } catch (PDOException $e) {
+                    error_log('Password update failed: ' . $e->getMessage());
+                    $errors[] = 'Unable to change your password right now.';
+                }
+            }
+        }
+
+    } elseif ($action === 'resend_password_otp') {
+
+        if (empty($_SESSION['pw_change'])) {
+            $errors[] = 'Your password change request expired. Please start again.';
+        } else {
+            $wait = otpResendWait($pdo, $userId, 'password_change');
+
+            if ($wait > 0) {
+                $errors[] = "Please wait {$wait} seconds before requesting another code.";
+            } else {
+                $code = createOtp($pdo, $userId, 'password_change');
+
+                if (sendOtpEmail(
+                    $config,
+                    $profile['email'],
+                    $profile['full_name'],
+                    $code,
+                    'confirm your password change'
+                )) {
+                    $success = 'A new code was sent to ' . maskEmail($profile['email']) . '.';
+                } else {
+                    $errors[] = 'We could not send the email right now. Please try again later.';
+                }
+            }
+        }
+
+    } elseif ($action === 'cancel_password_change') {
+
+        unset($_SESSION['pw_change']);
     }
 }
+
+$otpStep = !empty($_SESSION['pw_change']);
+$secondsLeft = $otpStep ? otpSecondsLeft($pdo, $userId, 'password_change') : 0;
+
+function passwordToggleButton(string $target): void
+{
+    ?>
+    <button
+        type="button"
+        class="password-toggle"
+        data-target="<?= htmlspecialchars($target, ENT_QUOTES, 'UTF-8') ?>"
+        aria-label="Show password"
+        aria-pressed="false"
+    >
+        <svg class="icon-closed" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+        </svg>
+        <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+            <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
+        </svg>
+    </button>
+    <?php
+}
+
+$passwordFields = [
+    ['current_password', 'Current password',     'current-password'],
+    ['new_password',     'New password',         'new-password'],
+    ['confirm_password', 'Confirm new password', 'new-password'],
+];
 
 include __DIR__ . '/../includes/header.php';
 ?>
 
 <div class="account-page-layout container">
 
-    <!-- ========== SIDEBAR ========== -->
     <aside class="account-sidebar">
         <nav class="account-sidebar-nav" aria-label="Account navigation">
 
@@ -143,7 +262,6 @@ include __DIR__ . '/../includes/header.php';
         </nav>
     </aside>
 
-    <!-- ========== MAIN CONTENT ========== -->
     <div class="account-main-content">
 
         <div class="page-heading">
@@ -167,125 +285,135 @@ include __DIR__ . '/../includes/header.php';
             </div>
         <?php endif; ?>
 
-        <!-- Change Password Section -->
-        <div class="settings-section">
-            <div class="settings-section-heading">
-                <h2>Change Password</h2>
-                <p>Update your password to help keep your account secure.</p>
+        <?php if (!$otpStep): ?>
+
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <h2>Change Password</h2>
+                    <p>Update your password. We will email a code to confirm it is you.</p>
+                </div>
+
+                <div class="settings-card">
+                    <form method="post" action="/account/security.php" class="settings-form">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                        <input type="hidden" name="action" value="change_password">
+
+                        <?php foreach ($passwordFields as [$fieldId, $fieldLabel, $fieldAutocomplete]): ?>
+                            <div class="form-group">
+                                <label for="<?= $fieldId ?>"><?= htmlspecialchars($fieldLabel, ENT_QUOTES, 'UTF-8') ?></label>
+                                <div class="password-wrapper">
+                                    <input
+                                        class="form-input"
+                                        type="password"
+                                        id="<?= $fieldId ?>"
+                                        name="<?= $fieldId ?>"
+                                        autocomplete="<?= $fieldAutocomplete ?>"
+                                        required
+                                    >
+                                    <?php passwordToggleButton($fieldId); ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+
+                        <p class="password-requirements">
+                            Password must be 12–72 characters and include uppercase,
+                            lowercase, number, and special characters.
+                        </p>
+
+                        <button class="btn btn-primary" type="submit">
+                            Send Verification Code
+                        </button>
+                    </form>
+                </div>
             </div>
 
-            <div class="settings-card">
-                <form method="post" action="/account/security.php" class="settings-form">
-                    <input
-                        type="hidden"
-                        name="csrf_token"
-                        value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
-                    >
-                    <input type="hidden" name="action" value="change_password">
+        <?php else: ?>
 
-                    <div class="form-group">
-                        <label for="current_password">Current password</label>
-                        <div class="password-wrapper">
-                            <input
-                                class="form-input"
-                                type="password"
-                                id="current_password"
-                                name="current_password"
-                                autocomplete="current-password"
-                                required
-                            >
-                            <button
-                                type="button"
-                                class="password-toggle"
-                                data-target="current_password"
-                                aria-label="Show password"
-                                aria-pressed="false"
-                            >
-                                <svg class="icon-closed" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                </svg>
-                                <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="new_password">New password</label>
-                        <div class="password-wrapper">
-                            <input
-                                class="form-input"
-                                type="password"
-                                id="new_password"
-                                name="new_password"
-                                autocomplete="new-password"
-                                required
-                            >
-                            <button
-                                type="button"
-                                class="password-toggle"
-                                data-target="new_password"
-                                aria-label="Show password"
-                                aria-pressed="false"
-                            >
-                                <svg class="icon-closed" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                </svg>
-                                <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="confirm_password">Confirm new password</label>
-                        <div class="password-wrapper">
-                            <input
-                                class="form-input"
-                                type="password"
-                                id="confirm_password"
-                                name="confirm_password"
-                                autocomplete="new-password"
-                                required
-                            >
-                            <button
-                                type="button"
-                                class="password-toggle"
-                                data-target="confirm_password"
-                                aria-label="Show password"
-                                aria-pressed="false"
-                            >
-                                <svg class="icon-closed" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 0 1 0-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178Z" />
-                                    <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
-                                </svg>
-                                <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
-                                    <path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
-                                    <path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd" />
-                                </svg>
-                            </button>
-                        </div>
-                    </div>
-
-                    <p class="password-requirements">
-                        Password must be 12–72 characters and include uppercase,
-                        lowercase, number, and special characters.
+            <div class="settings-section">
+                <div class="settings-section-heading">
+                    <h2>Verify Your Password Change</h2>
+                    <p>
+                        Enter the 6-digit code sent to
+                        <?= htmlspecialchars(maskEmail($profile['email']), ENT_QUOTES, 'UTF-8') ?>.
+                        Your password is only changed after the code is confirmed.
                     </p>
+                </div>
 
-                    <button class="btn btn-primary" type="submit">
-                        Update Password
-                    </button>
-                </form>
+                <div class="settings-card">
+
+                    <form method="post" action="/account/security.php" class="settings-form">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                        <input type="hidden" name="action" value="confirm_password_change">
+
+                        <div class="form-group">
+                            <label for="otp_code">Verification code</label>
+                            <input
+                                class="form-input"
+                                type="text"
+                                id="otp_code"
+                                name="otp_code"
+                                inputmode="numeric"
+                                autocomplete="one-time-code"
+                                pattern="[0-9]{6}"
+                                maxlength="6"
+                                placeholder="123456"
+                                required
+                                autofocus
+                            >
+                        </div>
+
+                        <p
+                            class="password-requirements"
+                            id="otpCountdown"
+                            data-seconds="<?= (int) $secondsLeft ?>"
+                        >
+                            Code expires in <strong id="otpTimer">--:--</strong>
+                        </p>
+
+                        <button class="btn btn-primary" type="submit" id="otpVerifyButton">
+                            Confirm Password Change
+                        </button>
+                    </form>
+
+                    <form method="post" action="/account/security.php" class="settings-form">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                        <input type="hidden" name="action" value="resend_password_otp">
+
+                        <button class="btn btn-outline btn-sm" type="submit">
+                            Resend code
+                        </button>
+                    </form>
+
+                    <form method="post" action="/account/security.php" class="settings-form">
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
+                        >
+                        <input type="hidden" name="action" value="cancel_password_change">
+
+                        <button class="btn btn-outline btn-sm" type="submit">
+                            Cancel
+                        </button>
+                    </form>
+
+                </div>
             </div>
-        </div>
 
-        <!-- Multi-Factor Authentication Section -->
+        <?php endif; ?>
+
         <div class="settings-section">
             <div class="settings-section-heading">
                 <h2>Multi-Factor Authentication</h2>
@@ -312,7 +440,6 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-        <!-- Active Sessions Section -->
         <div class="settings-section">
             <div class="settings-section-heading">
                 <h2>Active Sessions</h2>
@@ -342,5 +469,9 @@ include __DIR__ . '/../includes/header.php';
     </div><!-- /.account-main-content -->
 
 </div><!-- /.account-page-layout -->
+
+<?php if ($otpStep): ?>
+    <script src="/js/otp-countdown.js" defer></script>
+<?php endif; ?>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
