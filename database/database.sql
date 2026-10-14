@@ -11,7 +11,7 @@ CREATE TABLE users (
     mobile_number   VARCHAR(255)     NULL,
     password_hash   VARCHAR(255)        NOT NULL,
     role            ENUM('customer','staff','admin') NOT NULL DEFAULT 'customer',
-    account_status  ENUM('active','suspended')       NOT NULL DEFAULT 'active',
+    account_status  ENUM('active','suspended') NOT NULL DEFAULT 'active',
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_users_email (email)
 ) ENGINE=InnoDB;

@@ -5,9 +5,10 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/recaptcha.php';
 require_once __DIR__ . '/../includes/input.php';
+require_once __DIR__ . '/../includes/otp.php';
+require_once __DIR__ . '/../includes/mailer.php';
 
 $errors  = [];
-$success = '';
 $recaptchaSiteKey = trim((string) ($config['RECAPTCHA_SITE_KEY'] ?? ''));
 $recaptchaSecretKey = trim((string) ($config['RECAPTCHA_SECRET_KEY'] ?? ''));
 $recaptchaConfigured = $recaptchaSiteKey !== ''
@@ -104,26 +105,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
 
         $stmt = $pdo->prepare(
-            'SELECT user_id FROM users WHERE email = ? LIMIT 1'
+            'SELECT user_id, account_status FROM users WHERE email = ? LIMIT 1'
         );
 
         $stmt->execute([$email]);
 
-        if ($stmt->fetch()) {
-            $errors[] = 'An account with this email already exists.';
+        $existing = $stmt->fetch();
+
+        if ($existing) {
+
+            if ($existing['account_status'] === 'pending') {
+                $errors[] = 'This email is already registered but not verified yet. '
+                          . 'Log in with your password to get a new code.';
+            } else {
+                $errors[] = 'An account with this email already exists.';
+            }
         }
     }
+
+    $newUserId = 0;
 
     if (empty($errors)) {
 
         $password_hash = password_hash($password, PASSWORD_DEFAULT);
 
         try {
-
             $stmt = $pdo->prepare(
-                'INSERT INTO users
-                (full_name, email, mobile_number, password_hash)
-                VALUES (?, ?, ?, ?)'
+                "INSERT INTO users
+                (full_name, email, mobile_number, password_hash, account_status)
+                VALUES (?, ?, ?, ?, 'pending')"
             );
 
             $stmt->execute([
@@ -133,9 +143,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $password_hash
             ]);
 
-            $success = 'Registration successful! You can now log in.';
-
-            $old = ['full_name' => '', 'email' => '', 'mobile_number' => ''];
+            $newUserId = (int) $pdo->lastInsertId();
 
         } catch (PDOException $e) {
 
@@ -146,6 +154,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Registration failed. Please try again later.';
             }
         }
+    }
+
+    if (empty($errors) && $newUserId > 0) {
+
+        $sent = false;
+
+        try {
+
+            $code = createOtp($pdo, $newUserId, 'registration');
+
+            $sent = sendOtpEmail(
+                $config,
+                $email,
+                $full_name,
+                $code,
+                'verify your email address'
+            );
+
+        } catch (PDOException $e) {
+            error_log('OTP creation failed: ' . $e->getMessage());
+        }
+
+        session_regenerate_id(true);
+
+        $_SESSION['verify_user_id'] = $newUserId;
+
+        $_SESSION['verify_notice'] = $sent
+            ? 'We sent a 6-digit code to ' . maskEmail($email) . '. Enter it below to activate your account.'
+            : 'Your account was created, but we could not send the email. Click "Resend code" to try again.';
+
+        header('Location: /auth/verify_email.php');
+        exit;
     }
 
 }
@@ -177,148 +217,132 @@ include __DIR__ . '/../includes/header.php';
 
         <?php endif; ?>
 
+        <form method="POST" action="/auth/register.php">
 
-        <?php if ($success !== ''): ?>
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>"
+            >
 
-            <div class="form-success">
-                <p>
-                    <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?>
-                </p>
+            <div class="form-group">
 
-                <a
-                    href="/auth/login.php"
-                    class="btn btn-primary"
-                >
-                    Go to Login
-                </a>
-            </div>
-
-        <?php else: ?>
-
-            <form method="POST" action="/auth/register.php">
+                <label for="full_name">
+                    Full Name
+                </label>
 
                 <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>"
+                    type="text"
+                    id="full_name"
+                    name="full_name"
+                    maxlength="150"
+                    autocomplete="name"
+                    required
+                    value="<?php echo htmlspecialchars($old['full_name'], ENT_QUOTES, 'UTF-8'); ?>"
                 >
 
-                <div class="form-group">
-
-                    <label for="full_name">
-                        Full Name
-                    </label>
-
-                    <input
-                        type="text"
-                        id="full_name"
-                        name="full_name"
-                        maxlength="150"
-                        autocomplete="name"
-                        required
-                        value="<?php echo htmlspecialchars($old['full_name'], ENT_QUOTES, 'UTF-8'); ?>"
-                    >
-
-                </div>
+            </div>
 
 
-                <div class="form-group">
+            <div class="form-group">
 
-                    <label for="email">
-                        Email
-                    </label>
+                <label for="email">
+                    Email
+                </label>
 
-                    <input
-                        type="email"
-                        id="email"
-                        name="email"
-                        maxlength="255"
-                        autocomplete="email"
-                        required
-                        value="<?php echo htmlspecialchars($old['email'], ENT_QUOTES, 'UTF-8'); ?>"
-                    >
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label for="mobile_number">
-                        Mobile Number (optional)
-                    </label>
-
-                    <input
-                        type="tel"
-                        id="mobile_number"
-                        name="mobile_number"
-                        maxlength="20"
-                        placeholder="09XXXXXXXXX"
-                        autocomplete="tel"
-                        value="<?php echo htmlspecialchars($old['mobile_number'], ENT_QUOTES, 'UTF-8'); ?>"
-                    >
-
-                </div>
-
-
-                <div class="form-group">
-
-                    <label for="password">
-                        Password
-                    </label>
-
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        autocomplete="new-password"
-                        required
-                    >
-
-                    <small>
-                        12 to 72 characters, including uppercase,
-                        lowercase, number, and special character.
-                    </small>
-                </div>
-
-
-                <div class="form-group">
-
-                    <label for="confirm_password">
-                        Confirm Password
-                    </label>
-
-                    <input
-                        type="password"
-                        id="confirm_password"
-                        name="confirm_password"
-                        autocomplete="new-password"
-                        required
-                    >
-
-                </div>
-
-                <div class="form-group">
-                    <?php if ($recaptchaConfigured): ?>
-                        <div class="g-recaptcha"
-                            data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>">
-                        </div>
-                    <?php else: ?>
-                        <p class="form-errors" role="alert">Registration is temporarily unavailable because reCAPTCHA is not configured.</p>
-                    <?php endif; ?>
-                </div>
-
-
-                <button
-                    type="submit"
-                    class="btn btn-primary"
-                    <?php echo !$recaptchaConfigured ? 'disabled' : ''; ?>
+                <input
+                    type="email"
+                    id="email"
+                    name="email"
+                    maxlength="255"
+                    autocomplete="email"
+                    required
+                    value="<?php echo htmlspecialchars($old['email'], ENT_QUOTES, 'UTF-8'); ?>"
                 >
-                    Create Account
-                </button>
 
-            </form>
+                <small>
+                    We will email a 6-digit code to verify this address.
+                </small>
 
-        <?php endif; ?>
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="mobile_number">
+                    Mobile Number (optional)
+                </label>
+
+                <input
+                    type="tel"
+                    id="mobile_number"
+                    name="mobile_number"
+                    maxlength="20"
+                    placeholder="09XXXXXXXXX"
+                    autocomplete="tel"
+                    value="<?php echo htmlspecialchars($old['mobile_number'], ENT_QUOTES, 'UTF-8'); ?>"
+                >
+
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="password">
+                    Password
+                </label>
+
+                <input
+                    type="password"
+                    id="password"
+                    name="password"
+                    autocomplete="new-password"
+                    required
+                >
+
+                <small>
+                    12 to 72 characters, including uppercase,
+                    lowercase, number, and special character.
+                </small>
+            </div>
+
+
+            <div class="form-group">
+
+                <label for="confirm_password">
+                    Confirm Password
+                </label>
+
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    autocomplete="new-password"
+                    required
+                >
+
+            </div>
+
+            <div class="form-group">
+                <?php if ($recaptchaConfigured): ?>
+                    <div class="g-recaptcha"
+                        data-sitekey="<?php echo htmlspecialchars($recaptchaSiteKey, ENT_QUOTES, 'UTF-8'); ?>">
+                    </div>
+                <?php else: ?>
+                    <p class="form-errors" role="alert">Registration is temporarily unavailable because reCAPTCHA is not configured.</p>
+                <?php endif; ?>
+            </div>
+
+
+            <button
+                type="submit"
+                class="btn btn-primary"
+                <?php echo !$recaptchaConfigured ? 'disabled' : ''; ?>
+            >
+                Create Account
+            </button>
+
+        </form>
 
     </div>
 

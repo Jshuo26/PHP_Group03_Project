@@ -153,7 +153,7 @@ include __DIR__ . '/../includes/header.php';
                 or type the 6-digit code below.
             </p>
 
-            <form method="POST" action="/auth/verify-email.php">
+            <form method="POST" action="/auth/verify_email.php">
 
                 <input
                     type="hidden"
@@ -201,7 +201,7 @@ include __DIR__ . '/../includes/header.php';
 
             </form>
 
-            <form method="POST" action="/auth/verify-email.php">
+            <form method="POST" action="/auth/verify_email.php">
 
                 <input
                     type="hidden"
