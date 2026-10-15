@@ -23,6 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($genreId < 0) {
             $errors[] = 'Select a valid genre.';
         }
+
         if (!$errors) {
             try {
                 if ($genreId > 0) {
@@ -62,7 +63,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$lockStmt->fetchColumn()) {
                 throw new RuntimeException('Genre not found.');
             }
-            $bookCountStmt = $pdo->prepare('SELECT COUNT(*) FROM books WHERE genre_id = ?');
+
+            $bookCountStmt = $pdo->prepare('SELECT COUNT(DISTINCT book_id) FROM book_genres WHERE genre_id = ?');
             $bookCountStmt->execute([$genreId]);
             if ((int) $bookCountStmt->fetchColumn() > 0) {
                 $pdo->prepare("UPDATE genres SET status = 'inactive' WHERE genre_id = ?")->execute([$genreId]);
@@ -87,12 +89,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = $e->getMessage();
         }
     } elseif ($action === 'toggle' && $genreId > 0) {
-        $stmt = $pdo->prepare(
-            "UPDATE genres SET status = IF(status = 'active', 'inactive', 'active') WHERE genre_id = ?"
-        );
+        $stmt = $pdo->prepare("UPDATE genres SET status = IF(status = 'active', 'inactive', 'active') WHERE genre_id = ?");
         $stmt->execute([$genreId]);
         if ($stmt->rowCount() !== 1) {
-            $errors[] = 'Genre not found.';
+            $existsStmt = $pdo->prepare('SELECT 1 FROM genres WHERE genre_id = ?');
+            $existsStmt->execute([$genreId]);
+            if (!$existsStmt->fetchColumn()) {
+                $errors[] = 'Genre not found.';
+            } else {
+                $_SESSION['admin_flash'] = 'Genre status updated.';
+                header('Location: /admin/genres.php');
+                exit;
+            }
         } else {
             $_SESSION['admin_flash'] = 'Genre status updated.';
             header('Location: /admin/genres.php');
@@ -116,10 +124,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && requestString($_POST, 'action') ===
         'genre_name' => trim(requestString($_POST, 'genre_name'))
     ];
 }
+
 $genres = $pdo->query(
-    'SELECT g.genre_id, g.genre_name, g.status, COUNT(DISTINCT b.book_id) AS book_count
-     FROM genres g LEFT JOIN books b ON b.genre_id = g.genre_id
-     GROUP BY g.genre_id, g.genre_name, g.status ORDER BY g.genre_name'
+    'SELECT g.genre_id, g.genre_name, g.status, COUNT(DISTINCT bg.book_id) AS book_count
+     FROM genres g
+     LEFT JOIN book_genres bg ON bg.genre_id = g.genre_id
+     GROUP BY g.genre_id, g.genre_name, g.status
+     ORDER BY g.genre_name'
 )->fetchAll();
 
 include __DIR__ . '/../includes/header.php';
