@@ -7,7 +7,6 @@ const ACTIVATION_LINK_HOURS = 24;
 
 function generateOtpCode(): string
 {
-
     return str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
 }
 

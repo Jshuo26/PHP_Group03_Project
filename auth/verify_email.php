@@ -33,6 +33,7 @@ if (!$user || $user['account_status'] !== 'pending') {
 
 $errors  = [];
 $success = '';
+
 $notice = (string) ($_SESSION['verify_notice'] ?? '');
 unset($_SESSION['verify_notice']);
 
@@ -226,6 +227,6 @@ include __DIR__ . '/../includes/header.php';
 
 </section>
 
-<script src="/js/otp_countdown.js" defer></script>
+<script src="/js/otp-countdown.js" defer></script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -18,5 +18,7 @@ return [
 
     'PAYMONGO_PUBLIC_KEY' => 'pk_test_your_key_here',
     'PAYMONGO_SECRET_KEY' => 'sk_test_your_key_here',
+
+    'APP_URL' => 'http://localhost:8000',
 ];
 ?>

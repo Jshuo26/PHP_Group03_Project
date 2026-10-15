@@ -162,14 +162,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
 
-            $code = createOtp($pdo, $newUserId, 'registration');
+            $code  = createOtp($pdo, $newUserId, 'registration');
+            $token = createActivationToken($pdo, $newUserId);
 
             $sent = sendOtpEmail(
                 $config,
                 $email,
                 $full_name,
                 $code,
-                'verify your email address'
+                'verify your email address',
+                activationUrl($config, $token)
             );
 
         } catch (PDOException $e) {
