@@ -213,4 +213,4 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
 <?php endif; ?>
 
-<main class="main-content">
+<main class="main-content">
