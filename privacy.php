@@ -35,13 +35,13 @@ include __DIR__ . '/includes/header.php';
         <p>Cookies are small files stored in your browser. We use:</p>
         <ul>
             <li><strong>Session cookie (essential):</strong> keeps you logged in and protects forms against forged requests. It expires after a period of inactivity or when you close your browser.</li>
-            <li><strong>Cookie preference (essential):</strong> remembers your cookie consent choice so we do not ask you every visit.</li>
-            <li><strong>Google reCAPTCHA (third party):</strong> used on some forms, such as registration, to block bots. Google may set its own cookies and collect technical data under its own privacy policy.</li>
+            <li><strong>Cookie preference (essential):</strong> remembers your cookie choice for one year so we do not ask you every visit.</li>
+            <li><strong>Google reCAPTCHA (essential for security):</strong> used on some forms, such as registration, to block bots. It is always active on those forms, because they cannot be protected without it. Google may set its own cookies and collect technical data under its own privacy policy.</li>
         </ul>
         <p>
-            You can accept or decline non-essential cookies using the cookie
-            banner. Essential cookies are needed for the site to work and cannot
-            be turned off.
+            We do not currently use analytics or advertising cookies. If we add
+            optional cookies in the future, they will only run after you accept
+            them in the cookie banner. Essential cookies cannot be turned off.
         </p>
 
         <h2>4. Sharing of Information</h2>

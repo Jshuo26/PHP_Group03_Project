@@ -1,3 +1,6 @@
+
+<?php require_once __DIR__ . '/cookies.php'; ?>
+
 </main>
 
 <footer class="site-footer">
@@ -25,15 +28,16 @@
 
 </footer>
 
-<?php if (!isset($_COOKIE['cookie_consent'])): ?>
+<?php if (!hasCookieChoice()): ?>
 <div class="cookie-banner" id="cookieBanner" role="region" aria-label="Cookie consent">
 
   <div class="cookie-banner-text">
     <p class="cookie-banner-title">We use cookies</p>
     <p>
-      We use essential cookies to keep you logged in and your account secure.
-      Google reCAPTCHA may also set cookies on some forms. Read our
-      <a href="/privacy.php">Privacy Policy</a> to learn more.
+      We use essential cookies to keep you logged in and your account secure,
+      and Google reCAPTCHA on some forms to block bots. These are always on.
+      Declining only turns off optional cookies, which we may add later.
+      Read our <a href="/privacy.php">Privacy Policy</a> to learn more.
     </p>
   </div>
 
