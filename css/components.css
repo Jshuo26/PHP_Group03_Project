@@ -780,3 +780,19 @@
 .register-login-prompt a:focus-visible {
   text-decoration: none;
 }
+
+.footer-links {
+  margin: 0 0 var(--space-md);
+}
+
+.footer-links a {
+  color: inherit;
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.footer-links a:hover,
+.footer-links a:focus-visible {
+  text-decoration: none;
+}

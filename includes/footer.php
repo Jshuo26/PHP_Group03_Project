@@ -12,6 +12,10 @@
       Accessible. Assorted. Automated.
     </p>
 
+    <nav class="footer-links" aria-label="Footer">
+      <a href="/privacy.php">Privacy Policy</a>
+    </nav>
+
     <p class="footer-copyright">
       &copy; <?php echo date("Y"); ?> aklAAAt!
       All rights reserved.
