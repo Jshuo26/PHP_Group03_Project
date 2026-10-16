@@ -1,31 +1,26 @@
 document.addEventListener('DOMContentLoaded', function () {
 
-  /* ===========================
-     Password toggle
-     =========================== */
-  document.querySelectorAll('.password-toggle').forEach(function (button) {
-    button.addEventListener('click', function () {
-      var input = document.getElementById(button.dataset.target);
-      if (!input) {
-        return;
-      }
+  if (!document.getElementById('registerForm')) {
+    document.querySelectorAll('.password-toggle').forEach(function (button) {
+      button.addEventListener('click', function () {
+        var input = document.getElementById(button.dataset.target);
+        if (!input) {
+          return;
+        }
 
-      var show = input.type === 'password';
-      input.type = show ? 'text' : 'password';
+        var show = input.type === 'password';
+        input.type = show ? 'text' : 'password';
 
-      button.classList.toggle('is-visible', show);
-      button.setAttribute('aria-pressed', show ? 'true' : 'false');
-      button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+        button.classList.toggle('is-visible', show);
+        button.setAttribute('aria-pressed', show ? 'true' : 'false');
+        button.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+      });
     });
-  });
+  }
 
-  /* ===========================
-     Logout confirmation modal
-     =========================== */
   var logoutModal = document.getElementById('logoutModal');
   var logoutCancelBtn = logoutModal ? logoutModal.querySelector('.logout-cancel-button') : null;
 
-  // All elements that should open the logout modal
   var logoutTriggers = document.querySelectorAll('.account-logout-button');
 
   logoutTriggers.forEach(function (trigger) {
@@ -61,9 +56,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
   }
 
-  /* ===========================
-     Login form validation
-     =========================== */
   var form = document.getElementById('loginForm');
   if (!form) {
     return;
@@ -126,4 +118,4 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   });
 
-});
+});

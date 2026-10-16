@@ -5,16 +5,20 @@ USE aklaaat_db;
 SET FOREIGN_KEY_CHECKS = 0;
 
 CREATE TABLE users (
-    user_id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    full_name       VARCHAR(150)    NOT NULL,
-    email           VARCHAR(255)    NOT NULL,
-    mobile_number   VARCHAR(255)     NULL,
-    password_hash   VARCHAR(255)        NOT NULL,
-    role            ENUM('customer','staff','admin') NOT NULL DEFAULT 'customer',
-    account_status  ENUM('active','suspended') NOT NULL DEFAULT 'active',
-    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    user_id             INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    first_name          VARCHAR(100) NOT NULL,
+    last_name           VARCHAR(100) NOT NULL,
+    full_name           VARCHAR(150) NOT NULL,
+    email               VARCHAR(255) NOT NULL,
+    mobile_number       VARCHAR(255) NULL,
+    profile_picture_path VARCHAR(255) NULL,
+    password_hash       VARCHAR(255) NOT NULL,
+    role                ENUM('customer','staff','admin') NOT NULL DEFAULT 'customer',
+    account_status      ENUM('active','suspended') NOT NULL DEFAULT 'active',
+    created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_users_email (email)
 ) ENGINE=InnoDB;
+
 
 CREATE TABLE addresses (
     address_id      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,

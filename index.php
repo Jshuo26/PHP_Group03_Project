@@ -225,15 +225,15 @@ include 'includes/header.php';
         <p>Behind every Filipino book is a writer who dared to tell our story, and often a small independent press that made it possible. When you buy local, your support goes straight to the people who write, edit, and publish our literature, so they can keep creating.</p>
         <ul class="filipino-banner-points">
             <li>
-                <span class="point-icon" aria-hidden="true">✦ <b>Back the writers</b> </span>
+                <span class="point-icon" aria-hidden="true">✦ <b>Tangkilikin</b> </span>
                 <p>Your purchase directly supports Filipino authors and helps them write their next book.</p>
             </li>
             <li>
-                <span class="point-icon" aria-hidden="true">✦ <b>Strengthen the independent</b> </span>
+                <span class="point-icon" aria-hidden="true">✦ <b>Pagtibayin</b> </span>
                 <p>Small publishers take chances on new voices that bigger markets often overlook.</p>
             </li>
             <li>
-                <span class="point-icon" aria-hidden="true">✦ <b>Preserve our stories</b> </span>
+                <span class="point-icon" aria-hidden="true">✦ <b>Pangalagaan</b> </span>
                 <p>From folktales to modern fiction, local books carry our histories and everyday lives to the next generation.</p>
             </li>
         </ul>

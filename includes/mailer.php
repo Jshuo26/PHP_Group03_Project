@@ -38,10 +38,8 @@ function sendOtpEmail(
         $mail->Port       = (int) ($config['SMTP_PORT'] ?? 587);
         $mail->Timeout    = 15;
         $mail->CharSet    = 'UTF-8';
-
         $mail->setFrom($config['SMTP_FROM'], 'aklAAAt!');
         $mail->addAddress($toEmail, $toName);
-
         $minutes  = OTP_TTL_MINUTES;
         $hours    = ACTIVATION_LINK_HOURS;
         $safeName = htmlspecialchars($toName, ENT_QUOTES, 'UTF-8');

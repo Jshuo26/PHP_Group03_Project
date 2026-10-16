@@ -10,13 +10,17 @@ $errors = [];
 $success = $_SESSION['admin_flash'] ?? '';
 unset($_SESSION['admin_flash']);
 $formats = ['paperback', 'hardbound', 'ebook'];
+$statuses = ['active', 'inactive'];
 $form = [
     'book_id' => 0,
     'edition_id' => 0,
     'title' => '',
     'description' => '',
     'isbn' => '',
-    'genre_id' => '',
+    'language' => 'English',
+    'publisher' => '',
+    'status' => 'active',
+    'genre_ids' => [],
     'author' => '',
     'format' => '',
     'price' => '',
@@ -26,7 +30,8 @@ $form = [
 $editId = filter_input(INPUT_GET, 'edit', FILTER_VALIDATE_INT) ?: 0;
 if ($editId > 0) {
     $editStmt = $pdo->prepare(
-        'SELECT b.book_id, e.edition_id, b.title, b.description, b.isbn, b.genre_id,
+        'SELECT b.book_id, e.edition_id, b.title, b.description, b.isbn,
+                b.language, b.publisher, b.status,
                 e.format, e.price, e.stock_quantity,
                 GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ", ") AS author
          FROM book_editions e
@@ -35,12 +40,16 @@ if ($editId > 0) {
          LEFT JOIN authors a ON a.author_id = ba.author_id
          WHERE e.edition_id = ?
          GROUP BY b.book_id, e.edition_id, b.title, b.description, b.isbn,
-                  b.genre_id, e.format, e.price, e.stock_quantity'
+                  b.language, b.publisher, b.status,
+                  e.format, e.price, e.stock_quantity'
     );
     $editStmt->execute([$editId]);
     $loaded = $editStmt->fetch();
     if ($loaded) {
         $form = array_merge($form, $loaded);
+        $genreStmt = $pdo->prepare('SELECT genre_id FROM book_genres WHERE book_id = ?');
+        $genreStmt->execute([(int) $loaded['book_id']]);
+        $form['genre_ids'] = array_map('intval', $genreStmt->fetchAll(PDO::FETCH_COLUMN));
     } else {
         $errors[] = 'The selected book edition could not be found.';
     }
@@ -67,21 +76,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             } catch (PDOException $e) {
                 if ($e->getCode() === '23000') {
-                    $errors[] = 'This book cannot be deleted because it appears in an order or spotlight.';
+                    $errors[] = 'This book cannot be deleted because it appears in an order or spotlight. Set its status to inactive instead.';
                 } else {
                     error_log('Book deletion failed: ' . $e->getMessage());
                     $errors[] = 'Unable to delete this book.';
                 }
             }
         }
-    } elseif (in_array($action, ['save', 'add', 'edit'], true)) {
+    } elseif (in_array($action, ['add', 'edit'], true)) {
+        $rawGenreIds = $_POST['genre_ids'] ?? [];
+        $genreIds = [];
+        if (is_array($rawGenreIds)) {
+            foreach ($rawGenreIds as $rawGenreId) {
+                if (is_scalar($rawGenreId) && filter_var((string) $rawGenreId, FILTER_VALIDATE_INT) !== false) {
+                    $genreIds[] = (int) $rawGenreId;
+                }
+            }
+        }
+        $genreIds = array_values(array_unique(array_filter($genreIds, static fn($id) => $id > 0)));
+
         $form = [
             'book_id' => filter_input(INPUT_POST, 'book_id', FILTER_VALIDATE_INT) ?: 0,
             'edition_id' => filter_input(INPUT_POST, 'edition_id', FILTER_VALIDATE_INT) ?: 0,
             'title' => trim(requestString($_POST, 'title')),
             'description' => trim(requestString($_POST, 'description')),
             'isbn' => trim(requestString($_POST, 'isbn')),
-            'genre_id' => filter_input(INPUT_POST, 'genre_id', FILTER_VALIDATE_INT) ?: 0,
+            'language' => trim(requestString($_POST, 'language')),
+            'publisher' => trim(requestString($_POST, 'publisher')),
+            'status' => requestString($_POST, 'status'),
+            'genre_ids' => $genreIds,
             'author' => trim(requestString($_POST, 'author')),
             'format' => requestString($_POST, 'format'),
             'price' => trim(requestString($_POST, 'price')),
@@ -98,8 +121,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (strlen($form['isbn']) > 20) {
             $errors[] = 'ISBN must not exceed 20 characters.';
         }
-        if ((int) $form['genre_id'] < 1) {
-            $errors[] = 'Select a genre.';
+        if ($form['language'] === '' || mb_strlen($form['language']) > 50) {
+            $errors[] = 'Language is required and must not exceed 50 characters.';
+        }
+        if (mb_strlen($form['publisher']) > 150) {
+            $errors[] = 'Publisher must not exceed 150 characters.';
+        }
+        if (!in_array($form['status'], $statuses, true)) {
+            $errors[] = 'Select a valid status.';
+        }
+        if (!$genreIds) {
+            $errors[] = 'Select at least one genre.';
         }
         if ($form['author'] === '' || mb_strlen($form['author']) > 150) {
             $errors[] = 'Author name is required and must not exceed 150 characters.';
@@ -107,8 +139,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!in_array($form['format'], $formats, true)) {
             $errors[] = 'Select a valid book format.';
         }
-        if (!preg_match('/^\d{1,8}(\.\d{1,2})?$/', $form['price'])) {
-            $errors[] = 'Price must be a positive number with up to two decimal places.';
+        if (!preg_match('/^\d{1,8}(\.\d{1,2})?$/', $form['price']) || (float) $form['price'] < 0) {
+            $errors[] = 'Price must be a non-negative number with up to two decimal places.';
         }
         if (!preg_match('/^\d{1,7}$/', $form['stock_quantity'])) {
             $errors[] = 'Stock must be a whole number between 0 and 9,999,999.';
@@ -117,10 +149,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Select a valid book edition to edit.';
         }
 
-        $genreStmt = $pdo->prepare("SELECT 1 FROM genres WHERE genre_id = ? AND status = 'active'");
-        $genreStmt->execute([(int) $form['genre_id']]);
-        if (!$genreStmt->fetchColumn()) {
-            $errors[] = 'The selected genre is not available.';
+        if ($genreIds) {
+            $placeholders = implode(',', array_fill(0, count($genreIds), '?'));
+            $genreStmt = $pdo->prepare("SELECT genre_id FROM genres WHERE status = 'active' AND genre_id IN ($placeholders)");
+            $genreStmt->execute($genreIds);
+            $activeGenreIds = array_map('intval', $genreStmt->fetchAll(PDO::FETCH_COLUMN));
+            if (count($activeGenreIds) !== count($genreIds)) {
+                $errors[] = 'One or more selected genres are no longer available. Select active genres only.';
+            }
         }
 
         $uploadName = null;
@@ -153,23 +189,38 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$errors) {
             $coverDirectory = __DIR__ . '/../images/book-covers';
             $targetCover = $uploadName !== null ? $coverDirectory . '/' . $uploadName : null;
-            if ($targetCover !== null && !move_uploaded_file($uploadTmpPath, $targetCover)) {
+            if ($targetCover !== null && !is_dir($coverDirectory)) {
+                $errors[] = 'The book cover directory does not exist.';
+            } elseif ($targetCover !== null && !move_uploaded_file($uploadTmpPath, $targetCover)) {
                 $errors[] = 'Unable to save the cover image.';
             } else {
                 try {
                     $pdo->beginTransaction();
+
+                    $descriptionValue = $form['description'] !== '' ? $form['description'] : null;
+                    $isbnValue = $form['isbn'] !== '' ? $form['isbn'] : null;
+                    $publisherValue = $form['publisher'] !== '' ? $form['publisher'] : null;
+
                     if ($isEdit) {
                         $existsStmt = $pdo->prepare('SELECT 1 FROM book_editions WHERE edition_id = ? AND book_id = ? FOR UPDATE');
                         $existsStmt->execute([(int) $form['edition_id'], (int) $form['book_id']]);
                         if (!$existsStmt->fetchColumn()) {
                             throw new RuntimeException('Book edition not found.');
                         }
-                        $bookStmt = $pdo->prepare('UPDATE books SET title = ?, description = ?, isbn = ?, genre_id = ? WHERE book_id = ?');
+
+                        $bookStmt = $pdo->prepare(
+                            'UPDATE books
+                                SET title = ?, description = ?, isbn = ?,
+                                    language = ?, publisher = ?, status = ?
+                              WHERE book_id = ?'
+                        );
                         $bookStmt->execute([
                             $form['title'],
-                            $form['description'] !== '' ? $form['description'] : null,
-                            $form['isbn'] !== '' ? $form['isbn'] : null,
-                            (int) $form['genre_id'],
+                            $descriptionValue,
+                            $isbnValue,
+                            $form['language'],
+                            $publisherValue,
+                            $form['status'],
                             (int) $form['book_id']
                         ]);
                         $editionSql = 'UPDATE book_editions SET format = ?, price = ?, stock_quantity = ?';
@@ -183,12 +234,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $pdo->prepare($editionSql)->execute($editionParams);
                         $bookId = (int) $form['book_id'];
                     } else {
-                        $bookStmt = $pdo->prepare('INSERT INTO books (title, description, isbn, genre_id) VALUES (?, ?, ?, ?)');
+                        $bookStmt = $pdo->prepare(
+                            'INSERT INTO books (title, description, isbn, language, publisher, status)
+                             VALUES (?, ?, ?, ?, ?, ?)'
+                        );
                         $bookStmt->execute([
                             $form['title'],
-                            $form['description'] !== '' ? $form['description'] : null,
-                            $form['isbn'] !== '' ? $form['isbn'] : null,
-                            (int) $form['genre_id']
+                            $descriptionValue,
+                            $isbnValue,
+                            $form['language'],
+                            $publisherValue,
+                            $form['status']
                         ]);
                         $bookId = (int) $pdo->lastInsertId();
                         $editionStmt = $pdo->prepare(
@@ -202,6 +258,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             (int) $form['stock_quantity'],
                             $uploadName
                         ]);
+                    }
+
+                    $pdo->prepare('DELETE FROM book_genres WHERE book_id = ?')->execute([$bookId]);
+                    $genreInsert = $pdo->prepare('INSERT INTO book_genres (book_id, genre_id) VALUES (?, ?)');
+                    foreach ($genreIds as $genreId) {
+                        $genreInsert->execute([$bookId, $genreId]);
                     }
 
                     $authorStmt = $pdo->prepare('SELECT author_id FROM authors WHERE full_name = ? ORDER BY author_id LIMIT 1');
@@ -250,16 +312,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $genres = $pdo->query("SELECT genre_id, genre_name FROM genres WHERE status = 'active' ORDER BY genre_name")->fetchAll();
 $products = $pdo->query(
-    'SELECT b.book_id, e.edition_id, b.title, b.description, b.isbn, g.genre_name,
+    'SELECT b.book_id, e.edition_id, b.title, b.description, b.isbn,
+            b.language, b.publisher, b.status,
+            GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ", ") AS genre_names,
             e.format, e.price, e.stock_quantity, e.cover_image_path,
             GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ", ") AS authors
      FROM books b
-     JOIN genres g ON g.genre_id = b.genre_id
      JOIN book_editions e ON e.book_id = b.book_id
+     LEFT JOIN book_genres bg ON bg.book_id = b.book_id
+     LEFT JOIN genres g ON g.genre_id = bg.genre_id
      LEFT JOIN book_authors ba ON ba.book_id = b.book_id
      LEFT JOIN authors a ON a.author_id = ba.author_id
      GROUP BY b.book_id, e.edition_id, b.title, b.description, b.isbn,
-              g.genre_name, e.format, e.price, e.stock_quantity, e.cover_image_path
+              b.language, b.publisher, b.status,
+              e.format, e.price, e.stock_quantity, e.cover_image_path
      ORDER BY b.created_at DESC, b.title, e.format'
 )->fetchAll();
 
@@ -280,11 +346,30 @@ include __DIR__ . '/../includes/header.php';
                 <input type="hidden" name="action" value="<?= (int) $form['edition_id'] > 0 ? 'edit' : 'add' ?>">
                 <input type="hidden" name="book_id" value="<?= (int) $form['book_id'] ?>">
                 <input type="hidden" name="edition_id" value="<?= (int) $form['edition_id'] ?>">
-                <div class="form-group"><label for="title">Book title</label><input class="form-input" type="text" id="title" name="title" maxlength="255" required value="<?= htmlspecialchars($form['title'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                <div class="form-group"><label for="author">Author</label><input class="form-input" type="text" id="author" name="author" maxlength="150" required value="<?= htmlspecialchars($form['author'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                <div class="form-group"><label for="genre_id">Genre</label><select class="form-input" id="genre_id" name="genre_id" required><option value="">Select a genre</option><?php foreach ($genres as $genre): ?><option value="<?= (int) $genre['genre_id'] ?>" <?= (int) $form['genre_id'] === (int) $genre['genre_id'] ? 'selected' : '' ?>><?= htmlspecialchars($genre['genre_name'], ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
-                <div class="form-group"><label for="description">Description</label><textarea class="form-input" id="description" name="description" rows="4" maxlength="65535"><?= htmlspecialchars($form['description'] ?? '', ENT_QUOTES, 'UTF-8') ?></textarea></div>
-                <div class="form-group"><label for="isbn">ISBN (optional)</label><input class="form-input" type="text" id="isbn" name="isbn" maxlength="20" value="<?= htmlspecialchars($form['isbn'] ?? '', ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div class="form-group"><label for="title">Book title</label><input class="form-input" type="text" id="title" name="title" maxlength="255" required value="<?= htmlspecialchars((string) $form['title'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div class="form-group"><label for="author">Author</label><input class="form-input" type="text" id="author" name="author" maxlength="150" required value="<?= htmlspecialchars((string) $form['author'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div class="form-group">
+                    <label for="genre_ids">Genres (select one or more)</label>
+                    <select class="form-input" id="genre_ids" name="genre_ids[]" multiple required size="<?= min(max(count($genres), 3), 7) ?>">
+                        <?php foreach ($genres as $genre): ?>
+                            <option value="<?= (int) $genre['genre_id'] ?>" <?= in_array((int) $genre['genre_id'], array_map('intval', $form['genre_ids'] ?? []), true) ? 'selected' : '' ?>><?= htmlspecialchars($genre['genre_name'], ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small>Hold Ctrl (Windows) or Command (Mac) to select multiple genres.</small>
+                </div>
+                <div class="form-group"><label for="description">Description</label><textarea class="form-input" id="description" name="description" rows="4" maxlength="65535"><?= htmlspecialchars((string) ($form['description'] ?? ''), ENT_QUOTES, 'UTF-8') ?></textarea></div>
+                <div class="form-group"><label for="isbn">ISBN (optional)</label><input class="form-input" type="text" id="isbn" name="isbn" maxlength="20" value="<?= htmlspecialchars((string) ($form['isbn'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div class="form-group"><label for="language">Language</label><input class="form-input" type="text" id="language" name="language" maxlength="50" required placeholder="English, Filipino, Tagalog..." value="<?= htmlspecialchars((string) ($form['language'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div class="form-group"><label for="publisher">Publisher (optional)</label><input class="form-input" type="text" id="publisher" name="publisher" maxlength="150" value="<?= htmlspecialchars((string) ($form['publisher'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div class="form-group">
+                    <label for="status">Status</label>
+                    <select class="form-input" id="status" name="status" required>
+                        <?php foreach ($statuses as $statusOption): ?>
+                            <option value="<?= htmlspecialchars($statusOption, ENT_QUOTES, 'UTF-8') ?>" <?= ($form['status'] ?? 'active') === $statusOption ? 'selected' : '' ?>><?= htmlspecialchars(ucfirst($statusOption), ENT_QUOTES, 'UTF-8') ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <small>Inactive books are hidden from the public catalog.</small>
+                </div>
                 <div class="form-group"><label for="format">Format</label><select class="form-input" id="format" name="format" required><option value="">Select a format</option><?php foreach ($formats as $format): ?><option value="<?= htmlspecialchars($format, ENT_QUOTES, 'UTF-8') ?>" <?= $form['format'] === $format ? 'selected' : '' ?>><?= htmlspecialchars(ucfirst($format), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></div>
                 <div class="form-group"><label for="price">Price (₱)</label><input class="form-input" type="number" id="price" name="price" min="0" max="99999999.99" step="0.01" required value="<?= htmlspecialchars((string) $form['price'], ENT_QUOTES, 'UTF-8') ?>"></div>
                 <div class="form-group"><label for="stock_quantity">Stock quantity</label><input class="form-input" type="number" id="stock_quantity" name="stock_quantity" min="0" max="9999999" step="1" required value="<?= htmlspecialchars((string) $form['stock_quantity'], ENT_QUOTES, 'UTF-8') ?>"></div>
@@ -301,7 +386,8 @@ include __DIR__ . '/../includes/header.php';
         <article class="card admin-list-item">
             <?php if ($product['cover_image_path']): ?><img class="admin-cover" src="/images/book-covers/<?= rawurlencode(basename(str_replace('\\', '/', $product['cover_image_path']))) ?>" alt="<?= htmlspecialchars($product['title'], ENT_QUOTES, 'UTF-8') ?> cover"><?php endif; ?>
             <h3><?= htmlspecialchars($product['title'], ENT_QUOTES, 'UTF-8') ?></h3>
-            <p>Author: <?= htmlspecialchars($product['authors'] ?: 'Not listed', ENT_QUOTES, 'UTF-8') ?> · Genre: <?= htmlspecialchars($product['genre_name'], ENT_QUOTES, 'UTF-8') ?></p>
+            <p>Author: <?= htmlspecialchars($product['authors'] ?: 'Not listed', ENT_QUOTES, 'UTF-8') ?> · Genres: <?= htmlspecialchars($product['genre_names'] ?: 'Not assigned', ENT_QUOTES, 'UTF-8') ?></p>
+            <p>Language: <?= htmlspecialchars($product['language'], ENT_QUOTES, 'UTF-8') ?><?php if ($product['publisher']): ?> · Publisher: <?= htmlspecialchars($product['publisher'], ENT_QUOTES, 'UTF-8') ?><?php endif; ?> · Status: <?= htmlspecialchars(ucfirst($product['status']), ENT_QUOTES, 'UTF-8') ?></p>
             <?php if ($product['isbn']): ?><p>ISBN: <?= htmlspecialchars($product['isbn'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
             <p><?= htmlspecialchars(ucfirst($product['format']), ENT_QUOTES, 'UTF-8') ?> · ₱<?= number_format((float) $product['price'], 2) ?> · Stock: <?= (int) $product['stock_quantity'] ?></p>
             <a class="btn btn-secondary" href="/admin/products.php?edit=<?= (int) $product['edition_id'] ?>">Edit</a>
