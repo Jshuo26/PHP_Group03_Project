@@ -600,3 +600,183 @@
 @media (prefers-reduced-motion: reduce) {
   .login-slide, .login-slide-dot { transition: none; }
 }
+
+.register-page-section {
+  align-items: flex-start;
+  padding: 2.25rem 0;
+}
+
+.register-card {
+  width: min(100%, 760px);
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 2.75rem);
+  background: var(--white);
+  border: 1px solid var(--border-color);
+  border-radius: 20px;
+  box-shadow: var(--shadow-md);
+}
+
+.register-heading { margin-bottom: 1.6rem; }
+.register-kicker {
+  margin: 0 0 0.45rem;
+  color: var(--primary-color);
+  font-size: 0.75rem;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+}
+.register-heading .card-title {
+  margin: 0 0 0.5rem;
+  color: var(--primary-dark);
+  font-size: clamp(1.8rem, 4vw, 2.25rem);
+  line-height: 1.2;
+}
+.register-heading > p:last-child {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 0.95rem;
+}
+.register-card .form-group { min-width: 0; margin-bottom: 1.15rem; }
+.register-card .form-group label { margin-bottom: 0.45rem; }
+.register-card .form-input {
+  min-height: 47px;
+  border-radius: 9px;
+}
+.register-card .form-group small {
+  display: block;
+  margin-top: 0.4rem;
+  color: var(--muted-text);
+  font-size: 0.8rem;
+  line-height: 1.45;
+}
+.register-field-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 1px minmax(0, 1fr);
+  column-gap: 1.25rem;
+  align-items: stretch;
+}
+.register-field-row .form-group { margin-bottom: 1.15rem; }
+.register-field-divider {
+  width: 1px;
+  align-self: stretch;
+  margin: 0.15rem 0 1.15rem;
+  background: #eadfd2;
+}
+.register-optional { color: var(--muted-text); font-size: 0.82em; font-weight: 400; }
+.register-profile-group { margin-top: 0.1rem; }
+.register-upload-control {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.85rem 1rem;
+  border: 1px dashed #d9c7b5;
+  border-radius: 12px;
+  background: #fdfaf6;
+}
+.register-avatar-preview {
+  display: grid;
+  flex: 0 0 58px;
+  width: 58px;
+  height: 58px;
+  place-items: center;
+  overflow: hidden;
+  border: 1px solid #eadfd2;
+  border-radius: 50%;
+  background: #f4e5c7;
+  color: var(--primary-dark);
+}
+.register-avatar-preview svg { width: 29px; height: 29px; }
+.register-avatar-preview img { width: 100%; height: 100%; object-fit: cover; }
+.register-upload-details { min-width: 0; }
+.register-file-input { max-width: 100%; font: inherit; font-size: 0.88rem; }
+.register-password-group { margin-top: 0.15rem; }
+.register-password-help { margin-bottom: 0.65rem; }
+.register-card .password-wrapper { position: relative; }
+.register-card .password-wrapper .form-input { padding-right: 3.2rem; }
+.register-card .password-toggle { right: 0.55rem; }
+.register-card .password-toggle .icon-open { display: none; }
+.register-card .password-toggle.is-visible .icon-open { display: block; }
+.register-card .password-toggle.is-visible .icon-closed { display: none; }
+.register-card .password-toggle svg { width: 20px; height: 20px; }
+.register-card .password-checklist {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.45rem 1rem;
+  margin: 0.65rem 0 0;
+  padding: 0;
+  list-style: none;
+}
+.register-card .password-checklist li {
+  position: relative;
+  padding-left: 1.1rem;
+  color: var(--muted-text);
+  font-size: 0.82rem;
+  line-height: 1.4;
+}
+.register-card .password-checklist li::before {
+  position: absolute;
+  left: 0;
+  content: "–";
+  color: #a99a8c;
+}
+.register-card .password-checklist li.is-valid { color: #39734b; }
+.register-confirm-group { margin-top: 1.2rem; }
+.register-bottom-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin: 1.35rem 0 1.1rem;
+}
+.register-recaptcha { min-width: 0; }
+.register-login-prompt {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 0.87rem;
+  line-height: 1.6;
+  text-align: right;
+}
+.register-login-prompt a { color: var(--primary-dark); font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
+.register-submit { min-height: 49px; border-radius: 999px; font-size: 1rem; }
+.register-card .form-errors { margin-bottom: 1.25rem; }
+
+@media (max-width: 620px) {
+  .register-page-section { padding: 1.25rem 0; }
+  .register-card { padding: 1.35rem; border-radius: 16px; }
+  .register-field-row { grid-template-columns: minmax(0, 1fr); column-gap: 0; }
+  .register-field-divider { display: none; }
+  .register-field-row .form-group { margin-bottom: 1rem; }
+  .register-bottom-row { align-items: flex-start; flex-direction: column; }
+  .register-login-prompt { text-align: left; }
+  .register-card .password-checklist { grid-template-columns: 1fr; }
+}
+
+.register-card .password-checklist li {
+  padding-left: 0;
+  color: var(--muted-text);
+}
+
+.register-card .password-checklist li::before {
+  content: none;
+}
+
+.register-card .password-checklist li.is-valid {
+  color: var(--muted-text);
+}
+
+.register-card .password-checklist li.is-valid::after {
+  content: "✓";
+  display: inline-block;
+  margin-left: 0.4rem;
+  color: #39734b;
+  font-weight: 700;
+}
+
+.register-login-prompt a {
+  text-decoration: none;
+  text-underline-offset: 0;
+}
+
+.register-login-prompt a:hover,
+.register-login-prompt a:focus-visible {
+  text-decoration: none;
+}
