@@ -231,10 +231,27 @@ include __DIR__ . '/includes/header.php';
                                 <span class="stock-badge stock-in">In stock</span>
 
                                 <?php if ($canBuy || !isset($_SESSION['user_id'])): ?>
-                                    <form method="post" action="<?= $h($detailUrl) ?>" class="inline-form">
+                                    <form method="post" action="<?= $h($detailUrl) ?>" class="inline-form book-cart-form">
                                         <input type="hidden" name="csrf_token" value="<?= $h(generateCsrfToken()) ?>">
                                         <input type="hidden" name="edition_id" value="<?= (int) $edition['edition_id'] ?>">
-                                        <button class="btn btn-primary" type="submit">Add to cart</button>
+
+                                        <button class="catalog-action-btn catalog-add-btn book-add-btn" type="submit">
+                                            <svg class="catalog-btn-icon catalog-icon-outline" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <circle cx="9" cy="21" r="1"/>
+                                                <circle cx="20" cy="21" r="1"/>
+                                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
+                                            </svg>
+
+                                            <svg class="catalog-btn-icon catalog-icon-filled" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                                <circle cx="9" cy="21" r="1"/>
+                                                <circle cx="20" cy="21" r="1"/>
+                                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6z"/>
+                                                <path d="M12 8v6" fill="none" stroke="#fff" stroke-width="2"/>
+                                                <path d="M9 11h6" fill="none" stroke="#fff" stroke-width="2"/>
+                                            </svg>
+
+                                            <span>Add to Cart</span>
+                                        </button>
                                     </form>
                                 <?php endif; ?>
                             <?php else: ?>
@@ -251,8 +268,7 @@ include __DIR__ . '/includes/header.php';
 
     <?php if ($related): ?>
 
-        <h2 class="section-title">You may also like</h2>
-
+        <h2 class="section-title related-books-title">You may also like</h2>
         <div class="catalog-grid">
 
             <?php foreach ($related as $item): ?>
@@ -276,7 +292,21 @@ include __DIR__ . '/includes/header.php';
                     <p class="catalog-price"><?= $h(catalogPrice($item['min_price'], $item['max_price'])) ?></p>
 
                     <div class="catalog-actions">
-                        <a class="btn btn-secondary" href="<?= $h($itemDetail) ?>">View details</a>
+                        <a
+                            class="catalog-action-btn catalog-details-btn related-details-icon"
+                            href="<?= $h($itemDetail) ?>"
+                            aria-label="View details"
+                            title="View details"
+                        >
+                            <svg class="catalog-btn-icon catalog-icon-outline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 7.5h1.5m-1.5 3h1.5m-7.5 3h7.5m-7.5 3h7.5m3-9h3.375c.621 0 1.125.504 1.125 1.125V18a2.25 2.25 0 0 1-2.25 2.25M16.5 7.5V18a2.25 2.25 0 0 0 2.25 2.25M16.5 7.5V4.875c0-.621-.504-1.125-1.125-1.125H4.125C3.504 3.75 3 4.254 3 4.875V18a2.25 2.25 0 0 0 2.25 2.25h13.5M6 7.5h3v3H6v-3Z" />
+                            </svg>
+
+                            <svg class="catalog-btn-icon catalog-icon-filled" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path fill-rule="evenodd" d="M4.125 3C3.089 3 2.25 3.84 2.25 4.875V18a3 3 0 0 0 3 3h15a3 3 0 0 1-3-3V4.875C17.25 3.839 16.41 3 15.375 3H4.125ZM12 9.75a.75.75 0 0 0 0 1.5h1.5a.75.75 0 0 0 0-1.5H12Zm-.75-2.25a.75.75 0 0 1 .75-.75h1.5a.75.75 0 0 1 0 1.5H12a.75.75 0 0 1-.75-.75ZM6 12.75a.75.75 0 0 0 0 1.5h7.5a.75.75 0 0 0 0-1.5H6Zm-.75 3.75a.75.75 0 0 1 .75-.75h7.5a.75.75 0 0 1 0 1.5H6a.75.75 0 0 1-.75-.75ZM6 6.75a.75.75 0 0 0-.75.75v3c0 .414.336.75.75.75h3a.75.75 0 0 0 .75-.75v-3A.75.75 0 0 0 9 6.75H6Z" clip-rule="evenodd" />
+                                <path d="M18.75 6.75h1.875c.621 0 1.125.504 1.125 1.125V18a1.5 1.5 0 0 1-3 0V6.75Z" />
+                            </svg>
+                        </a>                    
                     </div>
 
                 </article>

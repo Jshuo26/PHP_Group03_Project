@@ -10,7 +10,7 @@ if (session_status() === PHP_SESSION_NONE) {
   session_start();
 }
 
-$session_timeout = 1800;
+$session_timeout = 120;
 
 if (isset($_SESSION['last_activity'])) {
 
