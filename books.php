@@ -277,11 +277,6 @@ include __DIR__ . '/includes/header.php';
                 </div>
 
                 <div class="catalog-filter-group">
-                    <label for="search">Search books</label>
-                    <input class="form-input" type="search" id="search" name="search" maxlength="255" placeholder="Title, author, ISBN..." value="<?= $h($query) ?>">
-                </div>
-
-                <div class="catalog-filter-group">
                     <label for="genre">Genre</label>
                     <select class="form-input" id="genre" name="genre">
                         <option value="">All genres</option>
