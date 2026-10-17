@@ -124,30 +124,6 @@ include __DIR__ . '/includes/header.php';
             </span>
         </div>
 
-        <form class="authors-search" method="get" action="/authors.php" role="search">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                 stroke-width="1.8" stroke-linecap="round"
-                 stroke-linejoin="round" aria-hidden="true">
-                <circle cx="11" cy="11" r="7"></circle>
-                <path d="m16 16 4 4"></path>
-            </svg>
-
-            <input
-                type="search"
-                name="search"
-                aria-label="Search authors"
-                placeholder="Search by author name..."
-                maxlength="100"
-                value="<?= $h($search) ?>"
-            >
-
-            <button type="submit">Search</button>
-
-            <?php if ($search !== ''): ?>
-                <a class="authors-clear-search" href="/authors.php">Clear</a>
-            <?php endif; ?>
-        </form>
-
         <div class="authors-alphabet" aria-label="Filter authors alphabetically">
             <?php
             $alphabetParams = [];
