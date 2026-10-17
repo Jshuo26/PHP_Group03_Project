@@ -12,7 +12,7 @@ $errors = [];
 $success = '';
 
 $profileStmt = $pdo->prepare(
-    'SELECT full_name, email, mobile_number FROM users WHERE user_id = ?'
+    'SELECT full_name, email, mobile_number, profile_picture_path FROM users WHERE user_id = ?'
 );
 $profileStmt->execute([$userId]);
 $profile = $profileStmt->fetch();
@@ -119,10 +119,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    if ($action === 'update_avatar') {
+        $file = $_FILES['profile_picture'] ?? null;
+        if (!$file || $file['error'] === UPLOAD_ERR_NO_FILE) {
+            $errors[] = 'Please choose an image file to upload.';
+        } elseif ($file['error'] !== UPLOAD_ERR_OK) {
+            $errors[] = 'Failed to upload image. Please try again.';
+        } elseif ((int) $file['size'] > 2 * 1024 * 1024) {
+            $errors[] = 'Profile picture must be 2 MB or smaller.';
+        } else {
+            $imageInfo = @getimagesize($file['tmp_name']);
+            $finfo = new finfo(FILEINFO_MIME_TYPE);
+            $mime = $finfo->file($file['tmp_name']);
+            $allowed = [
+                'image/jpeg' => 'jpg',
+                'image/png'  => 'png',
+                'image/webp' => 'webp',
+            ];
+            if (!$imageInfo || !isset($allowed[$mime])) {
+                $errors[] = 'Please upload a valid JPG, PNG, or WebP image.';
+            } else {
+                $uploadDir = __DIR__ . '/../uploads/profile-pictures';
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+                $newFileName = bin2hex(random_bytes(16)) . '.' . $allowed[$mime];
+                $destPath = $uploadDir . '/' . $newFileName;
+                if (move_uploaded_file($file['tmp_name'], $destPath)) {
+                    $newWebPath = '/uploads/profile-pictures/' . $newFileName;
+                    if (!empty($profile['profile_picture_path'])) {
+                        $oldFile = __DIR__ . '/..' . $profile['profile_picture_path'];
+                        if (is_file($oldFile)) {
+                            @unlink($oldFile);
+                        }
+                    }
+                    try {
+                        $upStmt = $pdo->prepare('UPDATE users SET profile_picture_path = ? WHERE user_id = ?');
+                        $upStmt->execute([$newWebPath, $userId]);
+                        $profile['profile_picture_path'] = $newWebPath;
+                        $_SESSION['profile_picture_path'] = $newWebPath;
+                        $success = 'Profile picture updated successfully.';
+                    } catch (PDOException $e) {
+                        error_log('Failed to update avatar: ' . $e->getMessage());
+                        $errors[] = 'Could not update profile picture in database.';
+                    }
+                } else {
+                    $errors[] = 'Could not save uploaded image.';
+                }
+            }
+        }
+    }
+
+    if ($action === 'remove_avatar') {
+        if (!empty($profile['profile_picture_path'])) {
+            $oldFile = __DIR__ . '/..' . $profile['profile_picture_path'];
+            if (is_file($oldFile)) {
+                @unlink($oldFile);
+            }
+        }
+        try {
+            $rmStmt = $pdo->prepare('UPDATE users SET profile_picture_path = NULL WHERE user_id = ?');
+            $rmStmt->execute([$userId]);
+            $profile['profile_picture_path'] = null;
+            $_SESSION['profile_picture_path'] = null;
+            $success = 'Profile picture removed.';
+        } catch (PDOException $e) {
+            error_log('Failed to remove avatar: ' . $e->getMessage());
+            $errors[] = 'Could not remove profile picture.';
+        }
+    }
+
 
     if (!$errors && $success !== '') {
         $profileStmt = $pdo->prepare(
-            'SELECT full_name, email, mobile_number FROM users WHERE user_id = ?'
+            'SELECT full_name, email, mobile_number, profile_picture_path FROM users WHERE user_id = ?'
         );
         $profileStmt->execute([$userId]);
         $profile = $profileStmt->fetch();
@@ -203,10 +273,18 @@ include __DIR__ . '/../includes/header.php';
         <div class="account-profile-header-card">
             <div class="account-profile-avatar-wrap">
                 <div class="account-profile-avatar-circle" aria-hidden="true">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
-                        <circle cx="12" cy="8" r="4"></circle>
-                        <path d="M4 21a8 8 0 0 1 16 0"></path>
-                    </svg>
+                    <?php if (!empty($profile['profile_picture_path']) && file_exists(__DIR__ . '/..' . $profile['profile_picture_path'])): ?>
+                        <img 
+                            src="<?= htmlspecialchars($profile['profile_picture_path'], ENT_QUOTES, 'UTF-8') ?>" 
+                            alt="<?= htmlspecialchars($profile['full_name'], ENT_QUOTES, 'UTF-8') ?>"
+                            class="account-profile-avatar-img"
+                        >
+                    <?php else: ?>
+                        <svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="8" r="4"></circle>
+                            <path d="M4 21a8 8 0 0 1 16 0"></path>
+                        </svg>
+                    <?php endif; ?>
                 </div>
             </div>
             <div class="account-profile-details">
@@ -237,6 +315,32 @@ include __DIR__ . '/../includes/header.php';
 
         <!-- Personal Information -->
         <div class="settings-section">
+            <!-- Profile Picture Card -->
+            <div class="settings-card" style="margin-bottom: 20px;">
+                <div class="settings-card-header">
+                    <h2>Profile Photo</h2>
+                    <p>Upload a personal photo to display on your profile and header.</p>
+                </div>
+                <form method="post" action="/account/index.php" enctype="multipart/form-data" class="settings-form">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="action" value="update_avatar">
+                    <div class="form-group">
+                        <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/webp" class="form-input" required>
+                        <small style="color: var(--muted-text); font-size: 0.82rem; margin-top: 4px; display: block;">JPG, PNG, or WebP. Maximum size: 2 MB.</small>
+                    </div>
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+                        <button type="submit" class="btn btn-primary btn-sm">Save Photo</button>
+                    </div>
+                </form>
+                <?php if (!empty($profile['profile_picture_path'])): ?>
+                    <form method="post" action="/account/index.php" style="margin-top: 10px;">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="remove_avatar">
+                        <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--danger-color); border-color: var(--danger-color);">Remove Photo</button>
+                    </form>
+                <?php endif; ?>
+            </div>
+            
             <div class="settings-section-heading">
                 <h2>Personal Information</h2>
                 <p>Keep your account information up to date.</p>
@@ -363,4 +467,4 @@ include __DIR__ . '/../includes/header.php';
 
 </div><!-- /.account-page-layout -->
 
-<?php include __DIR__ . '/../includes/footer.php'; ?>
+<?php include __DIR__ . '/../includes/footer.php'; ?>

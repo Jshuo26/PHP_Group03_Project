@@ -5,6 +5,7 @@ require_once __DIR__ . '/csrf.php';
 
 $isLoggedIn = !empty($_SESSION['user_id']);
 $userRole = $_SESSION['role'] ?? '';
+$userAvatar = $_SESSION['profile_picture_path'] ?? '';
 
 $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
@@ -113,20 +114,26 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
                         aria-label="Account menu"
                         aria-expanded="false"
                     >
-
-                        <svg
-                            xmlns="http://www.w3.org/2000/svg"
-                            viewBox="0 0 24 24"
-                            fill="none"
-                            stroke="currentColor"
-                            stroke-width="1.8"
-                            class="account-icon"
-                            aria-hidden="true"
-                        >
-                            <circle cx="12" cy="8" r="4"></circle>
-                            <path d="M4 21a8 8 0 0 1 16 0"></path>
-                        </svg>
-
+                        <?php if (!empty($userAvatar) && file_exists(__DIR__ . '/..' . $userAvatar)): ?>
+                            <img 
+                                src="<?php echo htmlspecialchars($userAvatar, ENT_QUOTES, 'UTF-8'); ?>" 
+                                alt="Account" 
+                                class="account-header-avatar"
+                            >
+                        <?php else: ?>
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                viewBox="0 0 24 24"
+                                fill="none"
+                                stroke="currentColor"
+                                stroke-width="1.8"
+                                class="account-icon"
+                                aria-hidden="true"
+                            >
+                                <circle cx="12" cy="8" r="4"></circle>
+                                <path d="M4 21a8 8 0 0 1 16 0"></path>
+                            </svg>
+                        <?php endif; ?>
                     </button>
 
                     <div class="account-dropdown">

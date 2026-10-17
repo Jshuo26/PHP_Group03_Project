@@ -37,7 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $lockout_minutes = (int) ($policy['lockout_duration_minutes'] ?? 30);
 
         $stmt = $pdo->prepare(
-            'SELECT user_id, full_name, email, password_hash, role, account_status
+            'SELECT user_id, full_name, email, password_hash, role, account_status, profile_picture_path
              FROM users
              WHERE email = ?
              LIMIT 1'
@@ -146,6 +146,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['full_name'] = $user['full_name'];
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['role'] = $user['role'];
+                $_SESSION['profile_picture_path'] = $user['profile_picture_path'] ?? null;
                 $_SESSION['last_activity'] = time();
 
                 if ($user['role'] === 'admin' || $user['role'] === 'staff') {
