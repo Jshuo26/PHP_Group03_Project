@@ -26,6 +26,14 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 
     <link rel="stylesheet" href="/css/styles.css">
 
+    <?php if (basename($_SERVER['PHP_SELF']) === 'featured.php'): ?>
+        <link rel="stylesheet" href="/css/featured.css">
+    <?php endif; ?>
+
+    <?php if (basename($_SERVER['PHP_SELF']) === 'cart.php'): ?>
+        <link rel="stylesheet" href="/css/cart.css">
+    <?php endif; ?>
+
 </head>
 
 <body>
@@ -41,21 +49,16 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
                 alt="aklAAAt! Online Bookstore"
                 class="site-logo"
             >
-
         </a>
 
         <nav class="main-navigation">
 
-            <a class="nav-link" href="/index.php">
+            <a class="nav-link" href="/featured.php">
                 Featured
             </a>
 
             <a class="nav-link" href="/books.php">
                 Books
-            </a>
-
-            <a class="nav-link" href="/genres.php">
-                Genres
             </a>
 
             <a class="nav-link" href="/authors.php">
