@@ -1,5 +1,9 @@
 <?php
 
+ini_set('display_errors', '1');
+ini_set('display_startup_errors', '1');
+error_reporting(E_ALL);
+
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/db.php';
 
@@ -12,15 +16,16 @@ $state = 'invalid';
 if (preg_match('/^[a-f0-9]{64}$/', $token)) {
 
     $stmt = $pdo->prepare(
-        "SELECT o.user_id,
-                o.used_at,
-                (o.expires_at > NOW()) AS still_valid,
-                u.account_status
-           FROM otp_codes o
-           INNER JOIN users u ON u.user_id = o.user_id
-          WHERE o.purpose = 'activation_link'
+        "SELECT 
+            o.user_id,
+            o.used_at,
+            (o.expires_at > NOW()) AS still_valid,
+            u.account_status
+        FROM otp_codes o
+        INNER JOIN users u ON u.user_id = o.user_id
+        WHERE o.purpose = 'activation_link'
             AND o.code_hash = ?
-          LIMIT 1"
+        LIMIT 1"
     );
 
     $stmt->execute([hash('sha256', $token)]);
@@ -51,13 +56,13 @@ if (preg_match('/^[a-f0-9]{64}$/', $token)) {
                     "UPDATE users
                         SET account_status = 'active',
                             email_verified_at = NOW()
-                      WHERE user_id = ? AND account_status = 'pending'"
+                    WHERE user_id = ? AND account_status = 'pending'"
                 )->execute([$row['user_id']]);
 
                 $pdo->prepare(
                     "UPDATE otp_codes
                         SET used_at = NOW()
-                      WHERE user_id = ?
+                    WHERE user_id = ?
                         AND purpose IN ('registration', 'activation_link')
                         AND used_at IS NULL"
                 )->execute([$row['user_id']]);
@@ -81,10 +86,9 @@ if (preg_match('/^[a-f0-9]{64}$/', $token)) {
 }
 
 if ($state === 'activated' || $state === 'already') {
-
-    header('Refresh: 3; url=/auth/login.php');
-
     unset($_SESSION['verify_user_id'], $_SESSION['verify_notice']);
+    header('Location: /auth/login.php');
+    exit;
 }
 
 $messages = [

@@ -54,7 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
 
             $code  = createOtp($pdo, $userId, 'registration');
-            $token = createActivationToken($pdo, $userId);
 
             if (sendOtpEmail(
                 $config,
@@ -62,9 +61,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $user['full_name'],
                 $code,
                 'verify your email address',
-                activationUrl($config, $token)
             )) {
-                $notice = 'A new code and activation link were sent to '
+                $notice = 'A new verification code was sent to  '
                         . maskEmail($user['email']) . '.';
             } else {
                 $errors[] = 'We could not send the email right now. Please try again later.';
@@ -81,27 +79,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         if ($ok) {
-
             $pdo->prepare(
                 "UPDATE users
-                    SET account_status = 'active',
-                        email_verified_at = NOW()
-                  WHERE user_id = ? AND account_status = 'pending'"
+                    SET email_verified_at = NOW()
+                WHERE user_id = ?
+                    AND account_status = 'pending'"
             )->execute([$userId]);
 
-            $pdo->prepare(
-                "UPDATE otp_codes
-                    SET used_at = NOW()
-                  WHERE user_id = ?
-                    AND purpose IN ('registration', 'activation_link')
-                    AND used_at IS NULL"
-            )->execute([$userId]);
+            $token = createActivationToken($pdo, $userId);
+            $link = activationUrl($config, $token);
 
-            unset($_SESSION['verify_user_id'], $_SESSION['verify_notice']);
+            if (sendActivationEmail(
+                $config,
+                $user['email'],
+                $user['full_name'],
+                $link
+            )) {
+                $notice = 'Your email is verified. '
+                        . 'Check your inbox for the account activation link.';
 
-            $notice  = '';
-            $success = 'Your email is verified and your account is active. You can now log in.';
-
+                $success = 'OTP verified. Please activate your account '
+                        . 'using the link sent to your email.';
+            } else {
+                $errors[] = 'Your OTP was verified, but we could not send '
+                        . 'the activation email. Please request a new '
+                        . 'activation link.';
+            }
         } else {
             $errors[] = $message;
         }
@@ -130,12 +133,12 @@ include __DIR__ . '/../includes/header.php'; ?>
         <p class="verify-email-eyebrow">AKLAAAT ACCOUNT</p>
 
         <h1 class="verify-email-title">
-            <?php echo $success !== '' ? 'Email Verified!' : 'Verify Your Email'; ?>
+            <?php echo $success !== '' ? 'Check Your Email' : 'Verify Your Email'; ?>
         </h1>
 
         <p class="verify-email-subtitle">
             <?php if ($success !== ''): ?>
-                Your email address has been confirmed successfully.
+                Your OTP is verified. Open your email and click the activation link to activate your account.
             <?php else: ?>
                 One more step before you start discovering Filipino stories.
             <?php endif; ?>
@@ -171,25 +174,13 @@ include __DIR__ . '/../includes/header.php'; ?>
                 <p class="verify-email-success-text">
                     <?php echo htmlspecialchars($success, ENT_QUOTES, 'UTF-8'); ?>
                 </p>
-
-                <a href="/auth/login.php"
-                   class="btn btn-primary verify-email-primary-button">
-                    Go to Login
-                </a>
             </div>
 
         <?php else: ?>
 
-            <div class="verify-email-recipient">
-                <span class="verify-email-recipient-label">Verification email sent to</span>
-                <strong>
-                    <?php echo htmlspecialchars(maskEmail($user['email']), ENT_QUOTES, 'UTF-8'); ?>
-                </strong>
-            </div>
-
             <p class="verify-email-instructions">
-                Enter the six-digit code from your email, or use the
-                <strong>Activate my account</strong> link in the message.
+                Enter the six-digit code sent to your email to continue.
+                After verification, we will send you an activation link.
             </p>
 
             <form method="POST" action="/auth/verify_email.php"
@@ -245,7 +236,7 @@ include __DIR__ . '/../includes/header.php'; ?>
                 <button type="submit"
                         id="otpVerifyButton"
                         class="btn btn-primary verify-email-primary-button">
-                    Verify &amp; Activate
+                    Verify OTP
                 </button>
             </form>
 
@@ -268,7 +259,7 @@ include __DIR__ . '/../includes/header.php'; ?>
 
                 <button type="submit"
                         class="btn btn-secondary verify-email-resend-button">
-                    Resend Code &amp; Link
+                    Resend OTP
                 </button>
             </form>
 
