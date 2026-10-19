@@ -1,0 +1,57 @@
+name: Deploy to InfinityFree
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: infinityfree-deploy
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out the code
+        uses: actions/checkout@v4
+
+      - name: Set up PHP 8.3 and Composer
+        uses: shivammathur/setup-php@v2
+        with:
+          php-version: '8.3'
+          tools: composer:v2
+
+      - name: Install PHP libraries (PHPMailer)
+        run: composer install --no-dev --optimize-autoloader --no-interaction
+
+      - name: Stop if any PHP file has a syntax error
+        run: |
+          if find . -name '*.php' -not -path './vendor/*' -exec php -l {} \; | grep -v '^No syntax errors'; then
+            echo "A PHP file has a syntax error. Deploy cancelled."
+            exit 1
+          fi
+
+      - name: Upload to InfinityFree
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ftpupload.net
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ftp
+          port: 21
+          local-dir: ./
+          server-dir: htdocs/
+          timeout: 120000
+          dry-run: false
+          exclude: |
+            **/.git*
+            **/.git*/**
+            .github/**
+            database/**
+            README.md
+            composer.json
+            composer.lock
+            test_*.php

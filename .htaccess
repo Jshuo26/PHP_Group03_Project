@@ -1,0 +1,7 @@
+Options -Indexes
+
+<FilesMatch "(^config\.php$|^\.env|\.(sql|md|json|lock|log|sh)$)">
+    Require all denied
+</FilesMatch>
+
+RedirectMatch 403 ^/(vendor|database|includes|\.github)(/|$)
