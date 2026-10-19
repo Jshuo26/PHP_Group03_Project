@@ -45,7 +45,7 @@ jobs:
           local-dir: ./
           server-dir: htdocs/
           timeout: 120000
-          dry-run: false
+          dry-run: true
           exclude: |
             **/.git*
             **/.git*/**
