@@ -3,6 +3,7 @@ require_once __DIR__ . '/includes/session.php';
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/controllers/CartController.php';
 
 requireRole(['customer']);
 $userId = (int) $_SESSION['user_id'];
@@ -10,9 +11,7 @@ $errors = [];
 $success = $_SESSION['store_flash'] ?? '';
 unset($_SESSION['store_flash']);
 
-$cartStmt = $pdo->prepare('SELECT cart_id FROM carts WHERE user_id = ?');
-$cartStmt->execute([$userId]);
-$cartId = (int) ($cartStmt->fetchColumn() ?: 0);
+$cartController = new CartController($pdo);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
@@ -21,91 +20,41 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!in_array($action, ['update', 'remove'], true)) {
         $errors[] = 'Choose a valid cart action.';
-    } elseif ($itemId < 1 || $cartId < 1) {
+    } elseif ($itemId < 1) {
         $errors[] = 'That cart item could not be found.';
     } elseif ($action === 'update') {
         $quantity = filter_input(INPUT_POST, 'quantity', FILTER_VALIDATE_INT);
         if ($quantity === false || $quantity === null || $quantity < 1 || $quantity > 99) {
             $errors[] = 'Quantity must be between 1 and 99.';
         } else {
-            $stockStmt = $pdo->prepare(
-                'SELECT e.stock_quantity
-                 FROM cart_items ci
-                 JOIN book_editions e ON e.edition_id = ci.edition_id
-                 WHERE ci.cart_item_id = ? AND ci.cart_id = ?'
-            );
-            $stockStmt->execute([$itemId, $cartId]);
-            $stock = $stockStmt->fetchColumn();
-            if ($stock === false) {
-                $errors[] = 'That cart item could not be found.';
-            } elseif ($quantity > (int) $stock) {
-                $errors[] = 'Quantity exceeds the available stock.';
-            } else {
-                $updateStmt = $pdo->prepare('UPDATE cart_items SET quantity = ? WHERE cart_item_id = ? AND cart_id = ?');
-                $updateStmt->execute([$quantity, $itemId, $cartId]);
+            try {
+                $cartController->updateQuantity($userId, $itemId, $quantity);
                 $_SESSION['store_flash'] = 'Cart quantity updated.';
                 header('Location: /cart.php');
                 exit;
+            } catch (Throwable $e) {
+                $errors[] = $e->getMessage();
             }
         }
     } else {
-        $deleteStmt = $pdo->prepare('DELETE FROM cart_items WHERE cart_item_id = ? AND cart_id = ?');
-        $deleteStmt->execute([$itemId, $cartId]);
-        if ($deleteStmt->rowCount() !== 1) {
-            $errors[] = 'That cart item could not be found.';
-        } else {
-            $_SESSION['store_flash'] = 'Book removed from your cart.';
-            header('Location: /cart.php');
-            exit;
+        try {
+            if ($cartController->removeItem($userId, $itemId)) {
+                $_SESSION['store_flash'] = 'Book removed from your cart.';
+                header('Location: /cart.php');
+                exit;
+            } else {
+                $errors[] = 'That cart item could not be found.';
+            }
+        } catch (Throwable $e) {
+            $errors[] = $e->getMessage();
         }
     }
 }
 
-$items = [];
-$subtotal = 0.0;
-$hasStockIssues = false;
-
-if ($cartId > 0) {
-    $itemsStmt = $pdo->prepare(
-        'SELECT ci.cart_item_id, ci.quantity, e.edition_id, e.format, e.price, e.stock_quantity,
-                e.cover_image_path, b.title,
-                GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ", ") AS authors
-         FROM cart_items ci
-         JOIN book_editions e ON e.edition_id = ci.edition_id
-         JOIN books b ON b.book_id = e.book_id
-         LEFT JOIN book_authors ba ON ba.book_id = b.book_id
-         LEFT JOIN authors a ON a.author_id = ba.author_id
-         WHERE ci.cart_id = ?
-         GROUP BY ci.cart_item_id, ci.quantity, e.edition_id, e.format, e.price,
-                  e.stock_quantity, e.cover_image_path, b.title
-         ORDER BY b.title'
-    );
-    $itemsStmt->execute([$cartId]);
-    $items = $itemsStmt->fetchAll();
-
-    foreach ($items as &$item) {
-    $quantity = (int) $item['quantity'];
-    $stock = (int) $item['stock_quantity'];
-
-    $item['stock_issue'] = '';
-
-    if ($stock < 1) {
-        $item['stock_issue'] = 'out_of_stock';
-    } elseif ($quantity > $stock) {
-        $item['stock_issue'] = 'quantity_exceeds_stock';
-    } else {
-        $subtotal += (float) $item['price'] * $quantity;
-    }
-}
-unset($item);
-
-foreach ($items as $item) {
-    if ($item['stock_issue'] !== '') {
-        $hasStockIssues = true;
-        break;
-    }
-}
-}
+$cartData = $cartController->getCart($userId);
+$items = $cartData['items'];
+$subtotal = (float) $cartData['subtotal'];
+$hasStockIssues = $cartData['has_stock_issue'];
 
 include __DIR__ . '/includes/header.php';
 ?>

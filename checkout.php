@@ -4,6 +4,9 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/input.php';
+require_once __DIR__ . '/controllers/OrderController.php';
+require_once __DIR__ . '/includes/csrf.php';
+require_once __DIR__ . '/includes/input.php';
 
 requireRole(['customer']);
 $userId = (int) $_SESSION['user_id'];
@@ -108,122 +111,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors) {
         try {
-            $pdo->beginTransaction();
+            $orderController = new OrderController($pdo);
+            $confirmedOrderData = $orderController->createPendingOrder($userId, $shipping, $paymentMethod);
 
-            $cartStmt = $pdo->prepare('SELECT cart_id FROM carts WHERE user_id = ? FOR UPDATE');
-            $cartStmt->execute([$userId]);
-            $cartId = (int) ($cartStmt->fetchColumn() ?: 0);
-            if ($cartId < 1) {
-                throw new RuntimeException('Your cart is empty.');
-            }
-
-            $itemsStmt = $pdo->prepare(
-                'SELECT ci.cart_item_id, ci.edition_id, ci.quantity, e.price,
-                        e.stock_quantity, b.title, e.format
-                 FROM cart_items ci
-                 JOIN book_editions e ON e.edition_id = ci.edition_id
-                 JOIN books b ON b.book_id = e.book_id
-                 WHERE ci.cart_id = ?
-                 ORDER BY e.edition_id
-                 FOR UPDATE'
-            );
-            $itemsStmt->execute([$cartId]);
-            $items = $itemsStmt->fetchAll();
-            if (!$items) {
-                throw new RuntimeException('Your cart is empty.');
-            }
-
-            $subtotalCents = 0;
-            $orderItemTitles = [];
-            foreach ($items as $item) {
-                if ((int) $item['quantity'] < 1 || (int) $item['quantity'] > (int) $item['stock_quantity']) {
-                    throw new RuntimeException('There is not enough stock for "' . $item['title'] . '". Update your cart and try again.');
-                }
-                $unitPriceCents = (int) round((float) $item['price'] * 100);
-                $subtotalCents += $unitPriceCents * (int) $item['quantity'];
-                $orderItemTitles[] = $item['title'] . ' (' . ucfirst($item['format']) . ') x ' . $item['quantity'];
-            }
-
-            $subtotal = number_format($subtotalCents / 100, 2, '.', '');
-            $shippingFee = '0.00';
-            $taxAmount = '0.00';
-            $totalAmount = $subtotal;
-            $orderNumber = 'ORD-' . date('YmdHis') . '-' . bin2hex(random_bytes(3));
-
-            $orderStmt = $pdo->prepare(
-                'INSERT INTO orders
-                    (user_id, order_number, shipping_name, shipping_mobile, shipping_street,
-                     shipping_city, shipping_province, shipping_zip, subtotal, shipping_fee,
-                     tax_amount, total_amount)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)'
-            );
-            $orderStmt->execute([
-                $userId,
-                $orderNumber,
-                $shipping['shipping_name'],
-                $shipping['shipping_mobile'],
-                $shipping['shipping_street'],
-                $shipping['shipping_city'],
-                $shipping['shipping_province'],
-                $shipping['shipping_zip'],
-                $subtotal,
-                $shippingFee,
-                $taxAmount,
-                $totalAmount
-            ]);
-            $orderId = (int) $pdo->lastInsertId();
-
-            $orderItemStmt = $pdo->prepare(
-                'INSERT INTO order_items (order_id, edition_id, quantity, unit_price) VALUES (?, ?, ?, ?)'
-            );
-            $stockStmt = $pdo->prepare(
-                'UPDATE book_editions SET stock_quantity = stock_quantity - ?
-                 WHERE edition_id = ? AND stock_quantity >= ?'
-            );
-
-            foreach ($items as $item) {
-                $orderItemStmt->execute([
-                    $orderId,
-                    (int) $item['edition_id'],
-                    (int) $item['quantity'],
-                    $item['price']
-                ]);
-                $stockStmt->execute([
-                    (int) $item['quantity'],
-                    (int) $item['edition_id'],
-                    (int) $item['quantity']
-                ]);
-                if ($stockStmt->rowCount() !== 1) {
-                    throw new RuntimeException('Stock changed during checkout. Please review your cart and try again.');
-                }
-            }
-
-            $pdo->prepare('DELETE FROM cart_items WHERE cart_id = ?')->execute([$cartId]);
-            $pdo->commit();
-
-            $_SESSION['confirmed_order'] = [
-                'order_number'      => $orderNumber,
-                'order_date'        => date('F j, Y'),
-                'items_count'       => count($items),
-                'titles'            => $orderItemTitles,
-                'delivery_estimate' => date('F j, Y', strtotime('+4 weekdays')),
-                'total_amount'      => $totalAmount,
-                'payment_method'    => $paymentMethod
-            ];
+            $_SESSION['confirmed_order'] = $confirmedOrderData;
 
             header('Location: /order-confirmation.php');
             exit;
 
         } catch (PDOException $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
             error_log('Checkout failed: ' . $e->getMessage());
             $errors[] = 'Unable to place your order right now. Please try again.';
-        } catch (RuntimeException $e) {
-            if ($pdo->inTransaction()) {
-                $pdo->rollBack();
-            }
+        } catch (Throwable $e) {
             $errors[] = $e->getMessage();
         }
     }

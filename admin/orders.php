@@ -4,6 +4,9 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/input.php';
+require_once __DIR__ . '/../controllers/OrderController.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -18,19 +21,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($orderId < 1 || !in_array($status, $statuses, true)) {
         $errors[] = 'Select a valid order and status.';
     } else {
-        $stmt = $pdo->prepare('UPDATE orders SET status = ? WHERE order_id = ?');
-        $stmt->execute([$status, $orderId]);
-        if ($stmt->rowCount() === 0) {
-            $existsStmt = $pdo->prepare('SELECT 1 FROM orders WHERE order_id = ?');
-            $existsStmt->execute([$orderId]);
-            if (!$existsStmt->fetchColumn()) {
-                $errors[] = 'Order not found.';
-            }
-        }
-        if (!$errors) {
-            $_SESSION['admin_flash'] = 'Order status updated.';
+        try {
+            $orderController = new OrderController($pdo);
+            $orderController->updateOrderStatus($orderId, $status, (int) $_SESSION['user_id']);
+            $_SESSION['admin_flash'] = 'Order status updated successfully.';
             header('Location: /admin/orders.php');
             exit;
+        } catch (Throwable $e) {
+            $errors[] = $e->getMessage();
         }
     }
 }
