@@ -634,6 +634,102 @@
   padding-top: 4px;
 }
 
+.collapsible-card {
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
+  overflow: hidden;
+}
+
+.collapsible-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.collapsible-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.collapsible-meta h3 {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.collapsible-value {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.collapse-toggle-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 14px;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--primary-color);
+  background: #fff;
+  border: 1px solid var(--border-color);
+  border-radius: 6px;
+  pointer-events: none;
+  transition: all 0.2s ease;
+}
+
+.collapsible-header:hover .collapse-toggle-btn {
+  border-color: var(--primary-color);
+  background: #fffaf2;
+}
+
+.collapse-chevron {
+  transition: transform 0.25s ease;
+}
+
+.collapsible-card.is-open {
+  border-color: #d1b184;
+}
+
+.collapsible-card.is-open .collapse-chevron {
+  transform: rotate(180deg);
+}
+
+.collapsible-card.is-open .collapse-toggle-btn {
+  background: #fef2f2;
+  border-color: #fca5a5;
+  color: #dc2626;
+}
+
+.collapsible-body {
+  margin-top: 18px;
+  padding-top: 18px;
+  border-top: 1px solid var(--border-color);
+  animation: collapseFadeIn 0.2s ease-out;
+}
+
+.collapsible-body[hidden] {
+  display: none !important;
+}
+
+@keyframes collapseFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 @media (max-width: 768px) {
 
   .account-page-layout {

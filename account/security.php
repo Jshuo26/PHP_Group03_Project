@@ -289,45 +289,53 @@ include __DIR__ . '/../includes/header.php';
 
             <div class="settings-section">
                 <div class="settings-section-heading">
-                    <h2>Change Password</h2>
-                    <p>Update your password. We will email a code to confirm it is you.</p>
+                    <h2>Password</h2>
+                    <p>Manage your account password and security credentials.</p>
                 </div>
 
-                <div class="settings-card">
-                    <form method="post" action="/account/security.php" class="settings-form">
-                        <input
-                            type="hidden"
-                            name="csrf_token"
-                            value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
-                        >
-                        <input type="hidden" name="action" value="change_password">
-
-                        <?php foreach ($passwordFields as [$fieldId, $fieldLabel, $fieldAutocomplete]): ?>
-                            <div class="form-group">
-                                <label for="<?= $fieldId ?>"><?= htmlspecialchars($fieldLabel, ENT_QUOTES, 'UTF-8') ?></label>
-                                <div class="password-wrapper">
-                                    <input
-                                        class="form-input"
-                                        type="password"
-                                        id="<?= $fieldId ?>"
-                                        name="<?= $fieldId ?>"
-                                        autocomplete="<?= $fieldAutocomplete ?>"
-                                        required
-                                    >
-                                    <?php passwordToggleButton($fieldId); ?>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-
-                        <p class="password-requirements">
-                            Password must be 12–72 characters and include uppercase,
-                            lowercase, number, and special characters.
-                        </p>
-
-                        <button class="btn btn-primary" type="submit">
-                            Send Verification Code
+                <div class="settings-card collapsible-card">
+                    <div class="collapsible-header">
+                        <div class="collapsible-meta">
+                            <h3>Password</h3>
+                            <p class="collapsible-value">••••••••••••</p>
+                        </div>
+                        <button type="button" class="btn btn-outline btn-sm collapse-toggle-btn">
+                            <span class="collapse-btn-text" data-edit-text="Change Password">Change Password</span>
+                            <svg class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
                         </button>
-                    </form>
+                    </div>
+
+                    <div class="collapsible-body" hidden>
+                        <form method="post" action="/account/security.php" class="settings-form">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="action" value="change_password">
+
+                            <?php foreach ($passwordFields as [$fieldId, $fieldLabel, $fieldAutocomplete]): ?>
+                                <div class="form-group">
+                                    <label for="<?= $fieldId ?>"><?= htmlspecialchars($fieldLabel, ENT_QUOTES, 'UTF-8') ?></label>
+                                    <div class="password-wrapper">
+                                        <input
+                                            class="form-input"
+                                            type="password"
+                                            id="<?= $fieldId ?>"
+                                            name="<?= $fieldId ?>"
+                                            autocomplete="<?= $fieldAutocomplete ?>"
+                                            required
+                                        >
+                                        <?php passwordToggleButton($fieldId); ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+
+                            <p class="password-requirements">
+                                Password must be 12–72 characters and include uppercase, lowercase, number, and special characters.
+                            </p>
+
+                            <button class="btn btn-primary" type="submit" style="margin-top: 10px;">
+                                Send Verification Code
+                            </button>
+                        </form>
+                    </div>
                 </div>
             </div>
 
@@ -470,6 +478,7 @@ include __DIR__ . '/../includes/header.php';
 
 </div><!-- /.account-page-layout -->
 
+<script src="/js/account.js" defer></script>
 <?php if ($otpStep): ?>
     <script src="/js/otp-countdown.js" defer></script>
 <?php endif; ?>

@@ -313,158 +313,127 @@ include __DIR__ . '/../includes/header.php';
             </div>
         <?php endif; ?>
 
-        <!-- Personal Information -->
         <div class="settings-section">
-            <!-- Profile Picture Card -->
-            <div class="settings-card" style="margin-bottom: 20px;">
-                <div class="settings-card-header">
-                    <h2>Profile Photo</h2>
-                    <p>Upload a personal photo to display on your profile and header.</p>
+
+            <div class="settings-card collapsible-card" style="margin-bottom: 20px;">
+                <div class="collapsible-header">
+                    <div class="collapsible-meta">
+                        <h3>Profile Photo</h3>
+                        <p class="collapsible-value"><?= !empty($profile['profile_picture_path']) ? 'Custom photo uploaded' : 'Default avatar' ?></p>
+                    </div>
+                    <button type="button" class="btn btn-outline btn-sm collapse-toggle-btn">
+                        <span class="collapse-btn-text" data-edit-text="Change Photo">Change Photo</span>
+                        <svg class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
                 </div>
-                <form method="post" action="/account/index.php" enctype="multipart/form-data" class="settings-form">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
-                    <input type="hidden" name="action" value="update_avatar">
-                    <div class="form-group">
-                        <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/webp" class="form-input" required>
-                        <small style="color: var(--muted-text); font-size: 0.82rem; margin-top: 4px; display: block;">JPG, PNG, or WebP. Maximum size: 2 MB.</small>
-                    </div>
-                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
-                        <button type="submit" class="btn btn-primary btn-sm">Save Photo</button>
-                    </div>
-                </form>
-                <?php if (!empty($profile['profile_picture_path'])): ?>
-                    <form method="post" action="/account/index.php" style="margin-top: 10px;">
+                <div class="collapsible-body" hidden>
+                    <form method="post" action="/account/index.php" enctype="multipart/form-data" class="settings-form">
                         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
-                        <input type="hidden" name="action" value="remove_avatar">
-                        <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--danger-color); border-color: var(--danger-color);">Remove Photo</button>
+                        <input type="hidden" name="action" value="update_avatar">
+                        <div class="form-group">
+                            <input type="file" id="profile_picture" name="profile_picture" accept="image/jpeg,image/png,image/webp" class="form-input" required>
+                            <small style="color: var(--muted-text); font-size: 0.82rem; margin-top: 4px; display: block;">JPG, PNG, or WebP. Maximum size: 2 MB.</small>
+                        </div>
+                        <div style="display: flex; gap: 10px; align-items: center; margin-top: 8px;">
+                            <button type="submit" class="btn btn-primary btn-sm">Save Photo</button>
+                        </div>
                     </form>
-                <?php endif; ?>
+                    <?php if (!empty($profile['profile_picture_path'])): ?>
+                        <form method="post" action="/account/index.php" style="margin-top: 10px;">
+                            <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                            <input type="hidden" name="action" value="remove_avatar">
+                            <button type="submit" class="btn btn-secondary btn-sm" style="color: var(--danger-color); border-color: var(--danger-color);">Remove Photo</button>
+                        </form>
+                    <?php endif; ?>
+                </div>
             </div>
-            
+
             <div class="settings-section-heading">
                 <h2>Personal Information</h2>
-                <p>Keep your account information up to date.</p>
+                <p>Click any field to edit your information.</p>
             </div>
 
-            <div class="settings-card">
-                <div class="settings-card-content">
-                    <div class="settings-field-row">
-                        <div class="settings-field-meta">
-                            <h3>Full Name</h3>
-                            <p class="settings-value">
-                                <?= htmlspecialchars($profile['full_name'], ENT_QUOTES, 'UTF-8') ?>
-                            </p>
-                        </div>
-
-                        <form method="post" action="/account/index.php" class="settings-form">
-                            <input
-                                type="hidden"
-                                name="csrf_token"
-                                value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
-                            >
-                            <input type="hidden" name="action" value="update_name">
-
-                            <label for="full_name">Update full name</label>
-                            <div class="settings-form-row">
-                                <input
-                                    class="form-input"
-                                    type="text"
-                                    id="full_name"
-                                    name="full_name"
-                                    maxlength="150"
-                                    required
-                                    value="<?= htmlspecialchars($profile['full_name'], ENT_QUOTES, 'UTF-8') ?>"
-                                >
-                                <button class="btn btn-primary" type="submit">
-                                    Save
-                                </button>
-                            </div>
-                        </form>
+            <!-- Full Name Card -->
+            <div class="settings-card collapsible-card" style="margin-bottom: 16px;">
+                <div class="collapsible-header">
+                    <div class="collapsible-meta">
+                        <h3>Full Name</h3>
+                        <p class="collapsible-value"><?= htmlspecialchars($profile['full_name'], ENT_QUOTES, 'UTF-8') ?></p>
                     </div>
+                    <button type="button" class="btn btn-outline btn-sm collapse-toggle-btn">
+                        <span class="collapse-btn-text" data-edit-text="Edit">Edit</span>
+                        <svg class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                </div>
+                <div class="collapsible-body" hidden>
+                    <form method="post" action="/account/index.php" class="settings-form">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="update_name">
+                        <label for="full_name">Update full name</label>
+                        <div class="settings-form-row">
+                            <input class="form-input" type="text" id="full_name" name="full_name" maxlength="150" required value="<?= htmlspecialchars($profile['full_name'], ENT_QUOTES, 'UTF-8') ?>">
+                            <button class="btn btn-primary" type="submit">Save</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
-            <div class="settings-card">
-                <div class="settings-card-content">
-                    <div class="settings-field-row">
-                        <div class="settings-field-meta">
-                            <h3>Email Address</h3>
-                            <p class="settings-value">
-                                <?= htmlspecialchars($profile['email'], ENT_QUOTES, 'UTF-8') ?>
-                            </p>
-                        </div>
-
-                        <form method="post" action="/account/index.php" class="settings-form">
-                            <input
-                                type="hidden"
-                                name="csrf_token"
-                                value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
-                            >
-                            <input type="hidden" name="action" value="update_email">
-
-                            <label for="email">Update email address</label>
-                            <div class="settings-form-row">
-                                <input
-                                    class="form-input"
-                                    type="email"
-                                    id="email"
-                                    name="email"
-                                    maxlength="255"
-                                    required
-                                    value="<?= htmlspecialchars($profile['email'], ENT_QUOTES, 'UTF-8') ?>"
-                                >
-                                <button class="btn btn-primary" type="submit">
-                                    Save
-                                </button>
-                            </div>
-                        </form>
+            <!-- Email Address Card -->
+            <div class="settings-card collapsible-card" style="margin-bottom: 16px;">
+                <div class="collapsible-header">
+                    <div class="collapsible-meta">
+                        <h3>Email Address</h3>
+                        <p class="collapsible-value"><?= htmlspecialchars($profile['email'], ENT_QUOTES, 'UTF-8') ?></p>
                     </div>
+                    <button type="button" class="btn btn-outline btn-sm collapse-toggle-btn">
+                        <span class="collapse-btn-text" data-edit-text="Edit">Edit</span>
+                        <svg class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                </div>
+                <div class="collapsible-body" hidden>
+                    <form method="post" action="/account/index.php" class="settings-form">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="update_email">
+                        <label for="email">Update email address</label>
+                        <div class="settings-form-row">
+                            <input class="form-input" type="email" id="email" name="email" maxlength="255" required value="<?= htmlspecialchars($profile['email'], ENT_QUOTES, 'UTF-8') ?>">
+                            <button class="btn btn-primary" type="submit">Save</button>
+                        </div>
+                    </form>
                 </div>
             </div>
 
-            <div class="settings-card">
-                <div class="settings-card-content">
-                    <div class="settings-field-row">
-                        <div class="settings-field-meta">
-                            <h3>Mobile Number</h3>
-                            <p class="settings-value">
-                                <?= $profile['mobile_number']
-                                    ? htmlspecialchars($profile['mobile_number'], ENT_QUOTES, 'UTF-8')
-                                    : 'No mobile number added' ?>
-                            </p>
-                        </div>
-
-                        <form method="post" action="/account/index.php" class="settings-form">
-                            <input
-                                type="hidden"
-                                name="csrf_token"
-                                value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"
-                            >
-                            <input type="hidden" name="action" value="update_mobile">
-
-                            <label for="mobile_number">Update mobile number</label>
-                            <div class="settings-form-row">
-                                <input
-                                    class="form-input"
-                                    type="tel"
-                                    id="mobile_number"
-                                    name="mobile_number"
-                                    maxlength="20"
-                                    placeholder="09123456789"
-                                    value="<?= htmlspecialchars((string) $profile['mobile_number'], ENT_QUOTES, 'UTF-8') ?>"
-                                >
-                                <button class="btn btn-primary" type="submit">
-                                    Save
-                                </button>
-                            </div>
-                        </form>
+            <!-- Mobile Number Card -->
+            <div class="settings-card collapsible-card" style="margin-bottom: 16px;">
+                <div class="collapsible-header">
+                    <div class="collapsible-meta">
+                        <h3>Mobile Number</h3>
+                        <p class="collapsible-value"><?= $profile['mobile_number'] ? htmlspecialchars($profile['mobile_number'], ENT_QUOTES, 'UTF-8') : 'No mobile number added' ?></p>
                     </div>
+                    <button type="button" class="btn btn-outline btn-sm collapse-toggle-btn">
+                        <span class="collapse-btn-text" data-edit-text="Edit">Edit</span>
+                        <svg class="collapse-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"></polyline></svg>
+                    </button>
+                </div>
+                <div class="collapsible-body" hidden>
+                    <form method="post" action="/account/index.php" class="settings-form">
+                        <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                        <input type="hidden" name="action" value="update_mobile">
+                        <label for="mobile_number">Update mobile number</label>
+                        <div class="settings-form-row">
+                            <input class="form-input" type="tel" id="mobile_number" name="mobile_number" maxlength="20" placeholder="09123456789" value="<?= htmlspecialchars((string) $profile['mobile_number'], ENT_QUOTES, 'UTF-8') ?>">
+                            <button class="btn btn-primary" type="submit">Save</button>
+                        </div>
+                    </form>
                 </div>
             </div>
+
         </div>
 
-    </div><!-- /.account-main-content -->
+    </div>
 
-</div><!-- /.account-page-layout -->
+</div>
+
+<script src="/js/account.js" defer></script>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
