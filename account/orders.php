@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/catalog.php';
+require_once __DIR__ . '/../controllers/OrderController.php';
 
 requireRole(['customer']);
 
@@ -21,9 +24,24 @@ if ($selectedStatus !== 'all' && !array_key_exists($selectedStatus, $statuses)) 
     $selectedStatus = 'all';
 }
 
-/*
- * Get all orders belonging to the currently logged-in customer.
- */
+$flashError = $_SESSION['order_flash_error'] ?? '';
+$flashSuccess = $_SESSION['order_flash_success'] ?? '';
+unset($_SESSION['order_flash_error'], $_SESSION['order_flash_success']);
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cancel_order') {
+    requireCsrfToken();
+    $orderId = filter_input(INPUT_POST, 'order_id', FILTER_VALIDATE_INT) ?: 0;
+    try {
+        $orderController = new OrderController($pdo);
+        $orderController->cancelOrderByCustomer($orderId, $userId);
+        $_SESSION['order_flash_success'] = 'Order cancelled successfully. Stock has been restored.';
+    } catch (Throwable $e) {
+        $_SESSION['order_flash_error'] = $e->getMessage();
+    }
+    header('Location: /account/orders.php' . ($selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : ''));
+    exit;
+}
+
 $stmt = $pdo->prepare(
     'SELECT
         o.order_id,
@@ -56,9 +74,24 @@ $stmt = $pdo->prepare(
 $stmt->execute([$userId]);
 $allOrders = $stmt->fetchAll();
 
-/*
- * Count orders for each status.
- */
+$orderIds = array_column($allOrders, 'order_id');
+$orderItemsMap = [];
+if (!empty($orderIds)) {
+    $inClause = implode(',', array_fill(0, count($orderIds), '?'));
+    $itemsStmt = $pdo->prepare(
+        "SELECT oi.order_id, oi.quantity, oi.unit_price, e.format, e.cover_image_path, b.title, b.book_id
+         FROM order_items oi
+         JOIN book_editions e ON e.edition_id = oi.edition_id
+         JOIN books b ON b.book_id = e.book_id
+         WHERE oi.order_id IN ($inClause)
+         ORDER BY b.title"
+    );
+    $itemsStmt->execute($orderIds);
+    foreach ($itemsStmt->fetchAll() as $row) {
+        $orderItemsMap[$row['order_id']][] = $row;
+    }
+}
+
 $orderCounts = [
     'all' => count($allOrders),
     'pending' => 0,
@@ -76,9 +109,6 @@ foreach ($allOrders as $order) {
     }
 }
 
-/*
- * Filter orders according to the selected tab.
- */
 if ($selectedStatus === 'all') {
     $orders = $allOrders;
 } else {
@@ -90,9 +120,6 @@ if ($selectedStatus === 'all') {
     );
 }
 
-/*
- * Tracking steps.
- */
 $trackingSteps = [
     'pending' => [
         'Order Placed',
@@ -141,7 +168,6 @@ include __DIR__ . '/../includes/header.php';
 
 <div class="account-page-layout container">
 
-    <!-- ========== SIDEBAR ========== -->
     <aside class="account-sidebar">
         <nav class="account-sidebar-nav" aria-label="Account navigation">
 
@@ -196,7 +222,6 @@ include __DIR__ . '/../includes/header.php';
         </nav>
     </aside>
 
-    <!-- ========== MAIN CONTENT ========== -->
     <section class="account-main-content orders-page">
 
     <div class="page-heading">
@@ -206,7 +231,6 @@ include __DIR__ . '/../includes/header.php';
         </p>
     </div>
 
-    <!-- STATUS TABS -->
     <nav class="order-status-tabs" aria-label="Order status filters">
 
         <a
@@ -238,8 +262,6 @@ include __DIR__ . '/../includes/header.php';
 
     </nav>
 
-
-    <!-- ORDERS -->
     <?php if (!$orders): ?>
 
         <div class="card empty-state">
@@ -294,179 +316,84 @@ include __DIR__ . '/../includes/header.php';
                 $isCancelled = $status === 'cancelled';
                 ?>
 
-                <article class="order-card <?= $isCancelled ? 'cancelled-order' : '' ?>">
+                <article class="order-card <?= $isCancelled ? 'order-card-cancelled' : '' ?>">
 
-                    <!-- ORDER HEADER -->
                     <div class="order-card-header">
-
                         <div>
-                            <span class="order-label">
-                                Order Number
-                            </span>
-
-                            <h2 class="order-number">
-                                <?= e($order['order_number']) ?>
-                            </h2>
+                            <span class="order-label">Order Number</span>
+                            <h2 class="order-number"><?= e($order['order_number']) ?></h2>
                         </div>
 
-                        <span
-                            class="order-status status-<?= e($status) ?>"
-                        >
-                            <?= e($statusLabel) ?>
-                        </span>
+                        <div class="order-card-actions">
+                            <?php if ($status === 'pending'): ?>
+                                <form method="post" action="/account/orders.php<?= $selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : '' ?>" onsubmit="return confirm('Are you sure you want to cancel this order?');" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="action" value="cancel_order">
+                                    <input type="hidden" name="order_id" value="<?= (int) $order['order_id'] ?>">
+                                    <button type="submit" class="btn btn-cancel-order">Cancel Order</button>
+                                </form>
+                            <?php endif; ?>
 
+                            <?php if (!$isCancelled): ?>
+                                <button type="button" class="btn btn-track-order track-order-btn" 
+                                    data-order="<?= e($order['order_number']) ?>" 
+                                    data-status="<?= e($status) ?>" 
+                                    data-status-label="<?= e($statusLabel) ?>" 
+                                    data-step="<?= (int) ($statusStep[$status] ?? 1) ?>">
+                                    Track Order
+                                </button>
+                            <?php endif; ?>
+
+                            <span class="order-status status-<?= e($status) ?>">
+                                <?= e($statusLabel) ?>
+                            </span>
+                        </div>
                     </div>
 
-
-                    <!-- ORDER DETAILS -->
-                    <div class="order-details">
-
-                        <div class="order-detail">
-
-                            <span class="order-detail-label">
-                                Items
-                            </span>
-
-                            <span class="order-detail-value">
-                                <?= e($order['items']) ?>
-                            </span>
-
-                        </div>
-
-
-                        <div class="order-detail">
-
-                            <span class="order-detail-label">
-                                Order Date
-                            </span>
-
-                            <span class="order-detail-value">
-                                <?= e(
-                                    date(
-                                        'M d, Y · h:i A',
-                                        strtotime($order['placed_at'])
-                                    )
-                                ) ?>
-                            </span>
-
-                        </div>
-
-
-                        <div class="order-detail order-total">
-
-                            <span class="order-detail-label">
-                                Total
-                            </span>
-
-                            <span class="order-detail-value">
-                                ₱<?= number_format(
-                                    (float) $order['total_amount'],
-                                    2
-                                ) ?>
-                            </span>
-
-                        </div>
-
-                    </div>
-
-
-                    <!-- ORDER TRACKING -->
-                    <?php if ($isCancelled): ?>
-
-                        <div class="tracking-section">
-
-                            <h3 class="tracking-heading">
-                                Order Tracking
-                            </h3>
-
-                            <div class="cancelled-order-message">
-                                <p>
-                                    This order has been cancelled.
-                                </p>
-                            </div>
-
-                        </div>
-
-                    <?php else: ?>
-
-                        <div class="tracking-section">
-
-                            <div class="tracking-heading-row">
-
-                                <h3 class="tracking-heading">
-                                    Order Tracking
-                                </h3>
-
-                                <span class="tracking-progress">
-                                    Step <?= $currentStep ?> of 4
-                                </span>
-
-                            </div>
-
-
-                            <div class="tracking-progress">
-
-                                <?php
-                                $steps = $trackingSteps[$status];
-                                ?>
-
-                                <?php foreach ($steps as $index => $stepLabel): ?>
-
-                                    <?php
-                                    $stepNumber = $index + 1;
-
-                                    $isCompleted = $stepNumber < $currentStep;
-                                    $isCurrent = $stepNumber === $currentStep;
-
-                                    $stepClass = '';
-
-                                    if ($isCompleted) {
-                                        $stepClass = 'completed';
-                                    } elseif ($isCurrent) {
-                                        $stepClass = 'active';
-                                    }
-                                    ?>
-
-                                    <div
-                                        class="tracking-step <?= $stepClass ?>"
-                                    >
-
-                                        <div class="tracking-dot">
-
-                                            <?php if ($isCompleted || $isCurrent): ?>
-
-                                                ✓
-
+                    <div class="order-card-body">
+                        <div class="order-items-col">
+                            <span class="order-detail-label">Items Ordered</span>
+                            <div class="order-items-list">
+                                <?php foreach ($orderItemsMap[$order['order_id']] ?? [] as $item): ?>
+                                    <?php $coverUrl = catalogCover($item['cover_image_path']); ?>
+                                    <div class="order-item-row">
+                                        <div class="order-item-cover-wrap">
+                                            <?php if ($coverUrl): ?>
+                                                <img src="<?= e($coverUrl) ?>" alt="<?= e($item['title']) ?>" class="order-item-cover" loading="lazy">
                                             <?php else: ?>
-
-                                                <?= $stepNumber ?>
-
+                                                <div class="order-item-cover-placeholder">📖</div>
                                             <?php endif; ?>
-
                                         </div>
-
-                                        <span class="tracking-label">
-                                            <?= e($stepLabel) ?>
-                                        </span>
-
+                                        <div class="order-item-info">
+                                            <a href="/book.php?id=<?= (int) $item['book_id'] ?>" class="order-item-title"><?= e($item['title']) ?></a>
+                                            <div class="order-item-meta">
+                                                <span class="order-item-format"><?= e(ucfirst($item['format'])) ?></span>
+                                                <span class="order-item-qty">Qty: <?= (int) $item['quantity'] ?></span>
+                                                <span class="order-item-price">₱<?= number_format((float) $item['unit_price'], 2) ?> each</span>
+                                            </div>
+                                        </div>
                                     </div>
-
-
-                                    <?php if ($stepNumber < 4): ?>
-
-                                        <div
-                                            class="tracking-line <?= $isCompleted ? 'completed' : '' ?>"
-                                        ></div>
-
-                                    <?php endif; ?>
-
                                 <?php endforeach; ?>
-
                             </div>
 
+                            <?php if ($isCancelled): ?>
+                                <div class="order-cancelled-notice">
+                                    <p><strong>Order Cancelled</strong> · This order was cancelled and inventory was restored.</p>
+                                </div>
+                            <?php endif; ?>
                         </div>
 
-                    <?php endif; ?>
+                        <div class="order-meta-col">
+                            <div class="order-meta-box">
+                                <span class="order-detail-label">Order Date</span>
+                                <span class="order-meta-value"><?= e(date('M d, Y · h:i A', strtotime($order['placed_at']))) ?></span>
+                            </div>
+                            <div class="order-meta-box order-meta-total">
+                                <span class="order-detail-label">Total Amount</span>
+                                <span class="order-total-amount">₱<?= number_format((float) $order['total_amount'], 2) ?></span>
+                            </div>
+                        </div>
+                    </div>
 
                 </article>
 
@@ -476,8 +403,65 @@ include __DIR__ . '/../includes/header.php';
 
     <?php endif; ?>
 
-    </section><!-- /.account-main-content -->
+    </section>
 
-</div><!-- /.account-page-layout -->
+</div>
 
-<?php include __DIR__ . '/../includes/footer.php'; ?>
+<!-- Order Tracking Modal -->
+<div id="trackingModal" class="tracking-modal" hidden>
+    <div class="tracking-modal-backdrop"></div>
+    <div class="tracking-modal-card">
+        <div class="tracking-modal-header">
+            <div>
+                <span class="tracking-modal-eyebrow">ORDER PROGRESS</span>
+                <h3 class="tracking-modal-title" id="modalOrderNumber">ORD-...</h3>
+            </div>
+            <button type="button" class="tracking-modal-close" aria-label="Close tracking">&times;</button>
+        </div>
+
+        <div class="tracking-modal-body">
+            <div class="tracking-modal-status-row">
+                <span class="tracking-modal-status-label">Current Status:</span>
+                <span class="order-status" id="modalStatusBadge">Pending</span>
+            </div>
+
+            <div class="tracking-vertical-timeline">
+                <div class="timeline-step" data-step="1">
+                    <div class="timeline-dot"><span>1</span></div>
+                    <div class="timeline-content">
+                        <h4>Order Placed</h4>
+                        <p>We received your order and reserved your items.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-step" data-step="2">
+                    <div class="timeline-dot"><span>2</span></div>
+                    <div class="timeline-content">
+                        <h4>Processing</h4>
+                        <p>Your books are being carefully prepared and packed.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-step" data-step="3">
+                    <div class="timeline-dot"><span>3</span></div>
+                    <div class="timeline-content">
+                        <h4>Shipped</h4>
+                        <p>Your package has been handed over to our courier partner.</p>
+                    </div>
+                </div>
+
+                <div class="timeline-step" data-step="4">
+                    <div class="timeline-dot"><span>4</span></div>
+                    <div class="timeline-content">
+                        <h4>Delivered</h4>
+                        <p>Package delivered to your shipping address.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script src="/js/orders.js" defer></script>
+
+<?php include __DIR__ . '/../includes/footer.php'; ?>
