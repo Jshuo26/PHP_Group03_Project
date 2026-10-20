@@ -5,10 +5,19 @@ function isLoggedIn()
   return isset($_SESSION['user_id']);
 }
 
+function loginUrl()
+{
+  $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+
+  return strpos($script, '/admin/') !== false
+    ? '/admin/login.php'
+    : '/auth/login.php';
+}
+
 function requireLogin()
 {
   if (!isLoggedIn()) {
-    header("Location: /auth/login.php");
+    header("Location: " . loginUrl());
     exit;
   }
 }
