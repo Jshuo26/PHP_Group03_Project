@@ -1,29 +1,14 @@
 <?php
 
-/**
- * Shared login page.
- *
- * Do not open this file directly. It is loaded by:
- *   auth/login.php   ($loginAudience = 'customer')
- *   admin/login.php  ($loginAudience = 'staff')
- *
- * Same design and same security rules for both. The only differences are
- * which roles may sign in on that page and which links are shown.
- */
-
 require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/csrf.php';
 require_once __DIR__ . '/input.php';
 
 $isStaffLogin = ($loginAudience ?? 'customer') === 'staff';
-
-// A staff account cannot sign in on the customer page, and the other way around.
-// Both cases get the same "Invalid email or password." message.
 $allowedRoles    = $isStaffLogin ? ['admin', 'staff'] : ['customer'];
 $loginAction     = $isStaffLogin ? '/admin/login.php' : '/auth/login.php';
 $successRedirect = $isStaffLogin ? '/admin/index.php' : '/index.php';
-
 $errors = [];
 $lock_seconds_left = 0;
 
