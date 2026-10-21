@@ -97,6 +97,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             ]);
             $_SESSION['flash_ok'] = 'Password rules updated. They apply to new and changed passwords.';
         }
+    
+    } elseif ($action === 'save_session_timeout') {
+
+        $timeout = filter_var(
+            requestString($_POST, 'session_timeout_minutes'),
+            FILTER_VALIDATE_INT,
+            ['options' => ['min_range' => 1, 'max_range' => 1440]]
+        );
+
+        if ($timeout === false) {
+            $_SESSION['flash_error'] =
+                'Session timeout must be between 1 and 1440 minutes.';
+        } else {
+            $stmt = $pdo->prepare(
+                'INSERT INTO security_policy
+                    (policy_id, session_timeout_minutes, updated_by)
+                 VALUES (1, ?, ?)
+                 ON DUPLICATE KEY UPDATE
+                    session_timeout_minutes = VALUES(session_timeout_minutes),
+                    updated_by = VALUES(updated_by)'
+            );
+
+            $stmt->execute([
+                $timeout,
+                $_SESSION['user_id']
+            ]);
+
+            $_SESSION['flash_ok'] =
+                'Session timeout updated to ' . $timeout . ' minute(s).';
+        }
+
 
     } elseif ($action === 'unlock') {
 
@@ -130,6 +161,17 @@ $current = (int) $pdo->query(
 if ($current < 1) {
     $current = 3;
 }
+
+$sessionTimeout = $pdo->query(
+    'SELECT session_timeout_minutes
+     FROM security_policy
+     WHERE policy_id = 1
+     LIMIT 1'
+)->fetchColumn();
+
+$sessionTimeout = $sessionTimeout === false
+    ? 2
+    : max(1, min(1440, (int) $sessionTimeout));
 
 $pw = getPasswordPolicy($pdo);
 
@@ -208,6 +250,47 @@ include __DIR__ . '/../includes/header.php';
       </div>
 
       <button type="submit" class="btn btn-primary">Save</button>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2>Session Timeout</h2>
+
+    <p class="card-text">
+      Automatically log users out after the selected period of inactivity.
+      This setting applies to customers, staff, and administrators.
+    </p>
+
+    <form method="POST" action="/admin/security.php">
+      <input type="hidden" name="csrf_token"
+             value="<?php echo e($csrf); ?>">
+      <input type="hidden" name="action"
+             value="save_session_timeout">
+
+      <div class="form-group">
+        <label for="session_timeout_minutes">
+          Inactivity timeout (1 to 1440 minutes)
+        </label>
+
+        <input
+          type="number"
+          id="session_timeout_minutes"
+          name="session_timeout_minutes"
+          class="form-input"
+          min="1"
+          max="1440"
+          value="<?php echo $sessionTimeout; ?>"
+          required
+        >
+
+        <div class="pp-hint">
+          Current timeout: <?php echo $sessionTimeout; ?> minute(s).
+        </div>
+      </div>
+
+      <button type="submit" class="btn btn-primary">
+        Save session timeout
+      </button>
     </form>
   </div>
 

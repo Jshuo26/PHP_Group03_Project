@@ -56,6 +56,21 @@
 <script src="/js/script.js"></script>
 <script src="/js/cookie-consent.js"></script>
 
+<?php if (!empty($_SESSION['user_id'])): ?>
+    <script>
+        window.sessionTimeoutMinutes =
+            <?php echo (int) ($_SESSION['session_timeout_minutes'] ?? 2); ?>;
+
+        window.sessionTimeoutLoginUrl =
+            <?php echo json_encode(
+                in_array($_SESSION['role'] ?? '', ['admin', 'staff'], true)
+                    ? '/admin/login.php?timeout=1'
+                    : '/auth/login.php?timeout=1'
+            ); ?>;
+    </script>
+    <script src="/js/session-timeout.js"></script>
+<?php endif; ?>
+
 </body>
 
 </html>

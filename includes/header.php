@@ -8,6 +8,7 @@ $userRole = $_SESSION['role'] ?? '';
 $userAvatar = $_SESSION['profile_picture_path'] ?? '';
 
 $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
+$sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
 
 ?>
 <!DOCTYPE html>
@@ -212,3 +213,10 @@ $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 <?php endif; ?>
 
 <main class="main-content">
+
+<?php if ($isLoggedIn): ?>
+    <script>
+        window.sessionTimeoutMinutes = <?php echo $sessionTimeoutMinutes; ?>;
+    </script>
+    <script src="/js/session-timeout.js"></script>
+<?php endif; ?>

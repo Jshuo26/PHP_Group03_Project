@@ -10,6 +10,8 @@ $allowedRoles    = $isStaffLogin ? ['admin', 'staff'] : ['customer'];
 $loginAction     = $isStaffLogin ? '/admin/login.php' : '/auth/login.php';
 $successRedirect = $isStaffLogin ? '/admin/index.php' : '/index.php';
 $errors = [];
+$timeoutMessage = $_SESSION['session_timeout_message'] ?? '';
+unset($_SESSION['session_timeout_message']);
 const DEFAULT_MAX_ATTEMPTS = 3;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -213,6 +215,12 @@ if ($slideFiles !== false) {
           <p class="login-kicker">ACCESSIBLE. ASSORTED. AUTOMATED.</p>
           <h1 class="login-title">Welcome back!</h1>
           <p class="login-subtitle">Log in to explore Filipino stories and pick up where you left off.</p>
+        <?php endif; ?>
+
+        <?php if ($timeoutMessage !== ''): ?>
+            <div class="form-errors" role="alert">
+                <p><?php echo htmlspecialchars($timeoutMessage, ENT_QUOTES, 'UTF-8'); ?></p>
+            </div>
         <?php endif; ?>
 
         <?php if (!empty($errors)): ?>
