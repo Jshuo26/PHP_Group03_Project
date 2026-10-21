@@ -131,6 +131,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             } else {
 
+                $mfaCheck = $pdo->prepare(
+                    "SELECT 1 FROM mfa_settings WHERE user_id = ? AND method = 'totp' LIMIT 1"
+                );
+                $mfaCheck->execute([$user['user_id']]);
+
+                if ($mfaCheck->fetchColumn()) {
+                    session_regenerate_id(true);
+                    $_SESSION['mfa_pending'] = [
+                        'user_id'  => (int) $user['user_id'],
+                        'audience' => $isStaffLogin ? 'staff' : 'customer',
+                        'started'  => time(),
+                        'attempts' => 0,
+                    ];
+                    header('Location: /auth/mfa.php');
+                    exit;
+                }
+
                 $successStmt = $pdo->prepare(
                     'INSERT INTO login_attempts (user_id, ip_address, success)
                      VALUES (?, ?, 1)'

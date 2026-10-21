@@ -21,10 +21,13 @@ $profileStmt->execute([$userId]);
 $profile = $profileStmt->fetch();
 
 if (!$profile) {
-    $passwordPolicy = getPasswordPolicy($pdo);
     http_response_code(404);
     exit('Account not found.');
 }
+$passwordPolicy = getPasswordPolicy($pdo);
+$mfaStmt = $pdo->prepare("SELECT 1 FROM mfa_settings WHERE user_id = ? AND method = 'totp' LIMIT 1");
+$mfaStmt->execute([$userId]);
+$mfaEnabled = (bool) $mfaStmt->fetchColumn();
 
 if (
     isset($_SESSION['pw_change']) &&
@@ -425,16 +428,16 @@ include __DIR__ . '/../includes/header.php';
                     <div class="security-feature-info">
                         <div class="security-feature-title-wrap">
                             <h3>Google Authenticator</h3>
-                            <span class="badge-coming-soon">Coming Soon</span>
+                            <?php if ($mfaEnabled): ?>
+                                <span class="session-active-indicator">Turned on</span>
+                            <?php endif; ?>
                         </div>
                         <p class="security-feature-desc">
                             Use an authenticator application to generate verification codes when signing in.
                         </p>
                     </div>
                     <div class="security-feature-action">
-                        <button type="button" class="btn btn-outline btn-sm" disabled aria-disabled="true">
-                            Set Up
-                        </button>
+                        <a class="btn btn-outline btn-sm" href="/account/mfa.php"><?= $mfaEnabled ? 'Manage' : 'Set Up' ?></a>
                     </div>
                 </div>
             </div>

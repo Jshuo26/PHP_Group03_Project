@@ -1,0 +1,35 @@
+.mfa-wrap { max-width: 34rem; margin: 2rem auto; }
+.mfa-lead { color: #5b5b5b; margin: 0 0 1.25rem; }
+
+.mfa-status {
+  display: inline-block; padding: .15rem .7rem; border-radius: 999px;
+  font-size: .85rem; font-weight: 600; margin-bottom: 1rem;
+}
+.mfa-status--on  { background: #e8f5ec; color: #1f6b3a; }
+.mfa-status--off { background: #f1f1f1; color: #5b5b5b; }
+
+.mfa-steps { margin: 0 0 1.25rem; padding-left: 1.2rem; color: #333; }
+.mfa-steps li { margin-bottom: .4rem; }
+
+.mfa-setup { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; margin-bottom: 1.25rem; }
+.mfa-qr {
+  flex: 0 0 auto; width: 220px; height: 220px; background: #fff;
+  border: 1px solid #e3e3e3; border-radius: 8px; padding: 4px;
+}
+.mfa-qr svg { display: block; width: 100%; height: 100%; }
+.mfa-key-box { flex: 1 1 12rem; min-width: 12rem; }
+.mfa-key-label { font-size: .85rem; color: #5b5b5b; margin-bottom: .25rem; }
+.mfa-key {
+  display: block; font-family: ui-monospace, Consolas, monospace; font-size: 1.05rem;
+  letter-spacing: .08em; background: #f7f7f7; border: 1px solid #e3e3e3;
+  border-radius: 6px; padding: .6rem .75rem; word-break: break-all; user-select: all;
+}
+
+.mfa-code-input {
+  text-align: center; font-size: 1.4rem; letter-spacing: .35em;
+  font-family: ui-monospace, Consolas, monospace;
+}
+
+.mfa-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1rem; }
+.mfa-danger-zone { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e3e3e3; }
+.mfa-note { font-size: .85rem; color: #5b5b5b; margin-top: .75rem; }
