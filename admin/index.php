@@ -30,6 +30,9 @@ include '../includes/header.php';
             <a class="btn btn-primary" href="/admin/products.php">Manage books</a>
             <a class="btn btn-secondary" href="/admin/genres.php">Manage categories</a>
             <a class="btn btn-secondary" href="/admin/orders.php">Manage orders</a>
+            <?php if ($_SESSION['role'] === 'admin'): ?>
+                <a class="btn btn-secondary" href="/admin/security.php">Security settings</a>
+            <?php endif; ?>
         </nav>
 
     </div>
