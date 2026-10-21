@@ -1,10 +1,26 @@
 <?php
 
+if (isset($_SERVER['HTTP_HOST']) && ($_SERVER['HTTP_HOST'] === 'localhost' || $_SERVER['HTTP_HOST'] === '127.0.0.1' || strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0)) {
+    $db_host = 'localhost';
+    $db_user = 'your_username_here';
+    $db_name = 'aklaaat_db';
+    $db_pass = 'your_password_here';
+    $app_url = 'http://localhost:8000';
+} else {
+    $db_host = 'your_host_here';
+    $db_user = 'your_username_here';
+    $db_name = 'your_name_here';
+    $db_pass = 'your_password_here';
+    $app_url = 'https://aklaaat.infinityfreeapp.com';
+}
+
 return [
-    'DB_HOST'    => 'localhost',
-    'DB_NAME'    => 'aklaaat_db',
-    'DB_USER'    => 'your_username_here',
-    'DB_PASS'    => 'your_password_here',
+
+    'APP_URL'    => $app_url,
+    'DB_HOST'    => $db_host,
+    'DB_USER'    => $db_user,
+    'DB_NAME'    => $db_name,
+    'DB_PASS'    => $db_pass,
     'DB_CHARSET' => 'utf8mb4',
 
     'RECAPTCHA_SITE_KEY' => 'your_site_key_here',
@@ -19,6 +35,7 @@ return [
     'PAYMONGO_PUBLIC_KEY' => 'pk_test_your_key_here',
     'PAYMONGO_SECRET_KEY' => 'sk_test_your_key_here',
 
-    'APP_URL' => 'http://localhost:8000',
+    'ENCRYPTION_KEY' => 'paste_the_output_here',
+
 ];
 ?>
