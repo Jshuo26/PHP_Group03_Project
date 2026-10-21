@@ -33,7 +33,7 @@ function requireCsrfToken()
 
     echo "<h1>403 - Invalid Request</h1>";
     echo "<p>The security token is invalid or expired.</p>";
-
+  
     exit;
   }
 }
