@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/otp.php';
 require_once __DIR__ . '/../includes/mailer.php';
+require_once __DIR__ . '/../includes/password_policy.php';
 
 requireRole(['customer']);
 
@@ -20,6 +21,7 @@ $profileStmt->execute([$userId]);
 $profile = $profileStmt->fetch();
 
 if (!$profile) {
+    $passwordPolicy = getPasswordPolicy($pdo);
     http_response_code(404);
     exit('Account not found.');
 }
@@ -29,16 +31,6 @@ if (
     (int) ($_SESSION['pw_change']['user_id'] ?? 0) !== $userId
 ) {
     unset($_SESSION['pw_change']);
-}
-
-function isStrongPassword(string $password): bool
-{
-    return strlen($password) >= 12
-        && strlen($password) <= 72
-        && preg_match('/[A-Z]/', $password)
-        && preg_match('/[a-z]/', $password)
-        && preg_match('/[0-9]/', $password)
-        && preg_match('/[^a-zA-Z0-9]/', $password);
 }
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -55,8 +47,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $errors[] = 'Enter your current password.';
         }
 
-        if (!isStrongPassword($newPassword)) {
-            $errors[] = 'New password must be 12 to 72 characters and include uppercase, lowercase, number, and special characters.';
+        foreach (validatePasswordAgainstPolicy($newPassword, $passwordPolicy) as $passwordError) {
+            $errors[] = $passwordError;
         }
 
         if ($newPassword !== $confirmPassword) {
@@ -328,7 +320,7 @@ include __DIR__ . '/../includes/header.php';
                             <?php endforeach; ?>
 
                             <p class="password-requirements">
-                                Password must be 12–72 characters and include uppercase, lowercase, number, and special characters.
+                                <?= htmlspecialchars(passwordRulesSentence($passwordPolicy), ENT_QUOTES, 'UTF-8') ?>
                             </p>
 
                             <button class="btn btn-primary" type="submit" style="margin-top: 10px;">

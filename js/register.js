@@ -24,21 +24,22 @@ document.addEventListener('DOMContentLoaded', function () {
     }
 
     if (passwordInput) {
-        const rules = [
-            ['length-rule', value => value.length >= 12],
-            ['uppercase-rule', value => /[A-Z]/.test(value)],
-            ['lowercase-rule', value => /[a-z]/.test(value)],
-            ['number-rule', value => /[0-9]/.test(value)],
-            ['special-rule', value => /[^a-zA-Z0-9]/.test(value)]
-        ];
+        const checklist = document.getElementById('passwordChecklist');
+        const counters = {
+            length:    value => value.length,
+            uppercase: value => (value.match(/[A-Z]/g) || []).length,
+            lowercase: value => (value.match(/[a-z]/g) || []).length,
+            number:    value => (value.match(/[0-9]/g) || []).length,
+            special:   value => (value.match(/[^a-zA-Z0-9]/g) || []).length
+        };
 
         function updatePasswordRules() {
+            if (!checklist) return;
             const value = passwordInput.value;
-            rules.forEach(([id, test]) => {
-                const rule = document.getElementById(id);
-                if (rule) {
-                    rule.classList.toggle('is-valid', test(value));
-                }
+            checklist.querySelectorAll('li[data-rule]').forEach(item => {
+                const count = counters[item.dataset.rule];
+                if (!count) return;
+                item.classList.toggle('is-valid', count(value) >= parseInt(item.dataset.min, 10));
             });
         }
 

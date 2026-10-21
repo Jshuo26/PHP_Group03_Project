@@ -7,8 +7,10 @@ require_once __DIR__ . '/../includes/recaptcha.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/otp.php';
 require_once __DIR__ . '/../includes/mailer.php';
+require_once __DIR__ . '/../includes/password_policy.php';
 
 $errors  = [];
+$passwordPolicy = getPasswordPolicy($pdo);
 $recaptchaSiteKey = trim((string) ($config['RECAPTCHA_SITE_KEY'] ?? ''));
 $recaptchaSecretKey = trim((string) ($config['RECAPTCHA_SECRET_KEY'] ?? ''));
 $recaptchaConfigured = $recaptchaSiteKey !== ''
@@ -84,28 +86,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
-    if (strlen($password) < 12) {
-        $errors[] = 'Password must be at least 12 characters long.';
-    }
-
-    if (strlen($password) > 72) {
-        $errors[] = 'Password must not be longer than 72 characters.';
-    }
-
-    if (!preg_match('/[A-Z]/', $password)) {
-        $errors[] = 'Password must contain at least one uppercase letter.';
-    }
-
-    if (!preg_match('/[a-z]/', $password)) {
-        $errors[] = 'Password must contain at least one lowercase letter.';
-    }
-
-    if (!preg_match('/[0-9]/', $password)) {
-        $errors[] = 'Password must contain at least one number.';
-    }
-
-    if (!preg_match('/[^a-zA-Z0-9]/', $password)) {
-        $errors[] = 'Password must contain at least one special character.';
+    foreach (validatePasswordAgainstPolicy($password, $passwordPolicy) as $passwordError) {
+        $errors[] = $passwordError;
     }
 
     if ($password !== $confirm_password) {
@@ -315,14 +297,13 @@ include __DIR__ . '/../includes/header.php';
                         <svg class="icon-open" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path fill-rule="evenodd" d="M1.323 11.447C2.811 6.976 7.028 3.75 12.001 3.75c4.97 0 9.185 3.223 10.675 7.69.12.362.12.752 0 1.113-1.487 4.471-5.705 7.697-10.677 7.697-4.97 0-9.186-3.223-10.675-7.69a1.762 1.762 0 0 1 0-1.113ZM17.25 12a5.25 5.25 0 1 1-10.5 0 5.25 5.25 0 0 1 10.5 0Z" clip-rule="evenodd"/></svg>
                     </button>
                 </div>
-                <small class="register-password-help">Use 12–72 characters with uppercase and lowercase letters, a number, and a special character.</small>
-                <ul class="password-checklist" id="passwordChecklist">
-                    <li id="length-rule">At least 12 characters</li>
-                    <li id="uppercase-rule">One uppercase letter</li>
-                    <li id="lowercase-rule">One lowercase letter</li>
-                    <li id="number-rule">One number</li>
-                    <li id="special-rule">One special character</li>
-                </ul>
+                    <small class="register-password-help">Maximum <?php echo PASSWORD_MAX_LENGTH; ?> characters.</small>
+                    <ul class="password-checklist" id="passwordChecklist">
+                        <?php foreach (passwordRules($passwordPolicy) as $rule): ?>
+                            <li data-rule="<?php echo htmlspecialchars($rule['key'], ENT_QUOTES, 'UTF-8'); ?>"
+                                data-min="<?php echo (int) $rule['min']; ?>"><?php echo htmlspecialchars($rule['label'], ENT_QUOTES, 'UTF-8'); ?></li>
+                        <?php endforeach; ?>
+                    </ul>
             </div>
 
             <div class="form-group register-confirm-group">
