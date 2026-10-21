@@ -10,7 +10,7 @@ $allowedRoles    = $isStaffLogin ? ['admin', 'staff'] : ['customer'];
 $loginAction     = $isStaffLogin ? '/admin/login.php' : '/auth/login.php';
 $successRedirect = $isStaffLogin ? '/admin/index.php' : '/index.php';
 $errors = [];
-$lock_seconds_left = 0;
+const DEFAULT_MAX_ATTEMPTS = 3;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
@@ -30,15 +30,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($errors)) {
 
         $policyStmt = $pdo->query(
-            'SELECT max_failed_attempts, lockout_duration_minutes
+            'SELECT max_failed_attempts
              FROM security_policy
              WHERE policy_id = 1
              LIMIT 1'
         );
         $policy = $policyStmt->fetch();
 
-        $max_failed_attempts = (int) ($policy['max_failed_attempts'] ?? 3);
-        $lockout_minutes = (int) ($policy['lockout_duration_minutes'] ?? 30);
+        $max_failed_attempts = (int) ($policy['max_failed_attempts'] ?? DEFAULT_MAX_ATTEMPTS);
+        if ($max_failed_attempts < 1) {
+            $max_failed_attempts = DEFAULT_MAX_ATTEMPTS;
+        }
 
         $rolePlaceholders = implode(',', array_fill(0, count($allowedRoles), '?'));
 
@@ -52,30 +54,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $user = $stmt->fetch();
 
         if ($user) {
-
             $lockStmt = $pdo->prepare(
-                'SELECT TIMESTAMPDIFF(
-                            SECOND,
-                            NOW(),
-                            DATE_ADD(locked_at, INTERVAL ? MINUTE)
-                        ) AS seconds_left
+                'SELECT 1
                  FROM locked_accounts
-                 WHERE user_id = ?
+                 WHERE user_id = ? AND unlocked_at IS NULL
                  LIMIT 1'
             );
-            $lockStmt->execute([$lockout_minutes, $user['user_id']]);
-            $locked = $lockStmt->fetch();
+            $lockStmt->execute([$user['user_id']]);
 
-            if ($locked) {
-                if ((int) $locked['seconds_left'] > 0) {
-                    $lock_seconds_left = (int) $locked['seconds_left'];
-                    $errors[] = 'Your account is temporarily locked. Please try again later.';
-                } else {
-                    $unlockStmt = $pdo->prepare(
-                        'DELETE FROM locked_accounts WHERE user_id = ?'
-                    );
-                    $unlockStmt->execute([$user['user_id']]);
-                }
+            if ($lockStmt->fetchColumn()) {
+                $errors[] = 'Your account is locked after too many failed attempts. Please contact an administrator to unlock it.';
             }
         }
 
@@ -95,33 +83,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $attemptStmt->execute([$user_id, $ip_address]);
 
                 if ($user) {
-
                     $countStmt = $pdo->prepare(
-                        'SELECT COUNT(*)
+                        "SELECT COUNT(*)
                          FROM login_attempts
                          WHERE user_id = ?
                          AND success = 0
-                         AND attempted_at >= DATE_SUB(NOW(), INTERVAL ? MINUTE)'
+                         AND attempted_at > GREATEST(
+                             COALESCE((SELECT MAX(attempted_at) FROM login_attempts
+                                       WHERE user_id = ? AND success = 1), '1970-01-01 00:00:00'),
+                             COALESCE((SELECT unlocked_at FROM locked_accounts
+                                       WHERE user_id = ?), '1970-01-01 00:00:00')
+                         )"
                     );
-                    $countStmt->execute([$user['user_id'], $lockout_minutes]);
+                    $countStmt->execute([$user['user_id'], $user['user_id'], $user['user_id']]);
                     $failed_attempts = (int) $countStmt->fetchColumn();
 
                     if ($failed_attempts >= $max_failed_attempts) {
-
                         $lockInsertStmt = $pdo->prepare(
                             'INSERT INTO locked_accounts (user_id, reason)
                              VALUES (?, ?)
                              ON DUPLICATE KEY UPDATE
-                                locked_at = CURRENT_TIMESTAMP,
-                                reason = VALUES(reason)'
+                                locked_at = NOW(),
+                                reason = VALUES(reason),
+                                unlocked_by = NULL,
+                                unlocked_at = NULL'
                         );
                         $lockInsertStmt->execute([
                             $user['user_id'],
                             'Too many failed login attempts.'
                         ]);
 
-                        $lock_seconds_left = $lockout_minutes * 60;
-                        $errors[] = 'Too many failed attempts. Your account has been temporarily locked.';
+                        $errors[] = 'Too many failed attempts. Your account has been locked. Please contact an administrator.';
 
                     } else {
                         $errors[] = 'Invalid email or password.';
@@ -231,12 +223,6 @@ if ($slideFiles !== false) {
           </div>
         <?php endif; ?>
 
-        <?php if ($lock_seconds_left > 0): ?>
-          <div class="lock-countdown" id="lockCountdown" data-seconds="<?php echo (int) $lock_seconds_left; ?>">
-            You can try again in <strong id="lockTimer">--:--</strong>
-          </div>
-        <?php endif; ?>
-
         <form id="loginForm" method="POST" action="<?php echo htmlspecialchars($loginAction, ENT_QUOTES, 'UTF-8'); ?>" novalidate>
           <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
 
@@ -263,9 +249,8 @@ if ($slideFiles !== false) {
               </div>
             <?php endif; ?>
             <span class="field-error" id="passwordError"></span>
-          </div>
-
-          <button type="submit" id="loginButton" class="btn btn-primary btn-block login-submit" <?php echo $lock_seconds_left > 0 ? 'disabled' : ''; ?>>Log in</button>
+         </div>
+          <button type="submit" id="loginButton" class="btn btn-primary btn-block login-submit">Log in</button>
         </form>
 
         <?php if (!$isStaffLogin): ?>
@@ -295,7 +280,5 @@ document.addEventListener('DOMContentLoaded', function () {
   }, 5000);
 });
 </script>
-
-<script src="/js/lockout.js" defer></script>
 
 <?php include __DIR__ . '/footer.php'; ?>
