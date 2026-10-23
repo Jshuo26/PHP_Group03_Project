@@ -23,7 +23,8 @@ class OrderController
 
             $itemsStmt = $this->pdo->prepare(
                 'SELECT ci.cart_item_id, ci.edition_id, ci.quantity, e.price,
-                        e.stock_quantity, b.title, e.format
+                        e.stock_quantity, b.title, e.format,    
+                        b.status AS book_status, b.review_status
                  FROM cart_items ci
                  JOIN book_editions e ON e.edition_id = ci.edition_id
                  JOIN books b ON b.book_id = e.book_id
@@ -40,8 +41,13 @@ class OrderController
             $subtotalCents = 0;
             $orderItemTitles = [];
             foreach ($items as $item) {
+                if ($item['book_status'] !== 'active' || $item['review_status'] !== 'approved') {
+                    throw new RuntimeException('"' . $item['title'] . '" is no longer available. Remove it from your cart and try again.');
+                }
+
                 $qty = (int) $item['quantity'];
                 $stock = (int) $item['stock_quantity'];
+                
                 if ($qty < 1 || $qty > $stock) {
                     throw new RuntimeException('There is not enough stock for "' . $item['title'] . '". Update your cart and try again.');
                 }

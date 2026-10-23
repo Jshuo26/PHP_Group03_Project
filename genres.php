@@ -1,11 +1,13 @@
 <?php
+
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/catalog_visibility.php';
 
 $stmt = $pdo->query(
     "SELECT g.genre_id, g.genre_name, COUNT(DISTINCT b.book_id) AS book_count
      FROM genres g
      LEFT JOIN book_genres bg ON bg.genre_id = g.genre_id
-     LEFT JOIN books b ON b.book_id = bg.book_id
+     LEFT JOIN books b ON b.book_id = bg.book_id AND " . catalogVisibleBookSql('b') . "
      LEFT JOIN book_editions e ON e.book_id = b.book_id
      WHERE g.status = 'active'
      GROUP BY g.genre_id, g.genre_name

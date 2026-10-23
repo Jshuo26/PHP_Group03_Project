@@ -42,7 +42,7 @@ class CartController
 
         $itemsStmt = $this->pdo->prepare(
             'SELECT ci.cart_item_id, ci.quantity, e.edition_id, e.format, e.price, e.stock_quantity,
-                    e.cover_image_path, b.title,
+                    e.cover_image_path, b.title, b.status AS book_status, b.review_status,
                     GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ", ") AS authors
              FROM cart_items ci
              JOIN book_editions e ON e.edition_id = ci.edition_id
@@ -51,7 +51,7 @@ class CartController
              LEFT JOIN authors a ON a.author_id = ba.author_id
              WHERE ci.cart_id = ?
              GROUP BY ci.cart_item_id, ci.quantity, e.edition_id, e.format, e.price,
-                      e.stock_quantity, e.cover_image_path, b.title
+                      e.stock_quantity, e.cover_image_path, b.title, b.status, b.review_status
              ORDER BY b.title'
         );
         $itemsStmt->execute([$cartId]);
@@ -67,7 +67,12 @@ class CartController
             $totalQuantity += $quantity;
 
             $item['stock_issue'] = '';
-            if ($stock < 1) {
+            $item['stock_issue'] = '';
+            
+            if ($item['book_status'] !== 'active' || $item['review_status'] !== 'approved') {
+                $item['stock_issue'] = 'out_of_stock';
+                $hasStockIssue = true;
+            } elseif ($stock < 1) {
                 $item['stock_issue'] = 'out_of_stock';
                 $hasStockIssue = true;
             } elseif ($quantity > $stock) {
@@ -103,6 +108,7 @@ class CartController
                  JOIN books b ON b.book_id = e.book_id
                  WHERE e.edition_id = ?
                    AND b.status = 'active'
+                   AND b.review_status = 'approved'
                  FOR UPDATE"
             );
             $editionStmt->execute([$editionId]);

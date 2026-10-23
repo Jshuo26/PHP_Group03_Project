@@ -31,7 +31,7 @@ $genres = $pdo->query(
 )->fetchAll();
 
 $languages = $pdo->query(
-    "SELECT DISTINCT language FROM books WHERE status = 'active' AND language IS NOT NULL AND language <> '' ORDER BY language"
+    "SELECT DISTINCT language FROM books WHERE status = 'active' AND review_status = 'approved' AND language IS NOT NULL AND language <> '' ORDER BY language"  // CHANGED
 )->fetchAll(PDO::FETCH_COLUMN);
 
 if (!in_array('Filipino', $languages, true)) {
