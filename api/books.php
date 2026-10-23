@@ -434,7 +434,7 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
         }
 
         $reviewStatus = apiSaveRelations($pdo, $bookId, $data);
-
+        $pdo->commit();
         apiResponse($method === 'POST' ? 201 : 200, [
             'success' => true,
             'message' => $method === 'POST'

@@ -59,10 +59,8 @@ function pickSpotlightId(PDO $pdo, string $type, bool $verifiedOnly, bool $skipR
 
 function pickSpotlightWithFallback(PDO $pdo, string $type): ?int
 {
-    return pickSpotlightId($pdo, $type, true, true)     
-        ?? pickSpotlightId($pdo, $type, false, true)    
-        ?? pickSpotlightId($pdo, $type, true, false)   
-        ?? pickSpotlightId($pdo, $type, false, false); 
+    return pickSpotlightId($pdo, $type, true, true)
+        ?? pickSpotlightId($pdo, $type, true, false);
 }
 
 function spotlightAuthorPhoto(?string $path): string
@@ -130,7 +128,7 @@ function getTodaysSpotlight(PDO $pdo): ?array
         if ($authorId === null || $bookId === null) {
             return null;
         }
-        
+
         $pdo->exec('DELETE FROM daily_spotlight WHERE spotlight_date = CURDATE()');
         $authorId = pickSpotlightWithFallback($pdo, 'author');
 
