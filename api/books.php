@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/session.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/db.php';
+require_once __DIR__ . '/../includes/author_verification.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -170,11 +171,9 @@ function apiValidateBook(array $input): array
         ]);
     }
 
-    if (strlen($author) > 150) {
-        apiResponse(400, [
-            'success' => false,
-            'message' => 'Author name must not exceed 150 bytes.'
-        ]);
+    $authorNames = parseAuthorNames($author);
+    if ($author !== '' && ($authorError = validateAuthorNames($authorNames)) !== null) {
+        apiResponse(400, ['success' => false, 'message' => $authorError]);
     }
 
     if (!is_array($genreIds)) {
@@ -214,7 +213,7 @@ function apiValidateBook(array $input): array
     ];
 }
 
-function apiSaveRelations(PDO $pdo, int $bookId, array $data): void
+function apiSaveRelations(PDO $pdo, int $bookId, array $data): string
 {
     foreach ($data['genre_ids'] as $genreId) {
         $stmt = $pdo->prepare(
@@ -246,33 +245,10 @@ function apiSaveRelations(PDO $pdo, int $bookId, array $data): void
     }
 
     if ($data['author'] !== '') {
-        $stmt = $pdo->prepare(
-            'SELECT author_id
-             FROM authors
-             WHERE full_name = ?
-             LIMIT 1'
-        );
-        $stmt->execute([$data['author']]);
-        $authorId = $stmt->fetchColumn();
-
-        if ($authorId === false) {
-            $stmt = $pdo->prepare(
-                'INSERT INTO authors (full_name) VALUES (?)'
-            );
-            $stmt->execute([$data['author']]);
-            $authorId = (int) $pdo->lastInsertId();
-        }
-
-        $stmt = $pdo->prepare(
-            'DELETE FROM book_authors WHERE book_id = ?'
-        );
-        $stmt->execute([$bookId]);
-
-        $stmt = $pdo->prepare(
-            'INSERT INTO book_authors (book_id, author_id) VALUES (?, ?)'
-        );
-        $stmt->execute([$bookId, $authorId]);
+        linkBookAuthors($pdo, $bookId, parseAuthorNames($data['author']), (int) ($_SESSION['user_id'] ?? 0));
     }
+
+    return refreshBookReviewStatus($pdo, $bookId);
 }
 
 $method = $_SERVER['REQUEST_METHOD'];
@@ -328,6 +304,9 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
     if ($method !== 'DELETE') {
         $input = apiReadJson();
         $data = apiValidateBook($input);
+        if ($method === 'POST' && ($data['author'] === '' || !$data['genre_ids'])) {
+             apiResponse(400, ['success' => false, 'message' => 'An author and at least one genre are required.']);
+        }
     }
 
     try {
@@ -454,16 +433,15 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
             }
         }
 
-        apiSaveRelations($pdo, $bookId, $data);
-
-        $pdo->commit();
+        $reviewStatus = apiSaveRelations($pdo, $bookId, $data);
 
         apiResponse($method === 'POST' ? 201 : 200, [
             'success' => true,
             'message' => $method === 'POST'
                 ? 'Book created successfully.'
                 : 'Book updated successfully.',
-            'book_id' => (int) $bookId
+            'book_id' => (int) $bookId,
+            'review_status' => $reviewStatus
         ]);
 
     } catch (PDOException $e) {
@@ -627,7 +605,9 @@ if (isset($_GET['id'])) {
     try {
         $check = $pdo->prepare(
             "SELECT book_id FROM books
-             WHERE book_id = ? AND status = 'active'"
+             WHERE book_id = ? 
+             AND status = 'active'
+             AND review_status = 'approved'"
         );
         $check->execute([$bookId]);
 
@@ -656,6 +636,7 @@ if (isset($_GET['id'])) {
                 FROM books b
                 JOIN book_editions e ON e.book_id = b.book_id
                 WHERE b.status = 'active'
+                  AND b.review_status = 'approved'
                   AND b.book_id <> ?
                   AND (
                       EXISTS (
@@ -734,6 +715,7 @@ if (isset($_GET['id'])) {
             LEFT JOIN book_editions e ON e.book_id = b.book_id
             WHERE b.book_id = ?
               AND b.status = 'active'
+              AND b.review_status = 'approved'
             ORDER BY e.edition_id
         ";
 
@@ -758,7 +740,7 @@ if (isset($_GET['id'])) {
     }
 }
 
-$where = ["b.status = 'active'"];
+$where = ["b.status = 'active'", "b.review_status = 'approved'"];
 $params = [];
 
 if ($search !== '') {
