@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/author_verification.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
+$serverScan = null;
 $success = $_SESSION['admin_flash'] ?? '';
 unset($_SESSION['admin_flash']);
 $formats = ['paperback', 'hardbound', 'ebook'];
@@ -139,6 +140,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($authorError !== null) {
             $errors[] = $authorError;
+        } else {
+            try {
+                $serverScan = scanAuthorNames($pdo, $authorNames);
+                if (requestString($_POST, 'scan_claimed') === '1' && !$serverScan['can_auto_approve']) {
+                    $errors[] = 'Author records changed since the scan. Review the results below, then save again.';
+                }
+            } catch (Throwable $e) {
+                error_log('Author revalidation failed: ' . $e->getMessage());
+                $errors[] = 'Unable to verify the authors right now. Please try again.';
+            }
         }
         if (!in_array($form['format'], $formats, true)) {
             $errors[] = 'Select a valid book format.';
@@ -276,6 +287,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($reviewOutcome['review_status'] !== 'approved') {
                         $flash .= ' Author review: ' . bookReviewLabel($reviewOutcome['review_status'])
                                 . '. The book stays hidden from customers until it is approved.';
+                        $unresolved = [];
+                        foreach ($reviewOutcome['authors'] as $linked) {
+                            if ($linked['status'] !== 'verified') {
+                                $unresolved[] = $linked['name'];
+                            }
+                        }
+                        if ($unresolved) {
+                            $flash .= ' Needs review: ' . implode('; ', $unresolved) . '.';
+                        }
                     }
                     $_SESSION['admin_flash'] = $flash;
                     header('Location: /admin/products.php');
@@ -340,14 +360,21 @@ include __DIR__ . '/../includes/header.php';
             <p>Add an active genre before adding books.</p>
             <a class="btn btn-primary" href="/admin/genres.php">Manage categories</a>
         <?php else: ?>
-            <form method="post" action="/admin/products.php<?= (int) $form['edition_id'] > 0 ? '?edit=' . (int) $form['edition_id'] : '' ?>" enctype="multipart/form-data">
+            <form
+                id="book-form"
+                method="post"
+                action="/admin/products.php<?= (int) $form['edition_id'] > 0 ? '?edit=' . (int) $form['edition_id'] : '' ?>"
+                enctype="multipart/form-data"
+            >
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="action" value="<?= (int) $form['edition_id'] > 0 ? 'edit' : 'add' ?>">
                 <input type="hidden" name="book_id" value="<?= (int) $form['book_id'] ?>">
                 <input type="hidden" name="edition_id" value="<?= (int) $form['edition_id'] ?>">
+                <input type="hidden" name="scan_claimed" id="scan_claimed" value="0">
                 <div class="form-group"><label for="title">Book title</label><input class="form-input" type="text" id="title" name="title" maxlength="255" required value="<?= htmlspecialchars((string) $form['title'], ENT_QUOTES, 'UTF-8') ?>"></div>
                 <div class="form-group"><label for="author">Author</label><input class="form-input" type="text" id="author" name="author" maxlength="600" required value="<?= htmlspecialchars((string) $form['author'], ENT_QUOTES, 'UTF-8') ?>"></div>
                 <small>Separate several authors with a semicolon (;). Books with unverified authors stay hidden until reviewed.</small>
+                <div id="author-scan-results" class="as-results" aria-live="polite"></div> <!-- CHANGED -->
                 <div class="form-group">
                     <label for="genre_ids">Genres (select one or more)</label>
                     <select class="form-input" id="genre_ids" name="genre_ids[]" multiple required size="<?= min(max(count($genres), 3), 7) ?>">
@@ -374,7 +401,7 @@ include __DIR__ . '/../includes/header.php';
                 <div class="form-group"><label for="price">Price (₱)</label><input class="form-input" type="number" id="price" name="price" min="0" max="99999999.99" step="0.01" required value="<?= htmlspecialchars((string) $form['price'], ENT_QUOTES, 'UTF-8') ?>"></div>
                 <div class="form-group"><label for="stock_quantity">Stock quantity</label><input class="form-input" type="number" id="stock_quantity" name="stock_quantity" min="0" max="9999999" step="1" required value="<?= htmlspecialchars((string) $form['stock_quantity'], ENT_QUOTES, 'UTF-8') ?>"></div>
                 <div class="form-group"><label for="cover">Book cover (JPEG, PNG, WebP; max 5 MB)</label><input class="form-input" type="file" id="cover" name="cover" accept="image/jpeg,image/png,image/webp"></div>
-                <button class="btn btn-primary" type="submit"><?= (int) $form['edition_id'] > 0 ? 'Save changes' : 'Add book' ?></button>
+                <button class="btn btn-primary" type="submit">Save &amp; Scan</button>
                 <?php if ((int) $form['edition_id'] > 0): ?><a class="btn btn-secondary" href="/admin/products.php">Cancel edit</a><?php endif; ?>
             </form>
         <?php endif; ?>
@@ -399,4 +426,93 @@ include __DIR__ . '/../includes/header.php';
         </article>
     <?php endforeach; ?>
 </section>
+
+<link rel="stylesheet" href="/css/admin-author-review.css">
+<?php if (!empty($serverScan)): ?>
+<script>window.__initialScan = <?= json_encode($serverScan, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?>;</script>
+<?php endif; ?>
+<script>
+(function () {
+  var form = document.getElementById('book-form');
+  if (!form) { return; }
+  var field = document.getElementById('author');
+  var box = document.getElementById('author-scan-results');
+  var claimed = document.getElementById('scan_claimed');
+  var token = form.querySelector('input[name="csrf_token"]').value;
+  var okFor = null, busy = false;
+
+  function node(tag, cls, text) {
+    var n = document.createElement(tag);
+    if (cls) { n.className = cls; }
+    if (text !== undefined) { n.textContent = text; }
+    return n;
+  }
+  function useName(oldName, newName) {
+    field.value = field.value.split(/[;\r\n]+/).map(function (p) {
+      p = p.trim().replace(/\s+/g, ' ');
+      return p === oldName ? newName : p;
+    }).filter(Boolean).join('; ');
+    okFor = null; claimed.value = '0'; box.textContent = '';
+  }
+  function render(data) {
+    box.textContent = '';
+    var s = data.summary;
+    box.appendChild(node('p', 'as-summary', s.verified + ' of ' + s.total + ' author(s) verified. ' +
+      (data.can_auto_approve ? 'This book will be approved and shown to customers.'
+                             : 'This book will stay pending and hidden from customers until reviewed.')));
+    data.authors.forEach(function (a) {
+      var card = node('div', 'as-card as-' + a.status);
+      var head = node('div', 'as-head');
+      head.appendChild(node('strong', '', a.input));
+      head.appendChild(node('span', 'as-badge', a.label));
+      card.appendChild(head);
+      if (a.author) { card.appendChild(node('p', 'as-line', 'Matches: ' + a.author.full_name + ' (#' + a.author.author_id + ')')); }
+      (a.candidates || []).forEach(function (c) { card.appendChild(node('p', 'as-line', 'Candidate: ' + c.full_name + ' (#' + c.author_id + ')')); });
+      (a.possible || []).forEach(function (p) {
+        var row = node('p', 'as-line', 'Did you mean ' + p.full_name + '? (' + p.reason + ') ');
+        var b = node('button', 'btn btn-secondary as-use', 'Use this name');
+        b.type = 'button';
+        b.addEventListener('click', function () { useName(a.input, p.full_name); });
+        row.appendChild(b); card.appendChild(row);
+      });
+      if (a.duplicate_of) { card.appendChild(node('p', 'as-line', 'Same author as "' + a.duplicate_of + '"; counted once.')); }
+      box.appendChild(card);
+    });
+  }
+  function submitNow(flag) { claimed.value = flag; okFor = field.value; form.submit(); }
+  function confirmBar() {
+    var bar = node('div', 'as-actions');
+    var go = node('button', 'btn btn-primary', 'Save as pending review'); go.type = 'button';
+    go.addEventListener('click', function () { submitNow('0'); });
+    var back = node('button', 'btn btn-secondary', 'Keep editing'); back.type = 'button';
+    back.addEventListener('click', function () { box.textContent = ''; });
+    bar.appendChild(go); bar.appendChild(back); box.appendChild(bar);
+  }
+
+  form.addEventListener('submit', function (e) {
+    if (busy) { e.preventDefault(); return; }
+    if (okFor === field.value) { return; }
+    e.preventDefault();
+    busy = true;
+    var body = new URLSearchParams();
+    body.set('csrf_token', token); body.set('author', field.value);
+    fetch('/admin/author_scan.php', { method: 'POST', body: body, credentials: 'same-origin', headers: { 'Accept': 'application/json' } })
+      .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
+      .then(function (res) {
+        if (!res.ok || !res.d.ok) { throw new Error(res.d && res.d.message ? res.d.message : 'Scan failed.'); }
+        render(res.d);
+        if (res.d.can_auto_approve) { submitNow('1'); } else { confirmBar(); }
+      })
+      .catch(function (err) {
+        box.textContent = '';
+        box.appendChild(node('p', 'as-error', err.message + ' Click Save again to continue; the server will check the authors and keep the book pending if needed.'));
+        okFor = field.value;
+      })
+      .then(function () { busy = false; });
+  });
+  field.addEventListener('input', function () { okFor = null; claimed.value = '0'; });
+  if (window.__initialScan) { render(window.__initialScan); }
+})();
+</script>
+
 <?php include __DIR__ . '/../includes/footer.php'; ?>

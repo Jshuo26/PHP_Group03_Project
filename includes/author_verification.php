@@ -489,3 +489,85 @@ function decideAuthor(
         throw $e;
     }
 }
+
+const AUTHOR_SCAN_LABELS = [
+    'verified'  => 'Verified author',
+    'ambiguous' => 'Ambiguous: several verified authors share this name',
+    'pending'   => 'Already awaiting review',
+    'rejected'  => 'Previously rejected',
+    'possible'  => 'Possible match: needs review',
+    'unknown'   => 'Unknown author: needs review',
+];
+
+function scanAuthorNames(PDO $pdo, array $names): array
+{
+    $results = [];
+    $targets = [];
+    $verifiedCount = 0;
+
+    foreach ($names as $name) {
+        $m = findAuthorMatches($pdo, $name);
+
+        $possible = [];
+        foreach ($m['possible'] as $p) {
+            $possible[] = [
+                'author_id' => (int) $p['author']['author_id'],
+                'full_name' => $p['author']['full_name'],
+                'reason'    => $p['reason'],
+            ];
+        }
+
+        $author = null;
+        $candidates = [];
+
+        if (count($m['exact']) === 1) {
+            $status = 'verified';
+            $a = $m['exact'][0];
+            $author = ['author_id' => (int) $a['author_id'], 'full_name' => $a['full_name'],
+                       'verification_status' => $a['verification_status']];
+        } elseif (count($m['exact']) > 1) {
+            $status = 'ambiguous';
+            foreach ($m['exact'] as $a) {
+                $candidates[] = ['author_id' => (int) $a['author_id'], 'full_name' => $a['full_name']];
+            }
+        } elseif ($m['unverified']) {
+            $list = $m['unverified'];
+            usort($list, static fn ($x, $y) => (int) $x['author_id'] <=> (int) $y['author_id']);
+            $a = $list[0];
+            $status = $a['verification_status'] === 'rejected' ? 'rejected' : 'pending';
+            $author = ['author_id' => (int) $a['author_id'], 'full_name' => $a['full_name'],
+                       'verification_status' => $a['verification_status']];
+        } elseif ($possible) {
+            $status = 'possible';
+        } else {
+            $status = 'unknown';
+        }
+
+        $duplicateOf = null;
+        if ($author !== null) {
+            if (isset($targets[$author['author_id']])) {
+                $duplicateOf = $targets[$author['author_id']];
+            } else {
+                $targets[$author['author_id']] = $name;
+            }
+        }
+        if ($status === 'verified') {
+            $verifiedCount++;
+        }
+
+        $results[] = [
+            'input' => $name, 'status' => $status, 'label' => AUTHOR_SCAN_LABELS[$status],
+            'will_be_verified' => $status === 'verified', 'author' => $author,
+            'candidates' => $candidates, 'possible' => $possible, 'duplicate_of' => $duplicateOf,
+        ];
+    }
+
+    $total = count($results);
+
+    return [
+        'ok'      => true,
+        'authors' => $results,
+        'summary' => ['total' => $total, 'verified' => $verifiedCount, 'needs_review' => $total - $verifiedCount],
+        'can_auto_approve' => $total > 0 && $verifiedCount === $total,
+    ];
+}
