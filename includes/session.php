@@ -65,6 +65,23 @@ if (!empty($_SESSION['user_id']) && isset($_SESSION['last_activity'])) {
         $_SESSION['session_timeout_message'] =
             'You were logged out because of inactivity. Please log in again.';
 
+        $isApiRequest = strpos(
+            str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? ''),
+            '/api/'
+        ) !== false;
+
+        if ($isApiRequest) {
+            http_response_code(401);
+            header('Content-Type: application/json; charset=utf-8');
+
+            echo json_encode([
+                'success' => false,
+                'message' => 'Your session expired. Please log in again.'
+            ]);
+
+            exit;
+        }
+
         if (in_array($expiredRole, ['admin', 'staff'], true)) {
             header('Location: /admin/login.php?timeout=1');
         } else {
