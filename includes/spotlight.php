@@ -1,5 +1,7 @@
 <?php
 
+require_once __DIR__ . '/catalog_visibility.php';
+
 const SPOTLIGHT_REST_DAYS = 7;
 
 function pickSpotlightId(PDO $pdo, string $type, bool $verifiedOnly, bool $skipRecent): ?int
@@ -26,10 +28,11 @@ function pickSpotlightId(PDO $pdo, string $type, bool $verifiedOnly, bool $skipR
         $sql = "SELECT a.author_id AS id
                 FROM authors a
                 INNER JOIN book_authors ba ON ba.author_id = a.author_id
+                INNER JOIN books b ON b.book_id = ba.book_id
                 INNER JOIN book_editions e
                         ON e.book_id = ba.book_id AND e.stock_quantity > 0
                 LEFT JOIN daily_spotlight ds ON ds.author_id = a.author_id
-                WHERE " . sprintf($activeGenre, 'ba.book_id') . " $verified
+                WHERE " . catalogVisibleBookSql('b') . " AND " . sprintf($activeGenre, 'ba.book_id') . " $verified
                 GROUP BY a.author_id
                 $having
                 ORDER BY $order
@@ -42,7 +45,7 @@ function pickSpotlightId(PDO $pdo, string $type, bool $verifiedOnly, bool $skipR
                 INNER JOIN book_authors ba ON ba.book_id = b.book_id
                 INNER JOIN authors a ON a.author_id = ba.author_id
                 LEFT JOIN daily_spotlight ds ON ds.book_id = b.book_id
-                WHERE " . sprintf($activeGenre, 'b.book_id') . " $verified
+                WHERE " . catalogVisibleBookSql('b') . " AND " . sprintf($activeGenre, 'b.book_id') . " $verified
                 GROUP BY b.book_id
                 $having
                 ORDER BY $order
@@ -95,11 +98,15 @@ function fetchSpotlightRow(PDO $pdo): ?array
             a.author_image_path AS author_image,
             (SELECT COUNT(DISTINCT ba3.book_id)
                FROM book_authors ba3
-              WHERE ba3.author_id = a.author_id) AS author_book_count
+               INNER JOIN books b3 ON b3.book_id = ba3.book_id
+              WHERE ba3.author_id = a.author_id
+                AND " . catalogVisibleBookSql('b3') . ") AS author_book_count
          FROM daily_spotlight ds
          INNER JOIN books b ON b.book_id = ds.book_id
          INNER JOIN authors a ON a.author_id = ds.author_id
          WHERE ds.spotlight_date = CURDATE()
+           AND " . catalogVisibleBookSql('b') . "
+           AND a.verification_status = 'verified'
          LIMIT 1"
     );
 
@@ -123,6 +130,9 @@ function getTodaysSpotlight(PDO $pdo): ?array
         if ($authorId === null || $bookId === null) {
             return null;
         }
+        
+        $pdo->exec('DELETE FROM daily_spotlight WHERE spotlight_date = CURDATE()');
+        $authorId = pickSpotlightWithFallback($pdo, 'author');
 
         $stmt = $pdo->prepare(
             'INSERT IGNORE INTO daily_spotlight (spotlight_date, book_id, author_id)
