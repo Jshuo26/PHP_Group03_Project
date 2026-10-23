@@ -1,79 +1,14 @@
 <?php
-require_once 'includes/db.php';
 
-$spotlightAuthor = null;
-$spotlightBook = null;
+require_once 'includes/db.php';
+require_once __DIR__ . '/includes/catalog_visibility.php';
+
 $featuredBooks = [];
 $newBooks = [];
 $genres = [];
 
 try {
-    $spotlightQuery = $pdo->query("SELECT ds.book_id, ds.author_id, a.full_name AS author_name, a.bio AS author_bio, b.title AS book_title, b.description AS book_description, (SELECT GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') FROM book_genres bg JOIN genres g ON g.genre_id = bg.genre_id WHERE bg.book_id = b.book_id) AS genre_name, be.cover_image_path, (SELECT GROUP_CONCAT(a2.full_name ORDER BY a2.full_name SEPARATOR ', ') FROM book_authors ba2 JOIN authors a2 ON a2.author_id = ba2.author_id WHERE ba2.book_id = b.book_id) AS book_authors
-        FROM daily_spotlight ds
-        JOIN authors a ON a.author_id = ds.author_id
-        JOIN books b ON b.book_id = ds.book_id
-        LEFT JOIN book_editions be ON be.book_id = b.book_id
-        WHERE ds.spotlight_date = CURDATE()
-        ORDER BY be.edition_id
-        LIMIT 1");
-    $todaySpotlight = $spotlightQuery->fetch();
-
-    if (!$todaySpotlight) {
-        $authorQuery = $pdo->query("SELECT a.author_id, a.full_name, a.bio
-            FROM authors a
-            WHERE NOT EXISTS (
-                SELECT 1 FROM daily_spotlight ds
-                WHERE ds.author_id = a.author_id
-                AND ds.spotlight_date > DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-            )
-            ORDER BY RAND()
-            LIMIT 1");
-        $eligibleAuthor = $authorQuery->fetch();
-
-        $bookQuery = $pdo->query("SELECT b.book_id, b.title, b.description, (SELECT GROUP_CONCAT(g.genre_name ORDER BY g.genre_name SEPARATOR ', ') FROM book_genres bg JOIN genres g ON g.genre_id = bg.genre_id WHERE bg.book_id = b.book_id) AS genre_name, be.cover_image_path, (SELECT GROUP_CONCAT(a2.full_name ORDER BY a2.full_name SEPARATOR ', ') FROM book_authors ba2 JOIN authors a2 ON a2.author_id = ba2.author_id WHERE ba2.book_id = b.book_id) AS book_authors
-            FROM books b
-            LEFT JOIN book_editions be ON be.book_id = b.book_id
-            WHERE NOT EXISTS (
-                SELECT 1 FROM daily_spotlight ds
-                WHERE ds.book_id = b.book_id
-                AND ds.spotlight_date > DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-            )
-            ORDER BY RAND()
-            LIMIT 1");
-        $eligibleBook = $bookQuery->fetch();
-
-        if ($eligibleAuthor && $eligibleBook) {
-            $insertSpotlight = $pdo->prepare('INSERT INTO daily_spotlight (spotlight_date, book_id, author_id) VALUES (CURDATE(), ?, ?)');
-            $insertSpotlight->execute([$eligibleBook['book_id'], $eligibleAuthor['author_id']]);
-
-            $todaySpotlight = [
-                'book_id' => $eligibleBook['book_id'],
-                'author_id' => $eligibleAuthor['author_id'],
-                'author_name' => $eligibleAuthor['full_name'],
-                'author_bio' => $eligibleAuthor['bio'],
-                'book_title' => $eligibleBook['title'],
-                'book_description' => $eligibleBook['description'],
-                'genre_name' => $eligibleBook['genre_name'],
-                'cover_image_path' => $eligibleBook['cover_image_path']
-            ];
-        }
-    }
-
-    if ($todaySpotlight) {
-        $spotlightAuthor = [
-            'author_id' => $todaySpotlight['author_id'],
-            'name' => $todaySpotlight['author_name'],
-            'bio' => $todaySpotlight['author_bio']
-        ];
-        $spotlightBook = [
-            'book_id' => $todaySpotlight['book_id'],
-            'title' => $todaySpotlight['book_title'],
-            'authors' => $todaySpotlight['book_authors'] ?? '',
-            'description' => $todaySpotlight['book_description'],
-            'genre' => $todaySpotlight['genre_name'],
-            'cover' => $todaySpotlight['cover_image_path']
-        ];
-    }
+    $visible = catalogVisibleBookSql('b');
 
     $featuredQuery = $pdo->query("SELECT b.book_id, b.title, be.price, be.cover_image_path,
             GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ', ') AS authors
@@ -81,7 +16,8 @@ try {
         JOIN book_editions be ON be.book_id = b.book_id
         LEFT JOIN book_authors ba ON ba.book_id = b.book_id
         LEFT JOIN authors a ON a.author_id = ba.author_id
-        WHERE EXISTS (SELECT 1 FROM book_genres bg JOIN genres g ON g.genre_id = bg.genre_id WHERE bg.book_id = b.book_id AND g.status = 'active')
+        WHERE $visible
+          AND EXISTS (SELECT 1 FROM book_genres bg JOIN genres g ON g.genre_id = bg.genre_id WHERE bg.book_id = b.book_id AND g.status = 'active')
         GROUP BY b.book_id, b.title, b.created_at, be.edition_id, be.price, be.cover_image_path
         ORDER BY b.created_at DESC, b.book_id DESC
         LIMIT 5");
@@ -93,6 +29,7 @@ try {
         JOIN book_editions be ON be.book_id = b.book_id
         LEFT JOIN book_authors ba ON ba.book_id = b.book_id
         LEFT JOIN authors a ON a.author_id = ba.author_id
+        WHERE $visible
         GROUP BY b.book_id, b.title, b.created_at, be.price, be.cover_image_path
         ORDER BY b.created_at DESC, b.book_id DESC
         LIMIT 5");
