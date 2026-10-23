@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
+require_once __DIR__ . '/../includes/author_verification.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -33,7 +34,7 @@ if ($editId > 0) {
         'SELECT b.book_id, e.edition_id, b.title, b.description, b.isbn,
                 b.language, b.publisher, b.status,
                 e.format, e.price, e.stock_quantity,
-                GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ", ") AS author
+                GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR "; ") AS author  -- CHANGED: "; "
          FROM book_editions e
          JOIN books b ON b.book_id = e.book_id
          LEFT JOIN book_authors ba ON ba.book_id = b.book_id
@@ -133,8 +134,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$genreIds) {
             $errors[] = 'Select at least one genre.';
         }
-        if ($form['author'] === '' || mb_strlen($form['author']) > 150) {
-            $errors[] = 'Author name is required and must not exceed 150 characters.';
+        $authorNames = parseAuthorNames($form['author']);
+        $authorError = validateAuthorNames($authorNames);
+
+        if ($authorError !== null) {
+            $errors[] = $authorError;
         }
         if (!in_array($form['format'], $formats, true)) {
             $errors[] = 'Select a valid book format.';
@@ -265,20 +269,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($genreIds as $genreId) {
                         $genreInsert->execute([$bookId, $genreId]);
                     }
-
-                    $authorStmt = $pdo->prepare('SELECT author_id FROM authors WHERE full_name = ? ORDER BY author_id LIMIT 1');
-                    $authorStmt->execute([$form['author']]);
-                    $authorId = (int) ($authorStmt->fetchColumn() ?: 0);
-                    if ($authorId === 0) {
-                        $authorStmt = $pdo->prepare('INSERT INTO authors (full_name) VALUES (?)');
-                        $authorStmt->execute([$form['author']]);
-                        $authorId = (int) $pdo->lastInsertId();
-                    }
-                    $pdo->prepare('DELETE FROM book_authors WHERE book_id = ?')->execute([$bookId]);
-                    $pdo->prepare('INSERT INTO book_authors (book_id, author_id) VALUES (?, ?)')->execute([$bookId, $authorId]);
+                    $reviewOutcome = linkBookAuthors($pdo, $bookId, $authorNames, (int) $_SESSION['user_id']);
                     $pdo->commit();
 
-                    $_SESSION['admin_flash'] = $isEdit ? 'Book updated.' : 'Book added.';
+                    $flash = $isEdit ? 'Book updated.' : 'Book added.';
+                    if ($reviewOutcome['review_status'] !== 'approved') {
+                        $flash .= ' Author review: ' . bookReviewLabel($reviewOutcome['review_status'])
+                                . '. The book stays hidden from customers until it is approved.';
+                    }
+                    $_SESSION['admin_flash'] = $flash;
                     header('Location: /admin/products.php');
                     exit;
                 } catch (PDOException $e) {
@@ -313,7 +312,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $genres = $pdo->query("SELECT genre_id, genre_name FROM genres WHERE status = 'active' ORDER BY genre_name")->fetchAll();
 $products = $pdo->query(
     'SELECT b.book_id, e.edition_id, b.title, b.description, b.isbn,
-            b.language, b.publisher, b.status,
+            b.language, b.publisher, b.status, b.review_status,
             GROUP_CONCAT(DISTINCT g.genre_name ORDER BY g.genre_name SEPARATOR ", ") AS genre_names,
             e.format, e.price, e.stock_quantity, e.cover_image_path,
             GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR ", ") AS authors
@@ -324,7 +323,7 @@ $products = $pdo->query(
      LEFT JOIN book_authors ba ON ba.book_id = b.book_id
      LEFT JOIN authors a ON a.author_id = ba.author_id
      GROUP BY b.book_id, e.edition_id, b.title, b.description, b.isbn,
-              b.language, b.publisher, b.status,
+              b.language, b.publisher, b.status, b.review_status,
               e.format, e.price, e.stock_quantity, e.cover_image_path
      ORDER BY b.created_at DESC, b.title, e.format'
 )->fetchAll();
@@ -347,7 +346,8 @@ include __DIR__ . '/../includes/header.php';
                 <input type="hidden" name="book_id" value="<?= (int) $form['book_id'] ?>">
                 <input type="hidden" name="edition_id" value="<?= (int) $form['edition_id'] ?>">
                 <div class="form-group"><label for="title">Book title</label><input class="form-input" type="text" id="title" name="title" maxlength="255" required value="<?= htmlspecialchars((string) $form['title'], ENT_QUOTES, 'UTF-8') ?>"></div>
-                <div class="form-group"><label for="author">Author</label><input class="form-input" type="text" id="author" name="author" maxlength="150" required value="<?= htmlspecialchars((string) $form['author'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                <div class="form-group"><label for="author">Author</label><input class="form-input" type="text" id="author" name="author" maxlength="600" required value="<?= htmlspecialchars((string) $form['author'], ENT_QUOTES, 'UTF-8') ?>"></div>
+                <small>Separate several authors with a semicolon (;). Books with unverified authors stay hidden until reviewed.</small>
                 <div class="form-group">
                     <label for="genre_ids">Genres (select one or more)</label>
                     <select class="form-input" id="genre_ids" name="genre_ids[]" multiple required size="<?= min(max(count($genres), 3), 7) ?>">
@@ -387,7 +387,7 @@ include __DIR__ . '/../includes/header.php';
             <?php if ($product['cover_image_path']): ?><img class="admin-cover" src="/images/book-covers/<?= rawurlencode(basename(str_replace('\\', '/', $product['cover_image_path']))) ?>" alt="<?= htmlspecialchars($product['title'], ENT_QUOTES, 'UTF-8') ?> cover"><?php endif; ?>
             <h3><?= htmlspecialchars($product['title'], ENT_QUOTES, 'UTF-8') ?></h3>
             <p>Author: <?= htmlspecialchars($product['authors'] ?: 'Not listed', ENT_QUOTES, 'UTF-8') ?> · Genres: <?= htmlspecialchars($product['genre_names'] ?: 'Not assigned', ENT_QUOTES, 'UTF-8') ?></p>
-            <p>Language: <?= htmlspecialchars($product['language'], ENT_QUOTES, 'UTF-8') ?><?php if ($product['publisher']): ?> · Publisher: <?= htmlspecialchars($product['publisher'], ENT_QUOTES, 'UTF-8') ?><?php endif; ?> · Status: <?= htmlspecialchars(ucfirst($product['status']), ENT_QUOTES, 'UTF-8') ?></p>
+                        <p>Language: <?= htmlspecialchars($product['language'], ENT_QUOTES, 'UTF-8') ?><?php if ($product['publisher']): ?> · Publisher: <?= htmlspecialchars($product['publisher'], ENT_QUOTES, 'UTF-8') ?><?php endif; ?> · Status: <?= htmlspecialchars(ucfirst($product['status']), ENT_QUOTES, 'UTF-8') ?> · Author review: <?= htmlspecialchars(bookReviewLabel($product['review_status']), ENT_QUOTES, 'UTF-8') ?></p>
             <?php if ($product['isbn']): ?><p>ISBN: <?= htmlspecialchars($product['isbn'], ENT_QUOTES, 'UTF-8') ?></p><?php endif; ?>
             <p><?= htmlspecialchars(ucfirst($product['format']), ENT_QUOTES, 'UTF-8') ?> · ₱<?= number_format((float) $product['price'], 2) ?> · Stock: <?= (int) $product['stock_quantity'] ?></p>
             <a class="btn btn-secondary" href="/admin/products.php?edit=<?= (int) $product['edition_id'] ?>">Edit</a>

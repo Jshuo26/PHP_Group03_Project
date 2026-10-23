@@ -40,6 +40,7 @@ try {
         LEFT JOIN authors a
             ON a.author_id = ba.author_id
         WHERE b.status = 'active'
+          AND b.review_status = 'approved'
           AND EXISTS (
               SELECT 1
               FROM book_genres bg

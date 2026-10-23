@@ -18,6 +18,7 @@ if ($bookId > 0) {
            FROM books b
           WHERE b.book_id = ?
             AND b.status = 'active'
+            AND b.review_status = 'approved'
             AND EXISTS (SELECT 1
                           FROM book_genres bg
                           JOIN genres g ON g.genre_id = bg.genre_id AND g.status = 'active'
@@ -135,6 +136,7 @@ $relatedStmt = $pdo->prepare(
        FROM books b
        JOIN book_editions e ON e.book_id = b.book_id
       WHERE b.status = 'active'
+        AND b.review_status = 'approved'
         AND b.book_id <> ?
       GROUP BY b.book_id, b.title
      HAVING stock_total > 0

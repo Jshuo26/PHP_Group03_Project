@@ -41,6 +41,7 @@ function addEditionToCart(PDO $pdo, int $userId, int $editionId, int $quantity):
                JOIN books b ON b.book_id = e.book_id
               WHERE e.edition_id = ?
                 AND b.status = 'active'
+                AND b.review_status = 'approved'
                 AND EXISTS (
                     SELECT 1
                       FROM book_genres bg

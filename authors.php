@@ -23,7 +23,9 @@ $sql = "SELECT
         JOIN genres g ON g.genre_id = bg.genre_id
                      AND g.status = 'active'
         JOIN book_editions e ON e.book_id = b.book_id
-        WHERE b.status = 'active'";
+        WHERE a.verification_status = 'verified'
+          AND b.status = 'active'
+          AND b.review_status = 'approved'";
 
 $params = [];
 

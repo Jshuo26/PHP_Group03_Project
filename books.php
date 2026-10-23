@@ -131,6 +131,7 @@ unset($_SESSION['store_flash']);
 
 $bookConditions = [
     "b.status = 'active'",
+    "b.review_status = 'approved'",
     "EXISTS (SELECT 1
                FROM book_genres bg
                JOIN genres g ON g.genre_id = bg.genre_id AND g.status = 'active'
