@@ -123,15 +123,35 @@ class PaymongoController
 
         $session = $response['data'] ?? null;
         $sessionId = is_array($session) ? (string) ($session['id'] ?? '') : '';
-        $attributes = is_array($session) ? ($session['attributes'] ?? []) : [];
+        $attributes = is_array($session) && is_array($session['attributes'] ?? null)
+            ? $session['attributes']
+            : [];
         $checkoutUrl = (string) ($attributes['checkout_url'] ?? '');
-        if (!is_array($session) || ($session['type'] ?? '') !== 'checkout_session'
-            || !preg_match('/^cs_[A-Za-z0-9]+$/', $sessionId)
-            || ($attributes['livemode'] ?? null) !== false
-            || ($attributes['reference_number'] ?? null) !== $order['order_number']
-            || !paymongoValidateCheckoutUrl($checkoutUrl)) {
-            error_log('PayMongo checkout response failed local validation.');
-            throw new RuntimeException('PayMongo returned an invalid sandbox checkout response. Your order remains pending.');
+        $validationFailures = [];
+        if (!is_array($session)) {
+            $validationFailures[] = 'session data';
+        } else {
+            if (($session['type'] ?? '') !== 'checkout_session') {
+                $validationFailures[] = 'resource type';
+            }
+            if (!preg_match('/^cs_[A-Za-z0-9]+$/', $sessionId)) {
+                $validationFailures[] = 'session ID format';
+            }
+            if (($attributes['livemode'] ?? null) !== false) {
+                $validationFailures[] = 'sandbox mode';
+            }
+            if (($attributes['reference_number'] ?? null) !== $order['order_number']) {
+                $validationFailures[] = 'order reference';
+            }
+            if (!paymongoValidateCheckoutUrl($checkoutUrl)) {
+                $validationFailures[] = 'checkout URL';
+            }
+        }
+        if ($validationFailures) {
+            error_log('PayMongo checkout response failed validation: ' . implode(', ', $validationFailures) . '.');
+            throw new RuntimeException(
+                'PayMongo response validation failed: ' . implode(', ', $validationFailures) . '. Your order remains pending.'
+            );
         }
 
         $this->saveCheckoutSession($payment, $order, $userId, $sessionId, $checkoutUrl);
