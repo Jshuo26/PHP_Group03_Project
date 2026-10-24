@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/crypto.php';
 require_once __DIR__ . '/../includes/totp.php';
 require_once __DIR__ . '/../includes/login_security.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 const MFA_PENDING_SECONDS = 300; 
 const MFA_MAX_ATTEMPTS    = 3;
@@ -17,7 +18,9 @@ if (!empty($_SESSION['user_id'])) {
 }
 
 $pending = $_SESSION['mfa_pending'] ?? null;
-$loginUrl = '/auth/login.php';
+$loginUrl = (is_array($pending) && ($pending['audience'] ?? '') === 'staff')
+    ? '/admin/login.php'
+    : '/auth/login.php';
 
 function mfaBackToLogin(string $loginUrl, string $message): void
 {
@@ -31,6 +34,7 @@ if (
     !is_array($pending)
     || empty($pending['user_id'])
     || (time() - (int) ($pending['started'] ?? 0)) > MFA_PENDING_SECONDS
+    || ($pending['mode'] ?? 'verify') !== 'verify'
 ) {
     mfaBackToLogin($loginUrl, 'Your sign-in session expired. Please log in again.');
 }
@@ -59,7 +63,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $mfaStmt->execute([$userId]);
     $mfa = $mfaStmt->fetch();
 
-    if (!$user || !$mfa || !$user['role'] === 'customer' || $user['account_status'] !== 'active') {
+    $audienceMatches = $user && (
+        (($pending['audience'] ?? '') === 'staff' && in_array($user['role'], ['admin', 'staff'], true))
+        || (($pending['audience'] ?? '') === 'customer' && $user['role'] === 'customer')
+    );
+    if (!$user || !$mfa || !$audienceMatches || $user['account_status'] !== 'active') {
         mfaBackToLogin($loginUrl, 'We could not complete your sign-in. Please log in again.');
     }
 
@@ -93,12 +101,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $_SESSION['email'] = $user['email'];
         $_SESSION['role'] = $user['role'];
         $_SESSION['profile_picture_path'] = $user['profile_picture_path'] ?? null;
+        $_SESSION['mfa_verified'] = true;
         $_SESSION['last_activity'] = time();
+
+        auditLog($pdo, 'login', 'MFA login verified', 'authentication', $userId);
 
         header('Location: /index.php');
         exit;
     }
 
+    auditLog($pdo, 'update', 'MFA verification failed', 'authentication', $userId);
     if (recordFailedLogin($pdo, $userId)) {
         mfaBackToLogin($loginUrl, 'Too many failed attempts. Your account has been locked. Please contact an administrator.');
     }

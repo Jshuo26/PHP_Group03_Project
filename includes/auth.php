@@ -38,6 +38,12 @@ function hasRole($allowedRoles)
 function requireRole($allowedRoles)
 {
   requireLogin();
+  if (in_array($_SESSION['role'] ?? null, ['admin', 'staff'], true)
+      && empty($_SESSION['mfa_verified'])) {
+    unset($_SESSION['user_id'], $_SESSION['role'], $_SESSION['full_name'], $_SESSION['email']);
+    header('Location: /admin/login.php?mfa_required=1');
+    exit;
+  }
 
   if (!hasRole($allowedRoles)) {
 

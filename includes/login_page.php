@@ -136,15 +136,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 );
                 $mfaCheck->execute([$user['user_id']]);
 
-                if ($mfaCheck->fetchColumn()) {
+                $hasMfa = (bool) $mfaCheck->fetchColumn();
+                $requiresMfa = in_array($user['role'], ['admin', 'staff'], true);
+
+                if ($hasMfa || $requiresMfa) {
                     session_regenerate_id(true);
                     $_SESSION['mfa_pending'] = [
                         'user_id'  => (int) $user['user_id'],
                         'audience' => $isStaffLogin ? 'staff' : 'customer',
+                        'mode'     => $hasMfa ? 'verify' : 'enroll',
                         'started'  => time(),
                         'attempts' => 0,
                     ];
-                    header('Location: /auth/mfa.php');
+                    header('Location: ' . ($hasMfa ? '/auth/mfa.php' : '/account/mfa.php'));
                     exit;
                 }
 
@@ -164,6 +168,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['email'] = $user['email'];
                 $_SESSION['role'] = $user['role'];
                 $_SESSION['profile_picture_path'] = $user['profile_picture_path'] ?? null;
+                $_SESSION['mfa_verified'] = false;
                 $_SESSION['last_activity'] = time();
 
                 header('Location: ' . $successRedirect);

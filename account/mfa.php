@@ -7,10 +7,26 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/crypto.php';
 require_once __DIR__ . '/../includes/totp.php';
+require_once __DIR__ . '/../includes/audit.php';
 
-requireRole(['customer']);
+$pendingMfa = $_SESSION['mfa_pending'] ?? null;
+$isStaffEnrollment = is_array($pendingMfa)
+    && ($pendingMfa['audience'] ?? '') === 'staff'
+    && ($pendingMfa['mode'] ?? '') === 'enroll'
+    && !empty($pendingMfa['user_id'])
+    && time() - (int) ($pendingMfa['started'] ?? 0) <= 300
+    && empty($_SESSION['user_id']);
 
-$userId = (int) $_SESSION['user_id'];
+if (!$isStaffEnrollment) {
+    requireLogin();
+    if (in_array($_SESSION['role'] ?? '', ['admin', 'staff'], true)) {
+        requireRole(['admin', 'staff']);
+    } else {
+        requireRole(['customer']);
+    }
+}
+
+$userId = $isStaffEnrollment ? (int) $pendingMfa['user_id'] : (int) $_SESSION['user_id'];
 $errors = [];
 
 if (!function_exists('e')) {
@@ -20,7 +36,7 @@ if (!function_exists('e')) {
     }
 }
 
-$userStmt = $pdo->prepare('SELECT email, password_hash, role FROM users WHERE user_id = ?');
+$userStmt = $pdo->prepare('SELECT email, full_name, password_hash, role, account_status, profile_picture_path FROM users WHERE user_id = ?');
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
@@ -29,7 +45,14 @@ if (!$user) {
     exit('Account not found.');
 }
 
-$backUrl = '/account/security.php';
+if ($user['account_status'] !== 'active'
+    || ($isStaffEnrollment && !in_array($user['role'], ['admin', 'staff'], true))) {
+    unset($_SESSION['mfa_pending'], $_SESSION['mfa_setup_secret']);
+    header('Location: /admin/login.php');
+    exit;
+}
+
+$backUrl = $isStaffEnrollment ? '/admin/login.php' : '/account/security.php';
 
 function loadMfaRow(PDO $pdo, int $userId)
 {
@@ -53,13 +76,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $secret = (string) ($_SESSION['mfa_setup_secret'] ?? '');
         $step = null;
 
-        if ($mfa) {
+        if ($isStaffEnrollment && $mfa) {
+            unset($_SESSION['mfa_pending'], $_SESSION['mfa_setup_secret']);
+            header('Location: /admin/login.php');
+            exit;
+        } elseif ($mfa) {
             $errors[] = 'Google Authenticator is already turned on.';
         } elseif ($secret === '') {
             $errors[] = 'Your setup session expired. Scan the new QR code and try again.';
         } else {
             $step = totpVerify($secret, requestString($_POST, 'code'));
             if ($step === null) {
+                auditLog($pdo, 'update', 'MFA enrollment code rejected', 'authentication', $userId);
                 $errors[] = 'That code is not correct. Check the code in the app and try again.';
             }
         }
@@ -78,6 +106,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 unset($_SESSION['mfa_setup_secret']);
                 session_regenerate_id(true);
+                auditLog($pdo, 'create', 'Authenticator enrollment completed', 'authentication', $userId);
+                if ($isStaffEnrollment) {
+                    recordSuccessfulLogin($pdo, $userId);
+                    unset($_SESSION['mfa_pending']);
+                    $_SESSION['user_id'] = (int) $user['user_id'];
+                    $_SESSION['full_name'] = $user['full_name'];
+                    $_SESSION['email'] = $user['email'];
+                    $_SESSION['role'] = $user['role'];
+                    $_SESSION['profile_picture_path'] = $user['profile_picture_path'] ?? null;
+                    $_SESSION['mfa_verified'] = true;
+                    $_SESSION['last_activity'] = time();
+                    auditLog($pdo, 'login', 'MFA enrollment and login completed', 'authentication', $userId);
+                    header('Location: /admin/index.php');
+                    exit;
+                }
+                $_SESSION['mfa_verified'] = true;
                 $_SESSION['mfa_flash_ok'] = 'Google Authenticator is now on. You will be asked for a code each time you log in.';
 
                 header('Location: /account/mfa.php');
@@ -96,9 +140,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     } elseif ($action === 'disable') {
 
+        if (in_array($user['role'], ['admin', 'staff'], true)) {
+            http_response_code(403);
+            $errors[] = 'MFA is required for staff and administrator accounts and cannot be disabled here.';
+        }
+
         $fails = (int) ($_SESSION['mfa_disable_fails'] ?? 0);
 
-        if (!$mfa) {
+        if (in_array($user['role'], ['admin', 'staff'], true)) {
+        } elseif (!$mfa) {
             $errors[] = 'Google Authenticator is not turned on.';
         } elseif ($fails >= 5) {
             $errors[] = 'Too many attempts. Log out and log in again to try later.';
@@ -112,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Your password or code is incorrect.';
             } else {
                 $pdo->prepare('DELETE FROM mfa_settings WHERE user_id = ?')->execute([$userId]);
+                auditLog($pdo, 'delete', 'Authenticator disabled', 'authentication', $userId);
                 unset($_SESSION['mfa_disable_fails']);
                 session_regenerate_id(true);
                 $_SESSION['mfa_flash_ok'] = 'Google Authenticator has been turned off.';
@@ -169,6 +220,7 @@ include __DIR__ . '/../includes/header.php';
       <span class="mfa-status mfa-status--on">Turned on</span>
       <p class="card-text">Your account asks for a Google Authenticator code at every login.</p>
 
+      <?php if (!in_array($user['role'], ['admin', 'staff'], true)): ?>
       <div class="mfa-danger-zone">
         <h2>Turn off</h2>
         <p class="card-text">Enter your password and a current code from the app to turn it off.</p>
@@ -197,6 +249,9 @@ include __DIR__ . '/../includes/header.php';
 
         <p class="mfa-note">Lost your phone? Contact an administrator to reset your authenticator.</p>
       </div>
+      <?php else: ?>
+      <p class="mfa-note">MFA is mandatory for staff and administrator accounts. To recover access after losing your authenticator, contact an authorized administrator.</p>
+      <?php endif; ?>
 
     <?php else: ?>
 
