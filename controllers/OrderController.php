@@ -1,5 +1,7 @@
 <?php
 require_once __DIR__ . '/../includes/crypto.php';
+require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/payment_schema.php';
 
 class OrderController
 {
@@ -12,6 +14,15 @@ class OrderController
 
     public function createPendingOrder(int $userId, array $shipping, string $paymentMethod = 'cod'): array
     {
+        if (!in_array($paymentMethod, ['cod', 'gcash', 'maya'], true)) {
+            throw new InvalidArgumentException('Select a supported payment method.');
+        }
+        $paymentColumnsAvailable = paymentSchemaHasColumn($this->pdo, 'orders', 'payment_method')
+            && paymentSchemaHasColumn($this->pdo, 'orders', 'payment_status');
+        if ($paymentMethod !== 'cod' && (!$paymentColumnsAvailable || !paymongoSchemaReady($this->pdo))) {
+            throw new RuntimeException('Apply database/migrations/004_paymongo_hosted_checkout.sql before enabling online payments.');
+        }
+
         try {
             $this->pdo->beginTransaction();
 
@@ -64,13 +75,18 @@ class OrderController
             $orderNumber = 'ORD-' . date('YmdHis') . '-' . bin2hex(random_bytes(3));
             $encryptedShipping = encryptOrderPersonalFields($shipping, $orderNumber);
 
-            $orderStmt = $this->pdo->prepare(
-                'INSERT INTO orders
+            $orderSql = $paymentColumnsAvailable
+                ? 'INSERT INTO orders
+                    (user_id, order_number, shipping_name, shipping_mobile, shipping_street,
+                     shipping_city, shipping_province, shipping_zip, status, subtotal,
+                     shipping_fee, tax_amount, total_amount, payment_method, payment_status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, "pending", ?, ?, ?, ?, ?, ?)'
+                : 'INSERT INTO orders
                     (user_id, order_number, shipping_name, shipping_mobile, shipping_street,
                      shipping_city, shipping_province, shipping_zip, status, subtotal,
                      shipping_fee, tax_amount, total_amount)
-                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, "pending", ?, ?, ?, ?)'
-            );
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, "pending", ?, ?, ?, ?)';
+            $orderStmt = $this->pdo->prepare($orderSql);
             $orderStmt->execute([
                 $userId,
                 $orderNumber,
@@ -83,7 +99,8 @@ class OrderController
                 $subtotal,
                 $shippingFee,
                 $taxAmount,
-                $totalAmount
+                $totalAmount,
+                ...($paymentColumnsAvailable ? [$paymentMethod, $paymentMethod === 'cod' ? 'not_required' : 'pending'] : [])
             ]);
             $orderId = (int) $this->pdo->lastInsertId();
 
@@ -115,10 +132,30 @@ class OrderController
             $delStmt = $this->pdo->prepare('DELETE FROM cart_items WHERE cart_id = ?');
             $delStmt->execute([$cartId]);
 
-            $logStmt = $this->pdo->prepare(
-                'INSERT INTO audit_logs (user_id, action, description) VALUES (?, "create", ?)'
+            if ($paymentMethod === 'cod') {
+                auditLogRequired(
+                    $this->pdo,
+                    'checkout_succeeded',
+                    'Checkout completed and an order was created.',
+                    'checkout',
+                    $userId,
+                    'order',
+                    $orderId,
+                    'success',
+                    'customer'
+                );
+            }
+            auditLogRequired(
+                $this->pdo,
+                'order_created',
+                'Order created and inventory reserved.',
+                'orders',
+                $userId,
+                'order',
+                $orderId,
+                'success',
+                'customer'
             );
-            $logStmt->execute([$userId, 'Created order ' . $orderNumber . ' and reserved inventory']);
 
             $this->pdo->commit();
 
@@ -165,6 +202,22 @@ class OrderController
             if ($currentStatus === $newStatus) {
                 $this->pdo->commit();
                 return;
+            }
+
+            if (paymentSchemaHasColumn($this->pdo, 'orders', 'payment_method')
+                && paymentSchemaHasColumn($this->pdo, 'orders', 'payment_status')) {
+                $paymentStmt = $this->pdo->prepare('SELECT payment_method, payment_status FROM orders WHERE order_id = ?');
+                $paymentStmt->execute([$orderId]);
+                $paymentInfo = $paymentStmt->fetch() ?: [];
+                $onlinePayment = in_array($paymentInfo['payment_method'] ?? '', ['gcash', 'maya'], true);
+                $paymentState = (string) ($paymentInfo['payment_status'] ?? 'not_required');
+                if ($onlinePayment && $paymentState !== 'paid' && $newStatus !== 'pending'
+                    && !in_array($paymentState, ['cancelled', 'expired', 'failed'], true)) {
+                    throw new RuntimeException('This order cannot be prepared until PayMongo confirms payment.');
+                }
+                if ($onlinePayment && $paymentState === 'paid' && $newStatus === 'cancelled') {
+                    throw new RuntimeException('A paid PayMongo order cannot be cancelled until a refund process is available.');
+                }
             }
 
             $activeStatuses = ['pending', 'processing', 'shipped', 'delivered'];
@@ -223,11 +276,17 @@ class OrderController
             $updateStmt = $this->pdo->prepare('UPDATE orders SET status = ? WHERE order_id = ?');
             $updateStmt->execute([$newStatus, $orderId]);
 
-            $logStmt = $this->pdo->prepare(
-                'INSERT INTO audit_logs (user_id, action, description) VALUES (?, "update", ?)'
+            auditLogRequired(
+                $this->pdo,
+                $newStatus === 'cancelled' ? 'order_cancelled' : 'order_status_changed',
+                'Order status changed from ' . $currentStatus . ' to ' . $newStatus . '.',
+                'orders',
+                $actorUserId,
+                'order',
+                $orderId,
+                'success',
+                $actorUserId === null ? 'system' : (string) ($_SESSION['role'] ?? 'unknown')
             );
-            $desc = 'Changed order ' . $order['order_number'] . ' status from ' . $currentStatus . ' to ' . $newStatus;
-            $logStmt->execute([$actorUserId, $desc]);
 
             $this->pdo->commit();
 
@@ -241,7 +300,13 @@ class OrderController
 
     public function cancelOrderByCustomer(int $orderId, int $userId): void
     {
-        $stmt = $this->pdo->prepare('SELECT status, user_id FROM orders WHERE order_id = ?');
+        $paymentColumnsAvailable = paymentSchemaHasColumn($this->pdo, 'orders', 'payment_method')
+            && paymentSchemaHasColumn($this->pdo, 'orders', 'payment_status');
+        $stmt = $this->pdo->prepare(
+            'SELECT status, user_id'
+            . ($paymentColumnsAvailable ? ', payment_method, payment_status' : '')
+            . ' FROM orders WHERE order_id = ?'
+        );
         $stmt->execute([$orderId]);
         $order = $stmt->fetch();
 
@@ -251,6 +316,10 @@ class OrderController
 
         if ($order['status'] !== 'pending') {
             throw new RuntimeException('Only pending orders can be cancelled.');
+        }
+
+        if (in_array($order['payment_method'] ?? 'cod', ['gcash', 'maya'], true)) {
+            throw new RuntimeException('Use the PayMongo cancellation action to safely expire this checkout before cancelling the order.');
         }
 
         $this->updateOrderStatus($orderId, 'cancelled', $userId);
