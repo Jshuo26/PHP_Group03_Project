@@ -152,16 +152,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log('Checkout failed: ' . $e->getMessage());
             auditLog($pdo, 'checkout_failed', $createdOrderId > 0 ? 'Order was created but PayMongo checkout could not start.' : 'Checkout could not create an order.', 'checkout', $userId, 'checkout', $createdOrderId > 0 ? $createdOrderId : null, 'failure', 'customer');
             $checkoutFailureLogged = true;
-            $errors[] = $createdOrderId > 0
-                ? 'Your order is saved, but checkout could not start. Open My Orders to retry payment.'
-                : 'Unable to place your order right now. Please try again.';
+            if ($createdOrderId > 0) {
+                $message = 'Your order is saved, but checkout could not start. Open My Orders to retry payment.';
+                if (!empty($config['PAYMONGO_DEBUG'])) {
+                    $message .= ' Test diagnostic: ' . paymongoSafeCheckoutDiagnostic($e);
+                }
+                $errors[] = $message;
+            } else {
+                $errors[] = 'Unable to place your order right now. Please try again.';
+            }
         } catch (Throwable $e) {
             error_log('Checkout step failed after order ' . $createdOrderId . ': ' . get_class($e) . ': ' . $e->getMessage());
             auditLog($pdo, 'checkout_failed', $createdOrderId > 0 ? 'Order was created but PayMongo checkout could not start.' : 'Checkout could not create an order.', 'checkout', $userId, 'checkout', $createdOrderId > 0 ? $createdOrderId : null, 'failure', 'customer');
             $checkoutFailureLogged = true;
-            $errors[] = $createdOrderId > 0
-                ? 'Your order is saved, but checkout could not start. Open My Orders to retry payment.'
-                : $e->getMessage();
+            if ($createdOrderId > 0) {
+                $message = 'Your order is saved, but checkout could not start. Open My Orders to retry payment.';
+                if (!empty($config['PAYMONGO_DEBUG'])) {
+                    $message .= ' Test diagnostic: ' . paymongoSafeCheckoutDiagnostic($e);
+                }
+                $errors[] = $message;
+            } else {
+                $errors[] = $e->getMessage();
+            }
         }
     }
     if ($errors && !$checkoutFailureLogged) {

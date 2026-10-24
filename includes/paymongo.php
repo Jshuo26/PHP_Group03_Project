@@ -13,6 +13,26 @@ class PaymongoApiException extends RuntimeException
     }
 }
 
+function paymongoSafeCheckoutDiagnostic(Throwable $exception): string
+{
+    for ($current = $exception; $current !== null; $current = $current->getPrevious()) {
+        if ($current instanceof PaymongoApiException) {
+            return $current->httpStatus > 0
+                ? 'PayMongo returned HTTP ' . $current->httpStatus . '.'
+                : 'No HTTP response from PayMongo; check cURL and outbound HTTPS.';
+        }
+    }
+
+    if ($exception instanceof PDOException) {
+        return 'The database rejected a checkout update.';
+    }
+    if ($exception instanceof RuntimeException) {
+        return $exception->getMessage();
+    }
+
+    return 'Unexpected error (' . get_class($exception) . ').';
+}
+
 function paymongoSetting(array $config, string $name): string
 {
     $value = trim((string) ($config[$name] ?? ''));

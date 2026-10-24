@@ -115,7 +115,9 @@ class PaymongoController
             throw new RuntimeException(
                 $e->uncertain
                     ? 'PayMongo did not confirm whether checkout was created. Retry from My Orders to safely resume the same request.'
-                    : 'PayMongo could not start checkout. Your order is saved; retry from My Orders or contact support.'
+                    : 'PayMongo could not start checkout. Your order is saved; retry from My Orders or contact support.',
+                0,
+                $e
             );
         }
 
