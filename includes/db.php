@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-$configFile = __DIR__ . '/../config/config.php';
-
-if (!file_exists($configFile) && file_exists(__DIR__ . '/../config.php')) {
-    $configFile = __DIR__ . '/../config.php';
-}
+$host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+$isLocalRequest = $host === 'localhost' || $host === '127.0.0.1' || str_starts_with($host, 'localhost:');
+$localConfigFile = __DIR__ . '/../config/config.php';
+$rootConfigFile = __DIR__ . '/../config.php';
+$configFile = $isLocalRequest && is_file($localConfigFile) ? $localConfigFile : $rootConfigFile;
 
 if (!file_exists($configFile)) {
     error_log('config.php is missing. Copy config/config.sample.php to config/config.php.');

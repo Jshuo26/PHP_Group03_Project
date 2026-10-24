@@ -20,7 +20,7 @@ class PaymongoController
         paymongoTestKeys($this->config);
         paymongoWebhookSecret($this->config);
         if (!paymongoSchemaReady($this->pdo)) {
-            throw new RuntimeException('Apply database/migrations/004_paymongo_hosted_checkout.sql to the local database before using PayMongo.');
+            throw new RuntimeException('Apply database/migrations/004_paymongo_hosted_checkout.sql to the application database before using PayMongo.');
         }
     }
 

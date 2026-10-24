@@ -17,10 +17,16 @@ function paymentSchemaHasColumn(PDO $pdo, string $table, string $column): bool
     $key = $table . '.' . $column;
     if (!array_key_exists($key, $cache)) {
         try {
-            $stmt = $pdo->prepare('SHOW COLUMNS FROM `' . $table . '` LIKE ?');
-            $stmt->execute([$column]);
-            $cache[$key] = (bool) $stmt->fetch();
-        } catch (Throwable $e) {
+            $stmt = $pdo->prepare(
+                'SELECT 1
+                   FROM information_schema.columns
+                  WHERE table_schema = DATABASE()
+                    AND table_name = ?
+                    AND column_name = ?
+                  LIMIT 1'
+            );
+            $stmt->execute([$table, $column]);
+            $cache[$key] = (bool) $stmt->fetchColumn();        } catch (Throwable $e) {
             $cache[$key] = false;
         }
     }

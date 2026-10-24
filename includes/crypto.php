@@ -11,10 +11,11 @@ function appEncryptionKey(): string
     if ($configuredKey === false || $configuredKey === '') {
         $config = $GLOBALS['config'] ?? null;
         if (!is_array($config)) {
-            $configFile = __DIR__ . '/../config/config.php';
-            if (!is_file($configFile)) {
-                $configFile = __DIR__ . '/../config.php';
-            }
+            $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+            $isLocalRequest = $host === 'localhost' || $host === '127.0.0.1' || str_starts_with($host, 'localhost:');
+            $localConfigFile = __DIR__ . '/../config/config.php';
+            $rootConfigFile = __DIR__ . '/../config.php';
+            $configFile = $isLocalRequest && is_file($localConfigFile) ? $localConfigFile : $rootConfigFile;
             $config = is_file($configFile) ? require $configFile : [];
         }
         $configuredKey = is_array($config) ? (string) ($config['ENCRYPTION_KEY'] ?? '') : '';
