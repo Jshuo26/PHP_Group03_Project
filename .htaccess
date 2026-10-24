@@ -4,4 +4,4 @@ Options -Indexes
     Require all denied
 </FilesMatch>
 
-RedirectMatch 403 ^/(vendor|database|includes|\.github)(/|$)
+RedirectMatch 403 ^/(vendor|database|includes|config|\.github)(/|$)
