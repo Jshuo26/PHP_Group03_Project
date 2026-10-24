@@ -3,13 +3,14 @@
 const AUDIT_ACTIONS = [
     'login', 'login_failed', 'login_challenge', 'logout', 'session_expired', 'register', 'email_verified',
     'create', 'update', 'delete', 'approve', 'reject', 'lock', 'unlock', 'authorization_denied',
-    'cart_add', 'cart_update', 'cart_remove', 'checkout_failed', 'order_created', 'order_status_changed',
+    'cart_add', 'cart_update', 'cart_remove', 'checkout_succeeded', 'checkout_failed', 'order_created', 'order_status_changed',
     'order_cancelled', 'mfa_failed', 'mfa_enabled', 'mfa_disabled', 'password_change_failed', 'password_changed',
+    'payment_initiated', 'payment_succeeded', 'payment_failed', 'payment_cancelled', 'payment_expired',
 ];
 
 const AUDIT_MODULES = [
     'authentication', 'account', 'administration', 'security', 'products', 'books', 'genres', 'authors',
-    'cart', 'checkout', 'orders', 'system',
+    'cart', 'checkout', 'orders', 'payments', 'system',
 ];
 
 const AUDIT_ROLES = ['customer', 'staff', 'admin', 'system', 'anonymous', 'unknown'];
@@ -49,6 +50,19 @@ function auditHasExtraColumns(PDO $pdo): bool
     return $has;
 }
 
+function auditHasActorNameColumn(PDO $pdo): bool
+{
+    static $has = null;
+    if ($has === null) {
+        try {
+            $has = (bool) $pdo->query("SHOW COLUMNS FROM audit_logs LIKE 'actor_name'")->fetch();
+        } catch (Throwable $e) {
+            $has = false;
+        }
+    }
+    return $has;
+}
+
 function auditLog(
     PDO $pdo,
     string $action,
@@ -58,7 +72,8 @@ function auditLog(
     ?string $recordType = null,
     ?int $recordId = null,
     string $result = 'success',
-    ?string $actorRole = null
+    ?string $actorRole = null,
+    ?string $actorName = null
 ): bool {
     if (!in_array($action, AUDIT_ACTIONS, true)
         || !in_array($result, AUDIT_RESULTS, true)
@@ -85,6 +100,10 @@ function auditLog(
         return false;
     }
 
+    if ($actorName === null && $userId !== null && (int) ($_SESSION['user_id'] ?? 0) === $userId) {
+        $actorName = isset($_SESSION['full_name']) ? (string) $_SESSION['full_name'] : null;
+    }
+
     if (auditSchemaMissingColumns($pdo)) {
         static $schemaWarningWritten = false;
         if (!$schemaWarningWritten) {
@@ -97,12 +116,24 @@ function auditLog(
     try {
         $description = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $description) ?? '';
         $description = mb_substr(trim($description), 0, 500);
-        $pdo->prepare(
-            'INSERT INTO audit_logs (user_id, action, description, module, actor_role, record_type, record_id, result)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
-        )->execute([
-            $userId, $action, $description, $module, $actorRole, $recordType, $recordId, $result,
-        ]);
+        if ($actorName !== null) {
+            $actorName = mb_substr(trim(preg_replace('/[\x00-\x1F\x7F]/u', ' ', $actorName) ?? ''), 0, 255);
+        }
+        if (auditHasActorNameColumn($pdo)) {
+            $pdo->prepare(
+                'INSERT INTO audit_logs (user_id, actor_name, action, description, module, actor_role, record_type, record_id, result)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)'
+            )->execute([
+                $userId, $actorName, $action, $description, $module, $actorRole, $recordType, $recordId, $result,
+            ]);
+        } else {
+            $pdo->prepare(
+                'INSERT INTO audit_logs (user_id, action, description, module, actor_role, record_type, record_id, result)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+            )->execute([
+                $userId, $action, $description, $module, $actorRole, $recordType, $recordId, $result,
+            ]);
+        }
         return true;
     } catch (Throwable $e) {
         error_log('Audit log write failed for action ' . $action . ' in module ' . ($module ?? 'unknown') . '.');

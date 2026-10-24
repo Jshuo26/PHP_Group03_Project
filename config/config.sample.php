@@ -32,8 +32,9 @@ return [
     'SMTP_PASS'     => 'your_16_char_app_password_here',
     'SMTP_FROM'     => 'your_gmail_here@gmail.com',
 
-    'PAYMONGO_PUBLIC_KEY' => 'pk_test_your_key_here',
-    'PAYMONGO_SECRET_KEY' => 'sk_test_your_key_here',
+    'PAYMONGO_PUBLIC_KEY' => getenv('pk_test_your_key_here') ?: '',
+    'PAYMONGO_SECRET_KEY' => getenv('sk_test_your_key_here') ?: '',
+    'PAYMONGO_WEBHOOK_SECRET' => getenv('wkh_key_here') ?: '',
 
     'ENCRYPTION_KEY' => 'paste_the_output_here',
 
