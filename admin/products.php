@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/author_verification.php';
+require_once __DIR__ . '/../includes/upload_security.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -175,40 +176,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         $uploadName = null;
-        $uploadTmpPath = null;
-        if (isset($_FILES['cover']) && (!is_array($_FILES['cover'])
-            || !isset($_FILES['cover']['error'], $_FILES['cover']['tmp_name'], $_FILES['cover']['size'])
-            || !is_int($_FILES['cover']['error'])
-            || !is_string($_FILES['cover']['tmp_name'])
-            || !is_int($_FILES['cover']['size']))) {
+        $coverImage = null;
+        $targetCover = null;
+        if (isset($_FILES['cover']) && (!is_array($_FILES['cover']) || !array_key_exists('error', $_FILES['cover']))) {
             $errors[] = 'The cover image upload is invalid.';
         } elseif (isset($_FILES['cover']) && $_FILES['cover']['error'] !== UPLOAD_ERR_NO_FILE) {
-            $file = $_FILES['cover'];
-            if ($file['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($file['tmp_name'])) {
-                $errors[] = 'The cover image could not be uploaded.';
-            } elseif ($file['size'] > 5 * 1024 * 1024) {
-                $errors[] = 'Cover images must be 5 MB or smaller.';
+            try {
+                $coverImage = validatePublicImageUpload($_FILES['cover'], 'book cover', 5 * 1024 * 1024);
+            } catch (RuntimeException $e) {
+                $errors[] = $e->getMessage();
+            }
+        }
+
+        if (!$errors && $coverImage !== null) {
+            $coverDirectory = __DIR__ . '/../images/book-covers';
+            if (!is_dir($coverDirectory)) {
+                $errors[] = 'The book cover directory does not exist.';
             } else {
-                $imageInfo = getimagesize($file['tmp_name']);
-                $mime = is_array($imageInfo) ? ($imageInfo['mime'] ?? '') : '';
-                $extensions = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
-                if (!isset($extensions[$mime])) {
-                    $errors[] = 'Cover image must be a JPEG, PNG, or WebP file.';
-                } else {
-                    $uploadName = bin2hex(random_bytes(16)) . '.' . $extensions[$mime];
-                    $uploadTmpPath = $file['tmp_name'];
+                try {
+                    $savedCover = savePublicImageUpload($coverImage, $coverDirectory);
+                    $uploadName = $savedCover['filename'];
+                    $targetCover = $savedCover['path'];
+                } catch (Throwable $e) {
+                    error_log('Book cover upload failed: ' . $e->getMessage());
+                    $errors[] = 'Unable to save the cover image.';
                 }
             }
         }
 
         if (!$errors) {
-            $coverDirectory = __DIR__ . '/../images/book-covers';
-            $targetCover = $uploadName !== null ? $coverDirectory . '/' . $uploadName : null;
-            if ($targetCover !== null && !is_dir($coverDirectory)) {
-                $errors[] = 'The book cover directory does not exist.';
-            } elseif ($targetCover !== null && !move_uploaded_file($uploadTmpPath, $targetCover)) {
-                $errors[] = 'Unable to save the cover image.';
-            } else {
                 try {
                     $pdo->beginTransaction();
 
@@ -321,7 +317,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         unlink($targetCover);
                     }
                     $errors[] = $e->getMessage();
-                }
             }
         }
     } else {

@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/crypto.php';
+require_once __DIR__ . '/../includes/upload_security.php';
 
 requireRole(['customer']);
 
@@ -133,65 +134,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($action === 'update_avatar') {
         $file = $_FILES['profile_picture'] ?? null;
-        if (!$file || $file['error'] === UPLOAD_ERR_NO_FILE) {
+        if ($file === null || (is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE)) {
             $errors[] = 'Please choose an image file to upload.';
-        } elseif ($file['error'] !== UPLOAD_ERR_OK) {
-            $errors[] = 'Failed to upload image. Please try again.';
-        } elseif ((int) $file['size'] > 2 * 1024 * 1024) {
-            $errors[] = 'Profile picture must be 2 MB or smaller.';
+        } elseif (!is_array($file) || !array_key_exists('error', $file)) {
+            $errors[] = 'The image upload is invalid.';
         } else {
-            $imageInfo = @getimagesize($file['tmp_name']);
-            $finfo = new finfo(FILEINFO_MIME_TYPE);
-            $mime = $finfo->file($file['tmp_name']);
-            $allowed = [
-                'image/jpeg' => 'jpg',
-                'image/png'  => 'png',
-                'image/webp' => 'webp',
-            ];
-            if (!$imageInfo || !isset($allowed[$mime])) {
-                $errors[] = 'Please upload a valid JPG, PNG, or WebP image.';
-            } else {
-                $uploadDir = __DIR__ . '/../uploads/profile-pictures';
-                if (!is_dir($uploadDir)) {
-                    mkdir($uploadDir, 0755, true);
+            $savedAvatar = null;
+            try {
+                $validatedImage = validatePublicImageUpload($file, 'profile picture', 2 * 1024 * 1024);
+                $savedAvatar = savePublicImageUpload($validatedImage, __DIR__ . '/../uploads/profile-pictures');
+                $newWebPath = '/uploads/profile-pictures/' . $savedAvatar['filename'];
+
+                $upStmt = $pdo->prepare('UPDATE users SET profile_picture_path = ? WHERE user_id = ?');
+                $upStmt->execute([$newWebPath, $userId]);
+                $oldFile = appProfilePicturePath((string) ($profile['profile_picture_path'] ?? ''));
+                if ($oldFile !== null) {
+                    @unlink($oldFile);
                 }
-                $newFileName = bin2hex(random_bytes(16)) . '.' . $allowed[$mime];
-                $destPath = $uploadDir . '/' . $newFileName;
-                if (move_uploaded_file($file['tmp_name'], $destPath)) {
-                    $newWebPath = '/uploads/profile-pictures/' . $newFileName;
-                    if (!empty($profile['profile_picture_path'])) {
-                        $oldFile = __DIR__ . '/..' . $profile['profile_picture_path'];
-                        if (is_file($oldFile)) {
-                            @unlink($oldFile);
-                        }
-                    }
-                    try {
-                        $upStmt = $pdo->prepare('UPDATE users SET profile_picture_path = ? WHERE user_id = ?');
-                        $upStmt->execute([$newWebPath, $userId]);
-                        $profile['profile_picture_path'] = $newWebPath;
-                        $_SESSION['profile_picture_path'] = $newWebPath;
-                        $success = 'Profile picture updated successfully.';
-                    } catch (PDOException $e) {
-                        error_log('Failed to update avatar: ' . $e->getMessage());
-                        $errors[] = 'Could not update profile picture in database.';
-                    }
-                } else {
-                    $errors[] = 'Could not save uploaded image.';
+                $profile['profile_picture_path'] = $newWebPath;
+                $_SESSION['profile_picture_path'] = $newWebPath;
+                $success = 'Profile picture updated successfully.';
+            } catch (PDOException $e) {
+                if ($savedAvatar !== null && is_file($savedAvatar['path'])) {
+                    @unlink($savedAvatar['path']);
                 }
+                error_log('Failed to update avatar: ' . $e->getMessage());
+                $errors[] = 'Could not update profile picture right now.';
+            } catch (RuntimeException $e) {
+                if ($savedAvatar !== null && is_file($savedAvatar['path'])) {
+                    @unlink($savedAvatar['path']);
+                }
+                $errors[] = $e->getMessage();
+            } catch (Throwable $e) {
+                if ($savedAvatar !== null && is_file($savedAvatar['path'])) {
+                    @unlink($savedAvatar['path']);
+                }
+                error_log('Failed to update avatar: ' . $e->getMessage());
+                $errors[] = 'Could not update profile picture right now.';
             }
         }
     }
 
     if ($action === 'remove_avatar') {
-        if (!empty($profile['profile_picture_path'])) {
-            $oldFile = __DIR__ . '/..' . $profile['profile_picture_path'];
-            if (is_file($oldFile)) {
-                @unlink($oldFile);
-            }
-        }
         try {
             $rmStmt = $pdo->prepare('UPDATE users SET profile_picture_path = NULL WHERE user_id = ?');
             $rmStmt->execute([$userId]);
+            $oldFile = appProfilePicturePath((string) ($profile['profile_picture_path'] ?? ''));
+            if ($oldFile !== null) {
+                @unlink($oldFile);
+            }
             $profile['profile_picture_path'] = null;
             $_SESSION['profile_picture_path'] = null;
             $success = 'Profile picture removed.';
@@ -288,7 +279,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="account-profile-header-card">
             <div class="account-profile-avatar-wrap">
                 <div class="account-profile-avatar-circle" aria-hidden="true">
-                    <?php if (!empty($profile['profile_picture_path']) && file_exists(__DIR__ . '/..' . $profile['profile_picture_path'])): ?>
+                    <?php if (!empty($profile['profile_picture_path']) && appProfilePicturePath((string) $profile['profile_picture_path']) !== null): ?>
                         <img 
                             src="<?= htmlspecialchars($profile['profile_picture_path'], ENT_QUOTES, 'UTF-8') ?>" 
                             alt="<?= htmlspecialchars($profile['full_name'], ENT_QUOTES, 'UTF-8') ?>"

@@ -9,6 +9,7 @@ require_once __DIR__ . '/../includes/otp.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/password_policy.php';
 require_once __DIR__ . '/../includes/crypto.php';
+require_once __DIR__ . '/../includes/upload_security.php';
 
 $errors  = [];
 $passwordPolicy = getPasswordPolicy($pdo);
@@ -57,19 +58,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $profilePicture = $_FILES['profile_picture'] ?? null;
-    $profilePictureMime = null;
-    if ($profilePicture && $profilePicture['error'] !== UPLOAD_ERR_NO_FILE) {
-        if ($profilePicture['error'] !== UPLOAD_ERR_OK) {
-            $errors[] = 'The profile picture could not be uploaded. Please try again.';
-        } elseif ((int) $profilePicture['size'] > 2 * 1024 * 1024) {
-            $errors[] = 'The profile picture must be 2 MB or smaller.';
-        } else {
-            $imageInfo = @getimagesize($profilePicture['tmp_name']);
-            $fileInfo = new finfo(FILEINFO_MIME_TYPE);
-            $profilePictureMime = $fileInfo->file($profilePicture['tmp_name']);
-            if (!$imageInfo || !in_array($profilePictureMime, ['image/jpeg', 'image/png', 'image/webp'], true)) {
-                $errors[] = 'Please upload a valid JPG, PNG, or WebP image.';
-            }
+    $profilePictureImage = null;
+    if ($profilePicture !== null && !is_array($profilePicture)) {
+        $errors[] = 'The profile picture upload is invalid.';
+    } elseif (is_array($profilePicture) && !array_key_exists('error', $profilePicture)) {
+        $errors[] = 'The profile picture upload is invalid.';
+    } elseif (is_array($profilePicture) && ($profilePicture['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+        try {
+            $profilePictureImage = validatePublicImageUpload($profilePicture, 'profile picture', 2 * 1024 * 1024);
+        } catch (RuntimeException $e) {
+            $errors[] = $e->getMessage();
         }
     }
 
@@ -144,22 +142,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $savedProfilePicture = null;
 
         try {
-            if ($profilePicture && $profilePicture['error'] === UPLOAD_ERR_OK) {
-                $extension = [
-                    'image/jpeg' => 'jpg',
-                    'image/png' => 'png',
-                    'image/webp' => 'webp',
-                ][$profilePictureMime];
-                $uploadDirectory = __DIR__ . '/../uploads/profile-pictures';
-                if (!is_dir($uploadDirectory) && !mkdir($uploadDirectory, 0755, true) && !is_dir($uploadDirectory)) {
-                    throw new RuntimeException('Could not create profile picture directory.');
-                }
-                $fileName = bin2hex(random_bytes(16)) . '.' . $extension;
-                $savedProfilePicture = $uploadDirectory . '/' . $fileName;
-                if (!move_uploaded_file($profilePicture['tmp_name'], $savedProfilePicture)) {
-                    throw new RuntimeException('Could not save profile picture.');
-                }
-                $profilePicturePath = '/uploads/profile-pictures/' . $fileName;
+            if ($profilePictureImage !== null) {
+                $savedImage = savePublicImageUpload($profilePictureImage, __DIR__ . '/../uploads/profile-pictures');
+                $savedProfilePicture = $savedImage['path'];
+                $profilePicturePath = '/uploads/profile-pictures/' . $savedImage['filename'];
             }
 
             $pdo->beginTransaction();
