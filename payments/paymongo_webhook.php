@@ -41,7 +41,7 @@ try {
     exit;
 }
 
-if (!paymongoVerifyWebhookSignature($rawBody, $signature, $signingSecret, time())) {
+if (!paymongoVerifyWebhookSignature($rawBody, $signature, $signingSecret, time(), paymongoMode($config))) {
     error_log('Rejected a PayMongo webhook with an invalid or stale signature.');
     http_response_code(401);
     echo '{"error":"invalid_signature"}';
@@ -55,7 +55,7 @@ try {
     http_response_code(200);
     echo json_encode(['received' => true, 'result' => $result]);
 } catch (UnexpectedValueException $e) {
-    error_log('A signed PayMongo sandbox webhook failed order/payment validation.');
+    error_log('A signed PayMongo webhook failed order/payment validation.');
     http_response_code(202);
     echo '{"received":true,"result":"ignored"}';
 } catch (Throwable $e) {

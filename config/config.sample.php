@@ -1,6 +1,12 @@
 <?php
 
-if (isset($_SERVER['HTTP_HOST']) && ($_SERVER['HTTP_HOST'] === 'localhost' || $_SERVER['HTTP_HOST'] === '127.0.0.1' || strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0)) {
+$isLocalHost = isset($_SERVER['HTTP_HOST']) && (
+    $_SERVER['HTTP_HOST'] === 'localhost'
+    || $_SERVER['HTTP_HOST'] === '127.0.0.1'
+    || strpos($_SERVER['HTTP_HOST'], 'localhost:') === 0
+);
+
+if ($isLocalHost) {
     $db_host = 'localhost';
     $db_user = 'your_username_here';
     $db_name = 'aklaaat_db';
@@ -15,7 +21,6 @@ if (isset($_SERVER['HTTP_HOST']) && ($_SERVER['HTTP_HOST'] === 'localhost' || $_
 }
 
 return [
-
     'APP_URL'    => $app_url,
     'DB_HOST'    => $db_host,
     'DB_USER'    => $db_user,
@@ -32,11 +37,14 @@ return [
     'SMTP_PASS'     => 'your_16_char_app_password_here',
     'SMTP_FROM'     => 'your_gmail_here@gmail.com',
 
-    'PAYMONGO_PUBLIC_KEY' => 'pk_test_your_key_here',
-    'PAYMONGO_SECRET_KEY' => 'sk_test_your_key_here',
-    'PAYMONGO_WEBHOOK_SECRET' => 'wkh_key_here',
+    // Keep in test mode by default. Set live explicitly in the deployed root config.php only.
+    'PAYMONGO_MODE' => 'test',
+    'PAYMONGO_TEST_PUBLIC_KEY' => 'pk_test_your_test_public_key_here',
+    'PAYMONGO_TEST_SECRET_KEY' => 'sk_test_your_test_secret_key_here',
+    'PAYMONGO_TEST_WEBHOOK_SECRET' => 'your_test_webhook_signing_secret_here',
+    'PAYMONGO_LIVE_PUBLIC_KEY' => 'pk_live_your_live_public_key_here',
+    'PAYMONGO_LIVE_SECRET_KEY' => 'sk_live_your_live_secret_key_here',
+    'PAYMONGO_LIVE_WEBHOOK_SECRET' => 'your_live_webhook_signing_secret_here',
 
     'ENCRYPTION_KEY' => 'paste_the_output_here',
-
 ];
-?>

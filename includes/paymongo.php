@@ -43,29 +43,63 @@ function paymongoSetting(array $config, string $name): string
     return $value;
 }
 
-function paymongoTestKeys(array $config): array
+function paymongoMode(array $config): string
 {
-    $publicKey = paymongoSetting($config, 'PAYMONGO_PUBLIC_KEY');
-    $secretKey = paymongoSetting($config, 'PAYMONGO_SECRET_KEY');
-    if (!preg_match('/^pk_test_[A-Za-z0-9_]+$/', $publicKey)
-        || !preg_match('/^sk_test_[A-Za-z0-9_]+$/', $secretKey)) {
-        throw new RuntimeException('PayMongo sandbox keys are missing or are not test-mode keys. Configure pk_test_ and sk_test_ values.');
+    $host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
+    if ($host === 'localhost' || $host === '127.0.0.1'
+        || str_starts_with($host, 'localhost:') || str_starts_with($host, '127.0.0.1:')) {
+        return 'test';
+    }
+
+    $mode = strtolower(paymongoSetting($config, 'PAYMONGO_MODE') ?: 'test');
+    if (!in_array($mode, ['test', 'live'], true)) {
+        throw new RuntimeException('Set PAYMONGO_MODE to test or live.');
+    }
+    return $mode;
+}
+
+function paymongoIsLiveMode(array $config): bool
+{
+    return paymongoMode($config) === 'live';
+}
+
+function paymongoApiKeys(array $config): array
+{
+    $mode = strtoupper(paymongoMode($config));
+    $publicKey = paymongoSetting($config, 'PAYMONGO_' . $mode . '_PUBLIC_KEY');
+    $secretKey = paymongoSetting($config, 'PAYMONGO_' . $mode . '_SECRET_KEY');
+
+    // Fall back to the legacy generic settings for existing installations.
+    if ($publicKey === '') {
+        $publicKey = paymongoSetting($config, 'PAYMONGO_PUBLIC_KEY');
+    }
+    if ($secretKey === '') {
+        $secretKey = paymongoSetting($config, 'PAYMONGO_SECRET_KEY');
+    }
+
+    $prefix = strtolower($mode);
+    if (!preg_match('/^pk_' . $prefix . '_[A-Za-z0-9_]+$/', $publicKey)
+        || !preg_match('/^sk_' . $prefix . '_[A-Za-z0-9_]+$/', $secretKey)) {
+        throw new RuntimeException('PayMongo keys do not match PAYMONGO_MODE. Check the selected mode and key prefixes.');
     }
     return ['public_key' => $publicKey, 'secret_key' => $secretKey];
 }
-
 function paymongoWebhookSecret(array $config): string
 {
-    $secret = paymongoSetting($config, 'PAYMONGO_WEBHOOK_SECRET');
+    $keyMode = strtoupper(paymongoMode($config));
+    $secret = paymongoSetting($config, 'PAYMONGO_' . $keyMode . '_WEBHOOK_SECRET');
+    if ($secret === '') {
+        $secret = paymongoSetting($config, 'PAYMONGO_WEBHOOK_SECRET');
+    }
     if ($secret === '' || strlen($secret) < 16) {
-        throw new RuntimeException('The PayMongo test webhook signing secret is not configured.');
+        throw new RuntimeException('The PayMongo webhook signing secret is not configured.');
     }
     return $secret;
 }
 
 function paymongoApiRequest(array $config, string $method, string $path, ?array $body = null, ?string $idempotencyKey = null): array
 {
-    $keys = paymongoTestKeys($config);
+    $keys = paymongoApiKeys($config);
     if (!extension_loaded('curl')) {
         throw new RuntimeException('The server does not have the PHP cURL extension enabled.');
     }
@@ -127,8 +161,12 @@ function paymongoValidateCheckoutUrl(string $url): bool
         && isset($parts['path']);
 }
 
-function paymongoVerifyWebhookSignature(string $rawBody, string $header, string $secret, int $now): bool
+function paymongoVerifyWebhookSignature(string $rawBody, string $header, string $secret, int $now, string $mode = 'test'): bool
 {
+    if (!in_array($mode, ['test', 'live'], true)) {
+        return false;
+    }
+    $signatureKey = $mode === 'live' ? 'li' : 'te';
     $parts = [];
     foreach (explode(',', $header) as $segment) {
         $pair = explode('=', trim($segment), 2);
@@ -136,11 +174,11 @@ function paymongoVerifyWebhookSignature(string $rawBody, string $header, string 
             $parts[$pair[0]] = $pair[1];
         }
     }
-    if (!isset($parts['t'], $parts['te']) || !ctype_digit($parts['t'])
+    if (!isset($parts['t'], $parts[$signatureKey]) || !ctype_digit($parts['t'])
         || abs($now - (int) $parts['t']) > 300
-        || !preg_match('/^[a-f0-9]{64}$/i', $parts['te'])) {
+        || !preg_match('/^[a-f0-9]{64}$/i', $parts[$signatureKey])) {
         return false;
     }
     $expected = hash_hmac('sha256', $parts['t'] . '.' . $rawBody, $secret);
-    return hash_equals(strtolower($expected), strtolower($parts['te']));
+    return hash_equals(strtolower($expected), strtolower($parts[$signatureKey]));
 }

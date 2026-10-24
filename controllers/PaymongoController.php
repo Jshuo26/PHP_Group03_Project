@@ -17,7 +17,7 @@ class PaymongoController
 
     public function assertReady(): void
     {
-        paymongoTestKeys($this->config);
+        paymongoApiKeys($this->config);
         paymongoWebhookSecret($this->config);
         if (!paymongoSchemaReady($this->pdo)) {
             throw new RuntimeException('Apply database/migrations/004_paymongo_hosted_checkout.sql to the application database before using PayMongo.');
@@ -78,7 +78,7 @@ class PaymongoController
             && in_array(strtolower((string) ($baseParts['host'] ?? '')), ['localhost', '127.0.0.1'], true);
         if (!is_array($baseParts) || !isset($baseParts['host'])
             || (($baseParts['scheme'] ?? '') !== 'https' && !($isLocal && ($baseParts['scheme'] ?? '') === 'http'))) {
-            throw new RuntimeException('APP_URL must be an HTTPS site URL (HTTP is allowed only for localhost sandbox testing).');
+            throw new RuntimeException('APP_URL must be an HTTPS site URL (HTTP is allowed only for local testing).');
         }
 
         $returnUrl = $baseUrl . '/payments/return.php?order_id=' . $orderId;
@@ -137,8 +137,8 @@ class PaymongoController
             if (!preg_match('/^cs_[A-Za-z0-9]+$/', $sessionId)) {
                 $validationFailures[] = 'session ID format';
             }
-            if (($attributes['livemode'] ?? null) !== false) {
-                $validationFailures[] = 'sandbox mode';
+            if (($attributes['livemode'] ?? null) !== paymongoIsLiveMode($this->config)) {
+                $validationFailures[] = 'payment mode';
             }
             if (isset($attributes['reference_number'])
                 && (string) $attributes['reference_number'] !== (string) $order['order_number']) {
@@ -286,8 +286,8 @@ class PaymongoController
         if (($attributes['type'] ?? '') !== 'checkout_session.payment.paid') {
             return 'ignored';
         }
-        if (($attributes['livemode'] ?? null) !== false) {
-            throw new UnexpectedValueException('A live-mode event was rejected by the sandbox endpoint.');
+        if (($attributes['livemode'] ?? null) !== paymongoIsLiveMode($this->config)) {
+            throw new UnexpectedValueException('The webhook event mode does not match the configured PayMongo mode.');
         }
         $session = $attributes['data'] ?? null;
         if (!is_array($session)) {
@@ -302,8 +302,8 @@ class PaymongoController
         $attrs = $session['attributes'] ?? [];
         if (($session['type'] ?? '') !== 'checkout_session'
             || !preg_match('/^cs_[A-Za-z0-9]+$/', $sessionId)
-            || ($attrs['livemode'] ?? null) !== false) {
-            throw new UnexpectedValueException('Checkout session is not a valid PayMongo test resource.');
+            || ($attrs['livemode'] ?? null) !== paymongoIsLiveMode($this->config)) {
+            throw new UnexpectedValueException('Checkout session mode does not match the configured PayMongo mode.');
         }
 
         $stmt = $this->pdo->prepare(
@@ -332,7 +332,7 @@ class PaymongoController
         }
         $intent = $attrs['payment_intent']['attributes'] ?? [];
         if (!$paidPayment || !is_array($intent) || ($intent['status'] ?? '') !== 'succeeded'
-            || (array_key_exists('livemode', $intent) && $intent['livemode'] !== false)) {
+            || (array_key_exists('livemode', $intent) && $intent['livemode'] !== paymongoIsLiveMode($this->config))) {
             throw new UnexpectedValueException('Checkout has no verified successful payment.');
         }
         $paymentAttrs = $paidPayment['attributes'] ?? [];
@@ -506,7 +506,7 @@ class PaymongoController
         }
         $totalCents = $this->validateCheckoutAmount($order['total_amount']);
         if ($sum > $totalCents) {
-            throw new RuntimeException('This order total is outside PayMongo sandbox limits or does not match its items.');
+            throw new RuntimeException('This order total is outside PayMongo limits or does not match its items.');
         }
         if ($sum < $totalCents) {
             $lineItems[] = [
@@ -566,7 +566,7 @@ class PaymongoController
 
         $totalCents = (int) round((float) $totalAmount * 100);
         if ($totalCents < 100 || $totalCents > 999999999) {
-            throw new RuntimeException('This order total is outside PayMongo sandbox limits.');
+            throw new RuntimeException('This order total is outside PayMongo limits.');
         }
         if ($totalCents > 10000000) {
             throw new RuntimeException('GCash and Maya checkout is limited to ₱100,000 per order. Choose cash on delivery or contact support.');
@@ -632,7 +632,7 @@ class PaymongoController
         $attrs = $session['attributes'] ?? [];
         return ($session['type'] ?? '') === 'checkout_session'
             && ($session['id'] ?? '') === ($payment['checkout_session_id'] ?? '')
-            && ($attrs['livemode'] ?? null) === false
+            && ($attrs['livemode'] ?? null) === paymongoIsLiveMode($this->config)
             && (string) ($attrs['reference_number'] ?? '') === (string) $order['order_number'];
     }
 
