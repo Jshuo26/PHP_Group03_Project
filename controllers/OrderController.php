@@ -211,12 +211,27 @@ class OrderController
                 $paymentInfo = $paymentStmt->fetch() ?: [];
                 $onlinePayment = in_array($paymentInfo['payment_method'] ?? '', ['gcash', 'maya'], true);
                 $paymentState = (string) ($paymentInfo['payment_status'] ?? 'not_required');
-                if ($onlinePayment && $paymentState !== 'paid' && $newStatus !== 'pending'
-                    && !in_array($paymentState, ['cancelled', 'expired', 'failed'], true)) {
-                    throw new RuntimeException('This order cannot be prepared until PayMongo confirms payment.');
+                if ($onlinePayment && in_array($newStatus, ['processing', 'shipped', 'delivered'], true)) {
+                    if ($paymentState !== 'paid') {
+                        throw new RuntimeException('This order cannot be fulfilled until PayMongo confirms payment.');
+                    }
+
+                    $confirmedPaymentStmt = $this->pdo->prepare(
+                        "SELECT payment_id FROM payments
+                          WHERE order_id = ? AND gateway = 'paymongo' AND payment_method = ? AND status = 'paid'
+                          LIMIT 1"
+                    );
+                    $confirmedPaymentStmt->execute([$orderId, $paymentInfo['payment_method']]);
+                    if (!$confirmedPaymentStmt->fetchColumn()) {
+                        throw new RuntimeException('This order has no confirmed PayMongo payment and cannot be fulfilled.');
+                    }
                 }
-                if ($onlinePayment && $paymentState === 'paid' && $newStatus === 'cancelled') {
-                    throw new RuntimeException('A paid PayMongo order cannot be cancelled until a refund process is available.');
+                if ($onlinePayment && $newStatus === 'cancelled') {
+                    throw new RuntimeException(
+                        $paymentState === 'paid'
+                            ? 'A paid PayMongo order cannot be cancelled until a refund process is available.'
+                            : 'Use the PayMongo cancellation action to verify checkout expiration before cancelling this order.'
+                    );
                 }
             }
 

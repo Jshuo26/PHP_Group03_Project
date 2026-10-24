@@ -31,6 +31,7 @@ class PaymongoController
         if (!in_array($order['payment_method'], ['gcash', 'maya'], true)) {
             throw new RuntimeException('This order is not configured for PayMongo checkout.');
         }
+        $this->validateCheckoutAmount($order['total_amount']);
         if ($order['status'] === 'cancelled' || $order['payment_status'] === 'cancelled') {
             throw new RuntimeException('This order was cancelled. Place a new order to try again.');
         }
@@ -287,7 +288,7 @@ class PaymongoController
         }
         $intent = $attrs['payment_intent']['attributes'] ?? [];
         if (!$paidPayment || !is_array($intent) || ($intent['status'] ?? '') !== 'succeeded'
-            || ($intent['livemode'] ?? null) !== false) {
+            || (array_key_exists('livemode', $intent) && $intent['livemode'] !== false)) {
             throw new UnexpectedValueException('Checkout has no verified successful payment.');
         }
         $paymentAttrs = $paidPayment['attributes'] ?? [];
@@ -432,8 +433,8 @@ class PaymongoController
                 'quantity' => $qty,
             ];
         }
-        $totalCents = (int) round((float) $order['total_amount'] * 100);
-        if ($totalCents < 100 || $totalCents > 999999999 || $sum > $totalCents) {
+        $totalCents = $this->validateCheckoutAmount($order['total_amount']);
+        if ($sum > $totalCents) {
             throw new RuntimeException('This order total is outside PayMongo sandbox limits or does not match its items.');
         }
         if ($sum < $totalCents) {
@@ -484,6 +485,23 @@ class PaymongoController
         }
 
         return [$payment, $lineItems, $totalCents];
+    }
+
+    private function validateCheckoutAmount($totalAmount): int
+    {
+        if (!is_numeric($totalAmount)) {
+            throw new RuntimeException('This order total cannot be processed. Please contact support.');
+        }
+
+        $totalCents = (int) round((float) $totalAmount * 100);
+        if ($totalCents < 100 || $totalCents > 999999999) {
+            throw new RuntimeException('This order total is outside PayMongo sandbox limits.');
+        }
+        if ($totalCents > 10000000) {
+            throw new RuntimeException('GCash and Maya checkout is limited to ₱100,000 per order. Choose cash on delivery or contact support.');
+        }
+
+        return $totalCents;
     }
 
     private function saveCheckoutSession(array $payment, array $order, int $userId, string $sessionId, string $checkoutUrl): void
