@@ -140,7 +140,8 @@ class PaymongoController
             if (($attributes['livemode'] ?? null) !== false) {
                 $validationFailures[] = 'sandbox mode';
             }
-            if (($attributes['reference_number'] ?? null) !== $order['order_number']) {
+            if (isset($attributes['reference_number'])
+                && (string) $attributes['reference_number'] !== (string) $order['order_number']) {
                 $validationFailures[] = 'order reference';
             }
             if (!paymongoValidateCheckoutUrl($checkoutUrl)) {
