@@ -5,6 +5,8 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/catalog.php';
 require_once __DIR__ . '/../controllers/OrderController.php';
+require_once __DIR__ . '/../controllers/PaymongoController.php';
+require_once __DIR__ . '/../includes/payment_schema.php';
 
 requireRole(['customer']);
 
@@ -32,8 +34,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cance
     requireCsrfToken();
     $orderId = filter_input(INPUT_POST, 'order_id', FILTER_VALIDATE_INT) ?: 0;
     try {
-        $orderController = new OrderController($pdo);
-        $orderController->cancelOrderByCustomer($orderId, $userId);
+        $method = 'cod';
+        if (paymentSchemaHasColumn($pdo, 'orders', 'payment_method')) {
+            $lookup = $pdo->prepare('SELECT payment_method FROM orders WHERE order_id = ? AND user_id = ?');
+            $lookup->execute([$orderId, $userId]);
+            $method = $lookup->fetchColumn() ?: 'cod';
+        }
+        if (in_array($method, ['gcash', 'maya'], true)) {
+            (new PaymongoController($pdo, $config))->cancelUnpaidOrder($orderId, $userId);
+        } else {
+            (new OrderController($pdo))->cancelOrderByCustomer($orderId, $userId);
+        }
         $_SESSION['order_flash_success'] = 'Order cancelled successfully. Stock has been restored.';
     } catch (Throwable $e) {
         $_SESSION['order_flash_error'] = $e->getMessage();
@@ -42,11 +53,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cance
     exit;
 }
 
+$hasPaymentOrderColumns = paymentSchemaHasColumn($pdo, 'orders', 'payment_method')
+    && paymentSchemaHasColumn($pdo, 'orders', 'payment_status');
+$paymentOrderColumns = $hasPaymentOrderColumns
+    ? 'o.payment_method, o.payment_status,'
+    : "'cod' AS payment_method, 'not_required' AS payment_status,";
 $stmt = $pdo->prepare(
     'SELECT
         o.order_id,
         o.order_number,
         o.status,
+        ' . $paymentOrderColumns . '
         o.total_amount,
         o.placed_at,
         GROUP_CONCAT(
@@ -66,6 +83,7 @@ $stmt = $pdo->prepare(
         o.order_id,
         o.order_number,
         o.status,
+        ' . ($hasPaymentOrderColumns ? 'o.payment_method, o.payment_status,' : '') . '
         o.total_amount,
         o.placed_at
      ORDER BY o.placed_at DESC'
@@ -314,6 +332,9 @@ include __DIR__ . '/../includes/header.php';
                 $currentStep = $statusStep[$status] ?? 0;
 
                 $isCancelled = $status === 'cancelled';
+                $isOnlinePayment = in_array($order['payment_method'], ['gcash', 'maya'], true);
+                $paymentStatus = (string) ($order['payment_status'] ?? 'not_required');
+                $canRetryPayment = $isOnlinePayment && !$isCancelled && $paymentStatus !== 'paid';
                 ?>
 
                 <article class="order-card <?= $isCancelled ? 'order-card-cancelled' : '' ?>">
@@ -325,6 +346,13 @@ include __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div class="order-card-actions">
+                            <?php if ($canRetryPayment): ?>
+                                <form method="post" action="/payments/create_checkout.php" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="order_id" value="<?= (int) $order['order_id'] ?>">
+                                    <button type="submit" class="btn btn-primary"><?= in_array($paymentStatus, ['failed', 'expired'], true) ? 'Retry Payment' : 'Pay Now' ?></button>
+                                </form>
+                            <?php endif; ?>
                             <?php if ($status === 'pending'): ?>
                                 <form method="post" action="/account/orders.php<?= $selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : '' ?>" onsubmit="return confirm('Are you sure you want to cancel this order?');" style="margin: 0;">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
@@ -392,6 +420,12 @@ include __DIR__ . '/../includes/header.php';
                                 <span class="order-detail-label">Total Amount</span>
                                 <span class="order-total-amount">₱<?= number_format((float) $order['total_amount'], 2) ?></span>
                             </div>
+                            <?php if ($isOnlinePayment): ?>
+                                <div class="order-meta-box">
+                                    <span class="order-detail-label">Payment</span>
+                                    <span class="order-meta-value"><?= e(ucfirst($paymentStatus)) ?> · <?= e(strtoupper($order['payment_method'])) ?></span>
+                                </div>
+                            <?php endif; ?>
                         </div>
                     </div>
 

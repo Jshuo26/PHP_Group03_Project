@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/input.php';
 require_once __DIR__ . '/controllers/OrderController.php';
+require_once __DIR__ . '/controllers/PaymongoController.php';
 require_once __DIR__ . '/includes/crypto.php';
 require_once __DIR__ . '/includes/audit.php';
 require_once __DIR__ . '/includes/csrf.php';
@@ -94,6 +95,7 @@ $shipping = [
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
+    $checkoutFailureLogged = false;
     $shipping['shipping_mobile'] = preg_replace('/[\s-]/', '', $shipping['shipping_mobile']);
     
     $limits = [
@@ -120,10 +122,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Enter a valid ZIP or postal code.';
     }
 
+    if (!in_array($paymentMethod, ['cod', 'gcash', 'maya'], true)) {
+        $errors[] = 'Select Cash on delivery, GCash, or Maya.';
+    }
+
     if (!$errors) {
+        $createdOrderId = 0;
         try {
+            if ($paymentMethod !== 'cod') {
+                $paymongo = new PaymongoController($pdo, $config);
+                $paymongo->assertReady();
+            }
             $orderController = new OrderController($pdo);
             $confirmedOrderData = $orderController->createPendingOrder($userId, $shipping, $paymentMethod);
+            $createdOrderId = (int) $confirmedOrderData['order_id'];
+
+            if ($paymentMethod !== 'cod') {
+                $checkoutUrl = $paymongo->startOrResumeCheckout($createdOrderId, $userId);
+                header('Location: ' . $checkoutUrl);
+                exit;
+            }
 
             $_SESSION['confirmed_order'] = $confirmedOrderData;
 
@@ -132,12 +150,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (PDOException $e) {
             error_log('Checkout failed: ' . $e->getMessage());
-            auditLog($pdo, 'checkout_failed', 'Checkout could not create an order.', 'checkout', $userId, 'checkout', null, 'failure', 'customer');
-            $errors[] = 'Unable to place your order right now. Please try again.';
+            auditLog($pdo, 'checkout_failed', $createdOrderId > 0 ? 'Order was created but PayMongo checkout could not start.' : 'Checkout could not create an order.', 'checkout', $userId, 'checkout', $createdOrderId > 0 ? $createdOrderId : null, 'failure', 'customer');
+            $checkoutFailureLogged = true;
+            $errors[] = $createdOrderId > 0
+                ? 'Your order is saved, but checkout could not start. Open My Orders to retry payment.'
+                : 'Unable to place your order right now. Please try again.';
         } catch (Throwable $e) {
-            auditLog($pdo, 'checkout_failed', 'Checkout could not create an order.', 'checkout', $userId, 'checkout', null, 'failure', 'customer');
-            $errors[] = $e->getMessage();
+            auditLog($pdo, 'checkout_failed', $createdOrderId > 0 ? 'Order was created but PayMongo checkout could not start.' : 'Checkout could not create an order.', 'checkout', $userId, 'checkout', $createdOrderId > 0 ? $createdOrderId : null, 'failure', 'customer');
+            $checkoutFailureLogged = true;
+            $errors[] = $createdOrderId > 0
+                ? 'Your order is saved, but checkout could not start. Open My Orders to retry payment.'
+                : $e->getMessage();
         }
+    }
+    if ($errors && !$checkoutFailureLogged) {
+        auditLog($pdo, 'checkout_failed', 'Checkout validation failed.', 'checkout', $userId, 'checkout', null, 'failure', 'customer');
     }
 }
 
@@ -170,6 +197,9 @@ include __DIR__ . '/includes/header.php';
             <?php foreach ($errors as $error): ?>
                 <p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p>
             <?php endforeach; ?>
+            <?php if (!empty($createdOrderId)): ?>
+                <p><a class="btn btn-secondary" href="/account/orders.php">Open My Orders</a></p>
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
@@ -273,9 +303,14 @@ include __DIR__ . '/includes/header.php';
                         <h2 class="checkout-card-title">2) Payment Method</h2>
                         <div class="payment-methods-grid">
                             
-                            <label class="payment-method-pill <?= $paymentMethod === 'paymongo' ? 'active' : '' ?>">
-                                <input type="radio" name="payment_method" value="paymongo" <?= $paymentMethod === 'paymongo' ? 'checked' : '' ?>>
-                                PayMongo
+                            <label class="payment-method-pill <?= $paymentMethod === 'gcash' ? 'active' : '' ?>">
+                                <input type="radio" name="payment_method" value="gcash" <?= $paymentMethod === 'gcash' ? 'checked' : '' ?>>
+                                GCash
+                            </label>
+
+                            <label class="payment-method-pill <?= $paymentMethod === 'maya' ? 'active' : '' ?>">
+                                <input type="radio" name="payment_method" value="maya" <?= $paymentMethod === 'maya' ? 'checked' : '' ?>>
+                                Maya
                             </label>
 
                             <label class="payment-method-pill <?= $paymentMethod === 'cod' ? 'active' : '' ?>">
