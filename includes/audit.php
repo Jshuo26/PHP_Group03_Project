@@ -1,6 +1,37 @@
 <?php
 
-const AUDIT_ACTIONS = ['login', 'logout', 'create', 'update', 'delete', 'approve', 'reject', 'lock', 'unlock'];
+const AUDIT_ACTIONS = [
+    'login', 'login_failed', 'login_challenge', 'logout', 'session_expired', 'register', 'email_verified',
+    'create', 'update', 'delete', 'approve', 'reject', 'lock', 'unlock', 'authorization_denied',
+    'cart_add', 'cart_update', 'cart_remove', 'checkout_failed', 'order_created', 'order_status_changed',
+    'order_cancelled', 'mfa_failed', 'mfa_enabled', 'mfa_disabled', 'password_change_failed', 'password_changed',
+];
+
+const AUDIT_MODULES = [
+    'authentication', 'account', 'administration', 'security', 'products', 'books', 'genres', 'authors',
+    'cart', 'checkout', 'orders', 'system',
+];
+
+const AUDIT_ROLES = ['customer', 'staff', 'admin', 'system', 'anonymous', 'unknown'];
+const AUDIT_RESULTS = ['success', 'failure', 'info'];
+
+function auditSchemaMissingColumns(PDO $pdo): array
+{
+    static $missing = null;
+    if ($missing !== null) {
+        return $missing;
+    }
+
+    $required = ['user_id', 'action', 'description', 'created_at', 'module', 'actor_role', 'record_type', 'record_id', 'result'];
+    try {
+        $columns = $pdo->query('SHOW COLUMNS FROM audit_logs')->fetchAll(PDO::FETCH_COLUMN, 0);
+        $missing = array_values(array_diff($required, $columns));
+    } catch (Throwable $e) {
+        $missing = $required;
+    }
+
+    return $missing;
+}
 
 function auditHasExtraColumns(PDO $pdo): bool
 {
@@ -23,41 +54,68 @@ function auditLog(
     string $action,
     string $description,
     ?string $module = null,
-    ?int $userId = null
-): void {
+    ?int $userId = null,
+    ?string $recordType = null,
+    ?int $recordId = null,
+    string $result = 'success',
+    ?string $actorRole = null
+): bool {
+    if (!in_array($action, AUDIT_ACTIONS, true)
+        || !in_array($result, AUDIT_RESULTS, true)
+        || ($module !== null && !in_array($module, AUDIT_MODULES, true))
+        || ($recordType !== null && !preg_match('/^[a-z_]{1,50}$/', $recordType))) {
+        error_log('Audit log rejected an invalid event definition.');
+        return false;
+    }
+
+    if ($userId === 0) {
+        $userId = null;
+    } elseif ($userId === null && !empty($_SESSION['user_id'])) {
+        $userId = (int) $_SESSION['user_id'];
+    }
+
+    if ($actorRole === null) {
+        $sessionRole = $_SESSION['role'] ?? null;
+        $actorRole = in_array($sessionRole, AUDIT_ROLES, true)
+            ? $sessionRole
+            : ($userId === null ? 'system' : 'unknown');
+    }
+    if (!in_array($actorRole, AUDIT_ROLES, true)) {
+        error_log('Audit log rejected an invalid actor role.');
+        return false;
+    }
+
+    if (auditSchemaMissingColumns($pdo)) {
+        static $schemaWarningWritten = false;
+        if (!$schemaWarningWritten) {
+            error_log('Central audit schema migration is required; structured audit records are not being written.');
+            $schemaWarningWritten = true;
+        }
+        return false;
+    }
+
     try {
-        if (!in_array($action, AUDIT_ACTIONS, true)) {
-            $description = '[' . $action . '] ' . $description;
-            $action = 'update';
-        }
-
-        if ($userId === null && !empty($_SESSION['user_id'])) {
-            $userId = (int) $_SESSION['user_id'];
-        }
-
-        $description = mb_substr($description, 0, 500);
-
-        if (auditHasExtraColumns($pdo)) {
-            $pdo->prepare(
-                'INSERT INTO audit_logs (user_id, action, description, module, ip_address)
-                 VALUES (?, ?, ?, ?, ?)'
-            )->execute([
-                $userId,
-                $action,
-                $description,
-                $module !== null ? mb_substr($module, 0, 50) : null,
-                $_SERVER['REMOTE_ADDR'] ?? null,
-            ]);
-        } else {
-            $pdo->prepare(
-                'INSERT INTO audit_logs (user_id, action, description) VALUES (?, ?, ?)'
-            )->execute([
-                $userId,
-                $action,
-                $module !== null ? '[' . $module . '] ' . mb_substr($description, 0, 480) : $description,
-            ]);
-        }
+        $description = preg_replace('/[\x00-\x1F\x7F]/u', ' ', $description) ?? '';
+        $description = mb_substr(trim($description), 0, 500);
+        $pdo->prepare(
+            'INSERT INTO audit_logs (user_id, action, description, module, actor_role, record_type, record_id, result)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?)'
+        )->execute([
+            $userId, $action, $description, $module, $actorRole, $recordType, $recordId, $result,
+        ]);
+        return true;
     } catch (Throwable $e) {
-        error_log('Audit log failed: ' . $e->getMessage());
+        error_log('Audit log write failed for action ' . $action . ' in module ' . ($module ?? 'unknown') . '.');
+        return false;
+    }
+}
+
+function auditLogRequired(PDO $pdo, string $action, ...$arguments): void
+{
+    if (!$pdo->inTransaction()) {
+        throw new LogicException('Required audit records must share the business transaction.');
+    }
+    if (!auditLog($pdo, $action, ...$arguments)) {
+        throw new RuntimeException('The activity could not be recorded. Please try again.');
     }
 }

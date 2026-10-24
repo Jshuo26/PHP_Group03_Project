@@ -32,8 +32,9 @@ include '../includes/header.php';
             <a class="btn btn-secondary" href="/admin/author_reviews.php">Author reviews</a>
             <a class="btn btn-secondary" href="/admin/orders.php">Manage orders</a>
             <?php if ($_SESSION['role'] === 'admin'): ?>
+                <a class="btn btn-primary" href="/admin/audit_logs.php">View audit logs</a>
                 <a class="btn btn-secondary" href="/admin/security.php">Security settings</a>
-            <?php endif; ?>
+            <?php endif; ?> 
         </nav>
 
     </div>

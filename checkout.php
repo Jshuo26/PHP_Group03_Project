@@ -6,6 +6,7 @@ require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/input.php';
 require_once __DIR__ . '/controllers/OrderController.php';
 require_once __DIR__ . '/includes/crypto.php';
+require_once __DIR__ . '/includes/audit.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/input.php';
 
@@ -131,8 +132,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         } catch (PDOException $e) {
             error_log('Checkout failed: ' . $e->getMessage());
+            auditLog($pdo, 'checkout_failed', 'Checkout could not create an order.', 'checkout', $userId, 'checkout', null, 'failure', 'customer');
             $errors[] = 'Unable to place your order right now. Please try again.';
         } catch (Throwable $e) {
+            auditLog($pdo, 'checkout_failed', 'Checkout could not create an order.', 'checkout', $userId, 'checkout', null, 'failure', 'customer');
             $errors[] = $e->getMessage();
         }
     }
