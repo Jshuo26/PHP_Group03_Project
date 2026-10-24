@@ -28,7 +28,7 @@ class PaymongoController
     {
         $this->assertReady();
         $order = $this->getOwnedOrder($orderId, $userId);
-        if (!in_array($order['payment_method'], ['gcash', 'maya'], true)) {
+        if ($order['payment_method'] !== 'gcash') {
             throw new RuntimeException('This order is not configured for PayMongo checkout.');
         }
         $this->validateCheckoutAmount($order['total_amount']);
@@ -71,7 +71,7 @@ class PaymongoController
         }
 
         [$payment, $lineItems, $totalCents] = $this->preparePaymentAttempt($order, $userId);
-        $methodType = $order['payment_method'] === 'maya' ? 'paymaya' : 'gcash';
+        $methodType = 'gcash';
         $baseUrl = rtrim((string) ($this->config['APP_URL'] ?? ''), '/');
         $baseParts = parse_url($baseUrl);
         $isLocal = is_array($baseParts)
@@ -175,6 +175,7 @@ class PaymongoController
         }
 
         $payment = $this->latestPayment($orderId);
+        $expiredSessionId = null;
         if ($payment && !empty($payment['checkout_session_id'])) {
             $sessionPath = '/v2/checkout_sessions/' . rawurlencode((string) $payment['checkout_session_id']);
             try {
@@ -197,6 +198,7 @@ class PaymongoController
             if (($session['attributes']['status'] ?? '') !== 'expired') {
                 throw new RuntimeException('A payment is still in progress. Wait for PayMongo to confirm its outcome before cancelling.');
             }
+            $expiredSessionId = (string) $payment['checkout_session_id'];
         }
 
         $this->pdo->beginTransaction();
@@ -209,6 +211,23 @@ class PaymongoController
                 || $lockedOrder['payment_status'] === 'paid') {
                 throw new RuntimeException('Order state changed while cancellation was being confirmed. Refresh My Orders.');
             }
+            $paymentLock = $this->pdo->prepare(
+                'SELECT payment_id, status, checkout_session_id FROM payments
+                  WHERE order_id = ? AND gateway = ? ORDER BY payment_id DESC FOR UPDATE'
+            );
+            $paymentLock->execute([$orderId, 'paymongo']);
+            $lockedPayments = $paymentLock->fetchAll();
+            foreach ($lockedPayments as $lockedPayment) {
+                if ($lockedPayment['status'] === 'paid') {
+                    throw new RuntimeException('PayMongo confirmed payment or the payment attempt changed. The order was not cancelled.');
+                }
+                $lockedSessionId = (string) ($lockedPayment['checkout_session_id'] ?? '');
+                if ($lockedSessionId !== ''
+                    && !in_array($lockedPayment['status'], ['expired', 'cancelled'], true)
+                    && $lockedSessionId !== $expiredSessionId) {
+                    throw new RuntimeException('A checkout session changed while cancellation was being confirmed. Refresh and retry the verified cancellation.');
+                }
+            }
             $itemsStmt = $this->pdo->prepare('SELECT edition_id, quantity FROM order_items WHERE order_id = ? FOR UPDATE');
             $itemsStmt->execute([$orderId]);
             $restore = $this->pdo->prepare('UPDATE book_editions SET stock_quantity = stock_quantity + ? WHERE edition_id = ?');
@@ -218,10 +237,12 @@ class PaymongoController
             $this->pdo->prepare("UPDATE orders SET status = 'cancelled', payment_status = 'cancelled' WHERE order_id = ?")
                 ->execute([$orderId]);
             auditLogRequired($this->pdo, 'order_cancelled', 'Customer cancelled an unpaid PayMongo order.', 'orders', $userId, 'order', $orderId, 'success', 'customer');
-            if ($payment) {
-                $this->pdo->prepare("UPDATE payments SET status = 'cancelled' WHERE payment_id = ? AND status <> 'paid'")
-                    ->execute([$payment['payment_id']]);
-                auditLogRequired($this->pdo, 'payment_cancelled', 'Customer cancelled an unpaid PayMongo checkout.', 'payments', $userId, 'payment', (int) $payment['payment_id'], 'info', 'customer');
+            foreach ($lockedPayments as $lockedPayment) {
+                if ($lockedPayment['status'] === 'pending') {
+                    $this->pdo->prepare("UPDATE payments SET status = 'cancelled' WHERE payment_id = ? AND status = 'pending'")
+                        ->execute([$lockedPayment['payment_id']]);
+                    auditLogRequired($this->pdo, 'payment_cancelled', 'Customer cancelled an unpaid PayMongo checkout.', 'payments', $userId, 'payment', (int) $lockedPayment['payment_id'], 'info', 'customer');
+                }
             }
             $this->pdo->commit();
         } catch (Throwable $e) {
@@ -316,23 +337,41 @@ class PaymongoController
 
         $this->pdo->beginTransaction();
         try {
-            $lockedStmt = $this->pdo->prepare(
-                'SELECT p.payment_id, p.order_id, p.status AS payment_status,
-                        o.payment_status AS order_payment_status
-                   FROM payments p JOIN orders o ON o.order_id = p.order_id
-                  WHERE p.gateway = ? AND p.checkout_session_id = ? FOR UPDATE'
+            // Lock in the same order as cancellation: order first, then payment attempt.
+            $lockedOrderStmt = $this->pdo->prepare(
+                'SELECT order_id, order_number, status, payment_method, payment_status, total_amount
+                   FROM orders WHERE order_id = ? FOR UPDATE'
             );
-            $lockedStmt->execute(['paymongo', $sessionId]);
-            $locked = $lockedStmt->fetch();
-            if (!$locked) {
+            $lockedOrderStmt->execute([$map['order_id']]);
+            $lockedOrder = $lockedOrderStmt->fetch();
+            $lockedPaymentStmt = $this->pdo->prepare(
+                'SELECT payment_id, order_id, payment_method, status AS payment_status, checkout_session_id, manual_review_required
+                   FROM payments WHERE gateway = ? AND checkout_session_id = ? FOR UPDATE'
+            );
+            $lockedPaymentStmt->execute(['paymongo', $sessionId]);
+            $lockedPayment = $lockedPaymentStmt->fetch();
+            if (!$lockedOrder || !$lockedPayment
+                || (int) $lockedPayment['order_id'] !== (int) $lockedOrder['order_id']
+                || (string) $lockedOrder['order_number'] !== (string) ($attrs['reference_number'] ?? '')
+                || (string) $lockedOrder['payment_method'] !== (string) $lockedPayment['payment_method']
+                || (int) round((float) $lockedOrder['total_amount'] * 100) !== $expectedCents) {
                 throw new UnexpectedValueException('Local checkout attempt disappeared.');
             }
+
+            $reconciliationRequired = $lockedOrder['status'] === 'cancelled'
+                || $lockedOrder['payment_status'] === 'cancelled'
+                || in_array($lockedPayment['payment_status'], ['cancelled', 'expired', 'failed'], true);
             if ($eventId !== null) {
                 try {
                     $this->pdo->prepare(
                         'INSERT INTO payment_webhook_events (event_id, event_type, payment_id, outcome)
                          VALUES (?, ?, ?, ?)'
-                    )->execute([$eventId, 'checkout_session.payment.paid', $locked['payment_id'], 'processed']);
+                    )->execute([
+                        $eventId,
+                        'checkout_session.payment.paid',
+                        $lockedPayment['payment_id'],
+                        $reconciliationRequired ? 'manual_review' : 'processed',
+                    ]);
                 } catch (PDOException $e) {
                     if ((string) $e->getCode() === '23000') {
                         $this->pdo->rollBack();
@@ -342,29 +381,38 @@ class PaymongoController
                 }
             }
 
-            if ($locked['order_payment_status'] !== 'paid') {
-                $updatePayment = $this->pdo->prepare(
-                    "UPDATE payments SET status = 'paid', provider_payment_id = ?, provider_intent_id = ?,
-                            gateway_transaction_id = ?, paid_at = NOW()
-                      WHERE payment_id = ?"
-                );
-                $updatePayment->execute([
-                    (string) ($paidPayment['id'] ?? ''),
-                    (string) ($attrs['payment_intent']['id'] ?? ''),
-                    $sessionId,
-                    $locked['payment_id'],
-                ]);
+            $updatePayment = $this->pdo->prepare(
+                "UPDATE payments SET status = 'paid', provider_payment_id = ?, provider_intent_id = ?,
+                        gateway_transaction_id = ?, paid_at = COALESCE(paid_at, NOW()),
+                        manual_review_required = GREATEST(manual_review_required, ?)
+                  WHERE payment_id = ?"
+            );
+            $updatePayment->execute([
+                (string) ($paidPayment['id'] ?? ''),
+                (string) ($attrs['payment_intent']['id'] ?? ''),
+                $sessionId,
+                $reconciliationRequired ? 1 : 0,
+                $lockedPayment['payment_id'],
+            ]);
+            if ($lockedOrder['payment_status'] !== 'paid') {
+                // Record provider-confirmed money even if cancellation won the race.
+                // Keep a cancelled order cancelled; the audit/event record requires manual resolution.
                 $this->pdo->prepare("UPDATE orders SET payment_status = 'paid' WHERE order_id = ?")
-                    ->execute([$locked['order_id']]);
+                    ->execute([$lockedOrder['order_id']]);
+            }
+            if ($lockedPayment['payment_status'] !== 'paid' || $lockedOrder['payment_status'] !== 'paid'
+                || ($reconciliationRequired && !(bool) $lockedPayment['manual_review_required'])) {
                 auditLogRequired(
                     $this->pdo,
                     'payment_succeeded',
-                    'PayMongo confirmed the order payment.',
+                    $reconciliationRequired
+                        ? 'PayMongo confirmed payment after the order or payment attempt was cancelled/expired. Manual reconciliation is required; no refund was issued.'
+                        : 'PayMongo confirmed the order payment.',
                     'payments',
                     null,
                     'payment',
-                    (int) $locked['payment_id'],
-                    'success',
+                    (int) $lockedPayment['payment_id'],
+                    $reconciliationRequired ? 'info' : 'success',
                     'system'
                 );
             }
@@ -373,7 +421,7 @@ class PaymongoController
                     ->execute([$eventId]);
             }
             $this->pdo->commit();
-            return 'processed';
+            return $reconciliationRequired ? 'manual_review' : 'processed';
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {
                 $this->pdo->rollBack();
@@ -513,7 +561,19 @@ class PaymongoController
                 "UPDATE payments SET checkout_session_id = ?, checkout_url = ?, gateway_transaction_id = ?
                   WHERE payment_id = ? AND order_id = ? AND status = 'pending'"
             );
-            $stmt->execute([$sessionId, $checkoutUrl, $sessionId, $payment['payment_id'], $order['order_id']]);
+            try {
+                $stmt->execute([$sessionId, $checkoutUrl, $sessionId, $payment['payment_id'], $order['order_id']]);
+            } catch (PDOException $e) {
+                if ((string) $e->getCode() === '23000') {
+                    error_log('PayMongo returned a checkout session already linked to another payment attempt.');
+                    throw new RuntimeException(
+                        'PayMongo returned a checkout session that is already linked to another order. This order remains unpaid; contact support before retrying.',
+                        0,
+                        $e
+                    );
+                }
+                throw $e;
+            }
             $created = $stmt->rowCount() === 1;
             if ($stmt->rowCount() !== 1) {
                 $check = $this->pdo->prepare('SELECT checkout_session_id FROM payments WHERE payment_id = ? AND order_id = ?');
@@ -567,10 +627,15 @@ class PaymongoController
     {
         $this->pdo->beginTransaction();
         try {
+            $orderStmt = $this->pdo->prepare('SELECT status, payment_status FROM orders WHERE order_id = ? FOR UPDATE');
+            $orderStmt->execute([$orderId]);
+            $order = $orderStmt->fetch();
             $stmt = $this->pdo->prepare('SELECT status FROM payments WHERE payment_id = ? AND order_id = ? FOR UPDATE');
             $stmt->execute([$paymentId, $orderId]);
             $payment = $stmt->fetch();
-            if ($payment && $payment['status'] !== 'paid' && $payment['status'] !== 'expired') {
+            if ($order && $payment && $order['status'] !== 'cancelled'
+                && !in_array($payment['status'], ['paid', 'expired', 'cancelled'], true)
+                && !in_array($order['payment_status'], ['paid', 'cancelled'], true)) {
                 $this->pdo->prepare("UPDATE payments SET status = 'expired' WHERE payment_id = ?")
                     ->execute([$paymentId]);
                 $this->pdo->prepare("UPDATE orders SET payment_status = 'expired' WHERE order_id = ? AND payment_status <> 'paid'")
@@ -600,21 +665,34 @@ class PaymongoController
     {
         $this->pdo->beginTransaction();
         try {
-            $this->pdo->prepare("UPDATE payments SET status = 'failed' WHERE payment_id = ? AND status = 'pending' AND checkout_session_id IS NULL")
-                ->execute([$paymentId]);
-            $this->pdo->prepare("UPDATE orders SET payment_status = 'failed' WHERE order_id = ? AND payment_status <> 'paid'")
-                ->execute([$orderId]);
-            auditLogRequired(
-                $this->pdo,
-                'payment_failed',
-                'PayMongo rejected checkout session creation.',
-                'payments',
-                0,
-                'payment',
-                $paymentId,
-                'failure',
-                'system'
-            );
+            $markedFailed = false;
+            $orderStmt = $this->pdo->prepare('SELECT payment_status FROM orders WHERE order_id = ? FOR UPDATE');
+            $orderStmt->execute([$orderId]);
+            $order = $orderStmt->fetch();
+            $paymentStmt = $this->pdo->prepare('SELECT status, checkout_session_id FROM payments WHERE payment_id = ? AND order_id = ? FOR UPDATE');
+            $paymentStmt->execute([$paymentId, $orderId]);
+            $payment = $paymentStmt->fetch();
+            if ($order && $payment && $order['payment_status'] !== 'paid'
+                && $payment['status'] === 'pending' && empty($payment['checkout_session_id'])) {
+                $this->pdo->prepare("UPDATE payments SET status = 'failed' WHERE payment_id = ?")
+                    ->execute([$paymentId]);
+                $this->pdo->prepare("UPDATE orders SET payment_status = 'failed' WHERE order_id = ?")
+                    ->execute([$orderId]);
+                $markedFailed = true;
+            }
+            if ($markedFailed) {
+                auditLogRequired(
+                    $this->pdo,
+                    'payment_failed',
+                    'PayMongo rejected checkout session creation.',
+                    'payments',
+                    0,
+                    'payment',
+                    $paymentId,
+                    'failure',
+                    'system'
+                );
+            }
             $this->pdo->commit();
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {

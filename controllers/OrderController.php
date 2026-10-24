@@ -14,7 +14,7 @@ class OrderController
 
     public function createPendingOrder(int $userId, array $shipping, string $paymentMethod = 'cod'): array
     {
-        if (!in_array($paymentMethod, ['cod', 'gcash', 'maya'], true)) {
+        if (!in_array($paymentMethod, ['cod', 'gcash'], true)) {
             throw new InvalidArgumentException('Select a supported payment method.');
         }
         $paymentColumnsAvailable = paymentSchemaHasColumn($this->pdo, 'orders', 'payment_method')
@@ -215,10 +215,24 @@ class OrderController
                     if ($paymentState !== 'paid') {
                         throw new RuntimeException('This order cannot be fulfilled until PayMongo confirms payment.');
                     }
+                    if (!paymentSchemaHasColumn($this->pdo, 'payments', 'manual_review_required')) {
+                        throw new RuntimeException('PayMongo payment review data is unavailable. Apply the updated PayMongo migration before fulfillment.');
+                    }
+
+                    $reviewStmt = $this->pdo->prepare(
+                        "SELECT payment_id FROM payments
+                          WHERE order_id = ? AND gateway = 'paymongo' AND manual_review_required = 1
+                          LIMIT 1"
+                    );
+                    $reviewStmt->execute([$orderId]);
+                    if ($reviewStmt->fetchColumn()) {
+                        throw new RuntimeException('This order has a PayMongo payment requiring manual reconciliation and cannot be fulfilled yet.');
+                    }
 
                     $confirmedPaymentStmt = $this->pdo->prepare(
                         "SELECT payment_id FROM payments
-                          WHERE order_id = ? AND gateway = 'paymongo' AND payment_method = ? AND status = 'paid'
+                          WHERE order_id = ? AND gateway = 'paymongo' AND payment_method = ?
+                            AND status = 'paid' AND manual_review_required = 0
                           LIMIT 1"
                     );
                     $confirmedPaymentStmt->execute([$orderId, $paymentInfo['payment_method']]);

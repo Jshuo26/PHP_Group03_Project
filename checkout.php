@@ -122,8 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Enter a valid ZIP or postal code.';
     }
 
-    if (!in_array($paymentMethod, ['cod', 'gcash', 'maya'], true)) {
-        $errors[] = 'Select Cash on delivery, GCash, or Maya.';
+    if (!in_array($paymentMethod, ['cod', 'gcash'], true)) {
+        $errors[] = 'Select Cash on delivery or GCash.';
     }
 
     if (!$errors) {
@@ -308,10 +308,6 @@ include __DIR__ . '/includes/header.php';
                                 GCash
                             </label>
 
-                            <label class="payment-method-pill <?= $paymentMethod === 'maya' ? 'active' : '' ?>">
-                                <input type="radio" name="payment_method" value="maya" <?= $paymentMethod === 'maya' ? 'checked' : '' ?>>
-                                Maya
-                            </label>
 
                             <label class="payment-method-pill <?= $paymentMethod === 'cod' ? 'active' : '' ?>">
                                 <input type="radio" name="payment_method" value="cod" <?= $paymentMethod === 'cod' ? 'checked' : '' ?>>
@@ -376,3 +372,4 @@ include __DIR__ . '/includes/header.php';
 
 <script src="/js/checkout.js" defer></script>
 <?php include __DIR__ . '/includes/footer.php'; ?>
+\
