@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/otp.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/password_policy.php';
+require_once __DIR__ . '/../includes/crypto.php';
 
 $errors  = [];
 $passwordPolicy = getPasswordPolicy($pdo);
@@ -108,17 +109,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $first_name = preg_replace('/\s+/', ' ', strip_tags($first_name));
         $last_name = preg_replace('/\s+/', ' ', strip_tags($last_name));
         $full_name = $first_name . ' ' . $last_name;
-        $email = strtolower(filter_var($email, FILTER_SANITIZE_EMAIL));
+        $email = normalizeEmailForLookup(strtolower(filter_var($email, FILTER_SANITIZE_EMAIL)));
         $mobile_number = preg_replace('/[\s\-]/', '', $mobile_number);
     }
 
     if (empty($errors)) {
 
         $stmt = $pdo->prepare(
-            'SELECT user_id, account_status FROM users WHERE email = ? LIMIT 1'
+            'SELECT user_id, account_status FROM users
+             WHERE email_lookup_hash = ? OR email = ? LIMIT 1'
         );
 
-        $stmt->execute([$email]);
+        $stmt->execute([emailLookupHash($email), $email]);
 
         $existing = $stmt->fetch();
 
@@ -160,6 +162,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $profilePicturePath = '/uploads/profile-pictures/' . $fileName;
             }
 
+            $pdo->beginTransaction();
             $stmt = $pdo->prepare(
                 "INSERT INTO users
                 (first_name, last_name, full_name, email, mobile_number, profile_picture_path, password_hash, account_status)
@@ -178,7 +181,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             $newUserId = (int) $pdo->lastInsertId();
 
+            $protectUser = $pdo->prepare(
+                'UPDATE users
+                    SET first_name = ?, last_name = ?, full_name = ?, email = ?,
+                        mobile_number = ?, email_lookup_hash = ?
+                  WHERE user_id = ?'
+            );
+            $protectUser->execute([
+                encryptPersonalField($first_name, personalFieldContext('users', 'first_name', $newUserId)),
+                encryptPersonalField($last_name, personalFieldContext('users', 'last_name', $newUserId)),
+                encryptPersonalField($full_name, personalFieldContext('users', 'full_name', $newUserId)),
+                encryptPersonalField($email, personalFieldContext('users', 'email', $newUserId)),
+                $mobile_number !== ''
+                    ? encryptPersonalField($mobile_number, personalFieldContext('users', 'mobile_number', $newUserId))
+                    : null,
+                emailLookupHash($email),
+                $newUserId,
+            ]);
+            $pdo->commit();
+
         } catch (Throwable $e) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
             if ($savedProfilePicture && is_file($savedProfilePicture)) {
                 unlink($savedProfilePicture);
             }

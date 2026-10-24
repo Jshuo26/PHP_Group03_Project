@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/otp.php';
 require_once __DIR__ . '/../includes/mailer.php';
+require_once __DIR__ . '/../includes/crypto.php';
 
 $userId = (int) ($_SESSION['verify_user_id'] ?? 0);
 
@@ -24,6 +25,10 @@ $stmt = $pdo->prepare(
 $stmt->execute([$userId]);
 
 $user = $stmt->fetch();
+
+if ($user) {
+    $user = decryptUserPersonalFields($user);
+}
 
 if (!$user || $user['account_status'] !== 'pending') {
     unset($_SESSION['verify_user_id'], $_SESSION['verify_notice']);

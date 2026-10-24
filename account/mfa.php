@@ -36,7 +36,7 @@ if (!function_exists('e')) {
     }
 }
 
-$userStmt = $pdo->prepare('SELECT email, full_name, password_hash, role, account_status, profile_picture_path FROM users WHERE user_id = ?');
+$userStmt = $pdo->prepare('SELECT user_id, email, full_name, password_hash, role, account_status, profile_picture_path FROM users WHERE user_id = ?');
 $userStmt->execute([$userId]);
 $user = $userStmt->fetch();
 
@@ -44,6 +44,7 @@ if (!$user) {
     http_response_code(404);
     exit('Account not found.');
 }
+$user = decryptUserPersonalFields($user);
 
 if ($user['account_status'] !== 'active'
     || ($isStaffEnrollment && !in_array($user['role'], ['admin', 'staff'], true))) {

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/otp.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/password_policy.php';
+require_once __DIR__ . '/../includes/crypto.php';
 
 requireRole(['customer']);
 
@@ -15,10 +16,13 @@ $errors = [];
 $success = '';
 
 $profileStmt = $pdo->prepare(
-    'SELECT full_name, email FROM users WHERE user_id = ?'
+    'SELECT user_id, full_name, email FROM users WHERE user_id = ?'
 );
 $profileStmt->execute([$userId]);
 $profile = $profileStmt->fetch();
+if ($profile) {
+    $profile = decryptUserPersonalFields($profile);
+}
 
 if (!$profile) {
     http_response_code(404);
@@ -469,9 +473,9 @@ include __DIR__ . '/../includes/header.php';
             </div>
         </div>
 
-    </div><!-- /.account-main-content -->
+    </div>
 
-</div><!-- /.account-page-layout -->
+</div>
 
 <script src="/js/account.js" defer></script>
 <?php if ($otpStep): ?>

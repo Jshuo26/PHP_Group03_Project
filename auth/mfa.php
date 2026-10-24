@@ -56,6 +56,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     );
     $userStmt->execute([$userId]);
     $user = $userStmt->fetch();
+    if ($user) {
+        $user = decryptUserPersonalFields($user);
+    }
 
     $mfaStmt = $pdo->prepare(
         "SELECT secret_key, last_used_step FROM mfa_settings WHERE user_id = ? AND method = 'totp' LIMIT 1"

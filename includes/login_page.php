@@ -4,6 +4,7 @@ require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/csrf.php';
 require_once __DIR__ . '/input.php';
+require_once __DIR__ . '/crypto.php';
 
 $isStaffLogin = ($loginAudience ?? 'customer') === 'staff';
 $allowedRoles    = $isStaffLogin ? ['admin', 'staff'] : ['customer'];
@@ -18,7 +19,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     requireCsrfToken();
 
-    $email = trim(requestString($_POST, 'email'));
+    $email = normalizeEmailForLookup(requestString($_POST, 'email'));
     $password = requestString($_POST, 'password');
 
     if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
@@ -47,12 +48,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $rolePlaceholders = implode(',', array_fill(0, count($allowedRoles), '?'));
 
         $stmt = $pdo->prepare(
-            "SELECT user_id, full_name, email, password_hash, role, account_status, profile_picture_path
+            "SELECT user_id, full_name, email, email_lookup_hash, password_hash, role, account_status, profile_picture_path
              FROM users
-             WHERE email = ? AND role IN ($rolePlaceholders)
+             WHERE (email_lookup_hash = ? OR email = ?) AND role IN ($rolePlaceholders)
              LIMIT 1"
         );
-        $stmt->execute(array_merge([$email], $allowedRoles));
+        $stmt->execute(array_merge([emailLookupHash($email), $email], $allowedRoles));
         $user = $stmt->fetch();
 
         if ($user) {
@@ -130,6 +131,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = 'Your account is currently suspended.';
 
             } else {
+
+                $user = decryptUserPersonalFields($user);
 
                 $mfaCheck = $pdo->prepare(
                     "SELECT 1 FROM mfa_settings WHERE user_id = ? AND method = 'totp' LIMIT 1"

@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
+require_once __DIR__ . '/../includes/crypto.php';
 
 requireRole(['customer']);
 
@@ -12,7 +13,7 @@ $errors = [];
 $success = '';
 
 $profileStmt = $pdo->prepare(
-    'SELECT full_name, email, mobile_number, profile_picture_path FROM users WHERE user_id = ?'
+    'SELECT user_id, full_name, email, mobile_number, profile_picture_path FROM users WHERE user_id = ?'
 );
 $profileStmt->execute([$userId]);
 $profile = $profileStmt->fetch();
@@ -21,6 +22,7 @@ if (!$profile) {
     http_response_code(404);
     exit('Account not found.');
 }
+$profile = decryptUserPersonalFields($profile);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
@@ -39,7 +41,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $updateStmt = $pdo->prepare(
                     'UPDATE users SET full_name = ? WHERE user_id = ?'
                 );
-                $updateStmt->execute([$fullName, $userId]);
+                $updateStmt->execute([
+                    encryptPersonalField($fullName, personalFieldContext('users', 'full_name', $userId)),
+                    $userId,
+                ]);
 
                 $_SESSION['full_name'] = $fullName;
                 $profile['full_name'] = $fullName;
@@ -60,9 +65,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if (!$errors) {
             $emailStmt = $pdo->prepare(
-                'SELECT user_id FROM users WHERE email = ? AND user_id <> ?'
+                'SELECT user_id FROM users
+                  WHERE (email_lookup_hash = ? OR email = ?) AND user_id <> ?'
             );
-            $emailStmt->execute([$email, $userId]);
+            $emailStmt->execute([emailLookupHash($email), $email, $userId]);
 
             if ($emailStmt->fetch()) {
                 $errors[] = 'That email address is already in use.';
@@ -72,9 +78,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!$errors) {
             try {
                 $updateStmt = $pdo->prepare(
-                    'UPDATE users SET email = ? WHERE user_id = ?'
+                    'UPDATE users SET email = ?, email_lookup_hash = ? WHERE user_id = ?'
                 );
-                $updateStmt->execute([$email, $userId]);
+                $updateStmt->execute([
+                    encryptPersonalField($email, personalFieldContext('users', 'email', $userId)),
+                    emailLookupHash($email),
+                    $userId,
+                ]);
 
                 $_SESSION['email'] = $email;
                 $profile['email'] = $email;
@@ -106,7 +116,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'UPDATE users SET mobile_number = ? WHERE user_id = ?'
                 );
                 $updateStmt->execute([
-                    $mobileNumber !== '' ? $mobileNumber : null,
+                    $mobileNumber !== ''
+                        ? encryptPersonalField($mobileNumber, personalFieldContext('users', 'mobile_number', $userId))
+                        : null,
                     $userId
                 ]);
 
@@ -192,10 +204,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if (!$errors && $success !== '') {
         $profileStmt = $pdo->prepare(
-            'SELECT full_name, email, mobile_number, profile_picture_path FROM users WHERE user_id = ?'
+            'SELECT user_id, full_name, email, mobile_number, profile_picture_path FROM users WHERE user_id = ?'
         );
         $profileStmt->execute([$userId]);
         $profile = $profileStmt->fetch();
+        if ($profile) {
+            $profile = decryptUserPersonalFields($profile);
+        }
     }
 }
 
