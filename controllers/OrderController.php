@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/crypto.php';
 
 class OrderController
 {
@@ -61,6 +62,7 @@ class OrderController
             $taxAmount = '0.00';
             $totalAmount = $subtotal;
             $orderNumber = 'ORD-' . date('YmdHis') . '-' . bin2hex(random_bytes(3));
+            $encryptedShipping = encryptOrderPersonalFields($shipping, $orderNumber);
 
             $orderStmt = $this->pdo->prepare(
                 'INSERT INTO orders
@@ -72,12 +74,12 @@ class OrderController
             $orderStmt->execute([
                 $userId,
                 $orderNumber,
-                $shipping['shipping_name'],
-                $shipping['shipping_mobile'],
-                $shipping['shipping_street'],
-                $shipping['shipping_city'],
-                $shipping['shipping_province'],
-                $shipping['shipping_zip'],
+                $encryptedShipping['shipping_name'],
+                $encryptedShipping['shipping_mobile'],
+                $encryptedShipping['shipping_street'],
+                $encryptedShipping['shipping_city'],
+                $encryptedShipping['shipping_province'],
+                $encryptedShipping['shipping_zip'],
                 $subtotal,
                 $shippingFee,
                 $taxAmount,

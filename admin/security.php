@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/password_policy.php';
+require_once __DIR__ . '/../includes/crypto.php';
 
 requireRole(['admin']);
 
@@ -184,6 +185,10 @@ $lockedStmt = $pdo->query(
      ORDER BY l.locked_at DESC'
 );
 $lockedAccounts = $lockedStmt->fetchAll();
+foreach ($lockedAccounts as &$lockedAccount) {
+    $lockedAccount = decryptUserPersonalFields($lockedAccount);
+}
+unset($lockedAccount);
 
 $csrf = generateCsrfToken();
 

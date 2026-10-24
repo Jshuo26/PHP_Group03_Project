@@ -5,6 +5,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/input.php';
 require_once __DIR__ . '/controllers/OrderController.php';
+require_once __DIR__ . '/includes/crypto.php';
 require_once __DIR__ . '/includes/csrf.php';
 require_once __DIR__ . '/includes/input.php';
 
@@ -12,22 +13,28 @@ requireRole(['customer']);
 $userId = (int) $_SESSION['user_id'];
 $errors = [];
 
-$userStmt = $pdo->prepare('SELECT full_name, mobile_number FROM users WHERE user_id = ?');
+$userStmt = $pdo->prepare('SELECT user_id, full_name, mobile_number FROM users WHERE user_id = ?');
 $userStmt->execute([$userId]);
 $userData = $userStmt->fetch() ?: [];
+if ($userData) {
+    $userData = decryptUserPersonalFields($userData);
+}
 
 $defaultAddrStmt = $pdo->prepare(
-    'SELECT street, city, province, zip_code 
+    'SELECT address_id, street, city, province, zip_code
      FROM addresses 
      WHERE user_id = ? AND is_default = 1 
      LIMIT 1'
 );
 $defaultAddrStmt->execute([$userId]);
 $defaultAddress = $defaultAddrStmt->fetch();
+if ($defaultAddress) {
+    $defaultAddress = decryptAddressPersonalFields($defaultAddress);
+}
 
 if (!$defaultAddress) {
     $anyAddrStmt = $pdo->prepare(
-        'SELECT street, city, province, zip_code 
+        'SELECT address_id, street, city, province, zip_code
          FROM addresses 
          WHERE user_id = ? 
          ORDER BY address_id DESC 
@@ -35,6 +42,9 @@ if (!$defaultAddress) {
     );
     $anyAddrStmt->execute([$userId]);
     $defaultAddress = $anyAddrStmt->fetch() ?: [];
+    if ($defaultAddress) {
+        $defaultAddress = decryptAddressPersonalFields($defaultAddress);
+    }
 }
 
 $shippingName = requestString($_POST, 'shipping_name');

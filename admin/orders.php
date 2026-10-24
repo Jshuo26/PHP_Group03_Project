@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../controllers/OrderController.php';
+require_once __DIR__ . '/../includes/crypto.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -34,20 +35,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 $orders = $pdo->query(
-    'SELECT o.order_id, o.order_number, o.shipping_name, o.shipping_mobile,
-            o.shipping_street, o.shipping_city, o.shipping_province, o.shipping_zip,
-            o.status, o.total_amount, o.placed_at, u.email,
+    'SELECT o.order_id, o.order_number, u.user_id,
+            MAX(o.shipping_name) AS shipping_name,
+            MAX(o.shipping_mobile) AS shipping_mobile,
+            MAX(o.shipping_street) AS shipping_street,
+            MAX(o.shipping_city) AS shipping_city,
+            MAX(o.shipping_province) AS shipping_province,
+            MAX(o.shipping_zip) AS shipping_zip,
+            o.status, o.total_amount, o.placed_at, MAX(u.email) AS email,
             GROUP_CONCAT(CONCAT(b.title, " × ", oi.quantity) ORDER BY b.title SEPARATOR ", ") AS items
      FROM orders o
      JOIN users u ON u.user_id = o.user_id
      JOIN order_items oi ON oi.order_id = o.order_id
      JOIN book_editions e ON e.edition_id = oi.edition_id
      JOIN books b ON b.book_id = e.book_id
-     GROUP BY o.order_id, o.order_number, o.shipping_name, o.shipping_mobile,
-              o.shipping_street, o.shipping_city, o.shipping_province, o.shipping_zip,
-              o.status, o.total_amount, o.placed_at, u.email
+     GROUP BY o.order_id, o.order_number, u.user_id,
+              o.status, o.total_amount, o.placed_at
      ORDER BY o.placed_at DESC'
 )->fetchAll();
+
+foreach ($orders as &$order) {
+    $order = decryptOrderPersonalFields($order);
+    $order['email'] = decryptPersonalField(
+        (string) $order['email'],
+        personalFieldContext('users', 'email', $order['user_id'])
+    );
+}
+unset($order);
 
 include __DIR__ . '/../includes/header.php';
 ?>
