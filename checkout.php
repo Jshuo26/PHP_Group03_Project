@@ -122,8 +122,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Enter a valid ZIP or postal code.';
     }
 
-    if (!in_array($paymentMethod, ['cod', 'gcash'], true)) {
-        $errors[] = 'Select Cash on delivery or GCash.';
+    if (!in_array($paymentMethod, ['cod', 'gcash', 'qrph'], true)) {
+        $errors[] = 'Select Cash on delivery, GCash, or QR Ph.';
     }
 
     if (!$errors) {
@@ -321,6 +321,10 @@ include __DIR__ . '/includes/header.php';
                                 GCash
                             </label>
 
+                            <label class="payment-method-pill <?= $paymentMethod === 'qrph' ? 'active' : '' ?>">
+                                <input type="radio" name="payment_method" value="qrph" <?= $paymentMethod === 'qrph' ? 'checked' : '' ?>>
+                                QR Ph (scan with GCash or a bank app)
+                            </label>
 
                             <label class="payment-method-pill <?= $paymentMethod === 'cod' ? 'active' : '' ?>">
                                 <input type="radio" name="payment_method" value="cod" <?= $paymentMethod === 'cod' ? 'checked' : '' ?>>

@@ -28,10 +28,10 @@ class PaymongoController
     {
         $this->assertReady();
         $order = $this->getOwnedOrder($orderId, $userId);
-        if ($order['payment_method'] !== 'gcash') {
+        if (!in_array($order['payment_method'], ['gcash', 'qrph'], true)) {
             throw new RuntimeException('This order is not configured for PayMongo checkout.');
         }
-        $this->validateCheckoutAmount($order['total_amount']);
+        $this->validateCheckoutAmount($order['total_amount'], (string) $order['payment_method']);
         if ($order['status'] === 'cancelled' || $order['payment_status'] === 'cancelled') {
             throw new RuntimeException('This order was cancelled. Place a new order to try again.');
         }
@@ -71,7 +71,7 @@ class PaymongoController
         }
 
         [$payment, $lineItems, $totalCents] = $this->preparePaymentAttempt($order, $userId);
-        $methodType = 'gcash';
+        $methodType = (string) $order['payment_method'];
         $baseUrl = rtrim((string) ($this->config['APP_URL'] ?? ''), '/');
         $baseParts = parse_url($baseUrl);
         $isLocal = is_array($baseParts)
@@ -192,7 +192,7 @@ class PaymongoController
     {
         $this->assertReady();
         $order = $this->getOwnedOrder($orderId, $userId);
-        if (!in_array($order['payment_method'], ['gcash', 'maya'], true)
+        if (!in_array($order['payment_method'], ['gcash', 'maya', 'qrph'], true)
             || $order['status'] !== 'pending' || $order['payment_status'] === 'paid') {
             throw new RuntimeException('Only unpaid, pending PayMongo orders can be cancelled here.');
         }
@@ -230,7 +230,7 @@ class PaymongoController
             $lock->execute([$orderId, $userId]);
             $lockedOrder = $lock->fetch();
             if (!$lockedOrder || $lockedOrder['status'] !== 'pending'
-                || !in_array($lockedOrder['payment_method'], ['gcash', 'maya'], true)
+                || !in_array($lockedOrder['payment_method'], ['gcash', 'maya', 'qrph'], true)
                 || $lockedOrder['payment_status'] === 'paid') {
                 throw new RuntimeException('Order state changed while cancellation was being confirmed. Refresh My Orders.');
             }
@@ -350,7 +350,11 @@ class PaymongoController
             $lineTotal += (int) $line['amount'] * (int) $line['quantity'];
         }
         $sourceType = (string) ($paymentAttrs['source']['type'] ?? '');
-        $expectedSource = $map['payment_method'] === 'maya' ? 'paymaya' : 'gcash';
+        $expectedSource = match ($map['payment_method']) {
+            'maya' => 'paymaya',
+            'qrph' => 'qrph',
+            default => 'gcash',
+        };
         if ($currency !== 'PHP' || $amount !== $expectedCents || $intentAmount !== $expectedCents
             || $lineTotal !== $expectedCents || $sourceType !== $expectedSource
             || ($intent['currency'] ?? '') !== 'PHP'
@@ -504,7 +508,7 @@ class PaymongoController
                 'quantity' => $qty,
             ];
         }
-        $totalCents = $this->validateCheckoutAmount($order['total_amount']);
+        $totalCents = $this->validateCheckoutAmount($order['total_amount'], (string) $order['payment_method']);
         if ($sum > $totalCents) {
             throw new RuntimeException('This order total is outside PayMongo limits or does not match its items.');
         }
@@ -558,7 +562,7 @@ class PaymongoController
         return [$payment, $lineItems, $totalCents];
     }
 
-    private function validateCheckoutAmount($totalAmount): int
+    private function validateCheckoutAmount($totalAmount, string $paymentMethod): int
     {
         if (!is_numeric($totalAmount)) {
             throw new RuntimeException('This order total cannot be processed. Please contact support.');
@@ -568,8 +572,8 @@ class PaymongoController
         if ($totalCents < 100 || $totalCents > 999999999) {
             throw new RuntimeException('This order total is outside PayMongo limits.');
         }
-        if ($totalCents > 10000000) {
-            throw new RuntimeException('GCash and Maya checkout is limited to ₱100,000 per order. Choose cash on delivery or contact support.');
+        if (in_array($paymentMethod, ['gcash', 'maya'], true) && $totalCents > 10000000) {
+            throw new RuntimeException('GCash and Maya checkout is limited to ₱100,000 per order. Choose QR Ph, cash on delivery, or contact support.');
         }
 
         return $totalCents;

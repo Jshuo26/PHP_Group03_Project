@@ -40,7 +40,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cance
             $lookup->execute([$orderId, $userId]);
             $method = $lookup->fetchColumn() ?: 'cod';
         }
-        if (in_array($method, ['gcash', 'maya'], true)) {
+        if (in_array($method, ['gcash', 'maya', 'qrph'], true)) {
             (new PaymongoController($pdo, $config))->cancelUnpaidOrder($orderId, $userId);
         } else {
             (new OrderController($pdo))->cancelOrderByCustomer($orderId, $userId);
@@ -332,7 +332,7 @@ include __DIR__ . '/../includes/header.php';
                 $currentStep = $statusStep[$status] ?? 0;
 
                 $isCancelled = $status === 'cancelled';
-                $isOnlinePayment = in_array($order['payment_method'], ['gcash', 'maya'], true);
+                $isOnlinePayment = in_array($order['payment_method'], ['gcash', 'maya', 'qrph'], true);
                 $paymentStatus = (string) ($order['payment_status'] ?? 'not_required');
                 $canRetryPayment = $isOnlinePayment && !$isCancelled && $paymentStatus !== 'paid';
                 ?>

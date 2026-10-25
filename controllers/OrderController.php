@@ -14,7 +14,7 @@ class OrderController
 
     public function createPendingOrder(int $userId, array $shipping, string $paymentMethod = 'cod'): array
     {
-        if (!in_array($paymentMethod, ['cod', 'gcash'], true)) {
+        if (!in_array($paymentMethod, ['cod', 'gcash', 'qrph'], true)) {
             throw new InvalidArgumentException('Select a supported payment method.');
         }
         $paymentColumnsAvailable = paymentSchemaHasColumn($this->pdo, 'orders', 'payment_method')
@@ -209,7 +209,7 @@ class OrderController
                 $paymentStmt = $this->pdo->prepare('SELECT payment_method, payment_status FROM orders WHERE order_id = ?');
                 $paymentStmt->execute([$orderId]);
                 $paymentInfo = $paymentStmt->fetch() ?: [];
-                $onlinePayment = in_array($paymentInfo['payment_method'] ?? '', ['gcash', 'maya'], true);
+                $onlinePayment = in_array($paymentInfo['payment_method'] ?? '', ['gcash', 'maya', 'qrph'], true);
                 $paymentState = (string) ($paymentInfo['payment_status'] ?? 'not_required');
                 if ($onlinePayment && in_array($newStatus, ['processing', 'shipped', 'delivered'], true)) {
                     if ($paymentState !== 'paid') {
@@ -347,7 +347,7 @@ class OrderController
             throw new RuntimeException('Only pending orders can be cancelled.');
         }
 
-        if (in_array($order['payment_method'] ?? 'cod', ['gcash', 'maya'], true)) {
+        if (in_array($order['payment_method'] ?? 'cod', ['gcash', 'maya', 'qrph'], true)) {
             throw new RuntimeException('Use the PayMongo cancellation action to safely expire this checkout before cancelling the order.');
         }
 
