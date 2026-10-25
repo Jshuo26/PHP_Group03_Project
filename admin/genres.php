@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -36,10 +37,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             throw new RuntimeException('Genre not found.');
                         }
                     }
+                    auditLog($pdo, 'update', 'Staff updated a product category.', 'products', (int) $_SESSION['user_id'], 'genre', $genreId, 'success', (string) $_SESSION['role']);
                     $_SESSION['admin_flash'] = 'Genre updated.';
                 } else {
                     $stmt = $pdo->prepare('INSERT INTO genres (genre_name) VALUES (?)');
                     $stmt->execute([$genreName]);
+                    auditLog($pdo, 'create', 'Staff created a product category.', 'products', (int) $_SESSION['user_id'], 'genre', (int) $pdo->lastInsertId(), 'success', (string) $_SESSION['role']);
                     $_SESSION['admin_flash'] = 'Genre added.';
                 }
                 header('Location: /admin/genres.php');
@@ -68,9 +71,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $bookCountStmt->execute([$genreId]);
             if ((int) $bookCountStmt->fetchColumn() > 0) {
                 $pdo->prepare("UPDATE genres SET status = 'inactive' WHERE genre_id = ?")->execute([$genreId]);
+                auditLogRequired($pdo, 'update', 'Staff deactivated a product category assigned to books.', 'products', (int) $_SESSION['user_id'], 'genre', $genreId, 'success', (string) $_SESSION['role']);
                 $_SESSION['admin_flash'] = 'This genre is assigned to books, so it was deactivated instead of deleted.';
             } else {
                 $pdo->prepare('DELETE FROM genres WHERE genre_id = ?')->execute([$genreId]);
+                auditLogRequired($pdo, 'delete', 'Staff deleted a product category.', 'products', (int) $_SESSION['user_id'], 'genre', $genreId, 'success', (string) $_SESSION['role']);
                 $_SESSION['admin_flash'] = 'Genre deleted.';
             }
             $pdo->commit();
@@ -97,11 +102,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (!$existsStmt->fetchColumn()) {
                 $errors[] = 'Genre not found.';
             } else {
+                auditLog($pdo, 'update', 'Staff changed product category availability.', 'products', (int) $_SESSION['user_id'], 'genre', $genreId, 'success', (string) $_SESSION['role']);
                 $_SESSION['admin_flash'] = 'Genre status updated.';
                 header('Location: /admin/genres.php');
                 exit;
             }
         } else {
+            auditLog($pdo, 'update', 'Staff changed product category availability.', 'products', (int) $_SESSION['user_id'], 'genre', $genreId, 'success', (string) $_SESSION['role']);
             $_SESSION['admin_flash'] = 'Genre status updated.';
             header('Location: /admin/genres.php');
             exit;

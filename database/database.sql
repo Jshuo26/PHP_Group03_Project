@@ -123,13 +123,21 @@ INSERT INTO security_policy (policy_id) VALUES (1);
 CREATE TABLE audit_logs (
     log_id          BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id         INT UNSIGNED NULL,
-    action          ENUM('login','logout','create','update','delete','approve','reject','lock','unlock') NOT NULL,
+    actor_name      VARCHAR(255) NULL,
+    action          VARCHAR(64) NOT NULL,
     description     VARCHAR(500) NOT NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    module          VARCHAR(50) NULL,
+    actor_role      VARCHAR(30) NULL,
+    record_type     VARCHAR(50) NULL,
+    record_id       BIGINT UNSIGNED NULL,
+    result          VARCHAR(16) NULL,
     CONSTRAINT fk_audit_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)
         ON DELETE SET NULL ON UPDATE CASCADE,
-    INDEX idx_audit_created (created_at)
+    INDEX idx_audit_created (created_at),
+    INDEX idx_audit_user_created (user_id, created_at),
+    INDEX idx_audit_module_action (module, action, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE genres (

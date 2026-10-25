@@ -5,6 +5,7 @@ require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/csrf.php';
 require_once __DIR__ . '/input.php';
 require_once __DIR__ . '/crypto.php';
+require_once __DIR__ . '/audit.php';
 
 $isStaffLogin = ($loginAudience ?? 'customer') === 'staff';
 $allowedRoles    = $isStaffLogin ? ['admin', 'staff'] : ['customer'];
@@ -84,6 +85,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                      VALUES (?, ?, 0)'
                 );
                 $attemptStmt->execute([$user_id, $ip_address]);
+                auditLog(
+                    $pdo,
+                    'login_failed',
+                    $user ? 'Sign-in failed for a known account.' : 'Sign-in failed for an unrecognized account.',
+                    'authentication',
+                    $user ? (int) $user['user_id'] : null,
+                    'session',
+                    null,
+                    'failure',
+                    $user ? (string) $user['role'] : 'anonymous'
+                );
 
                 if ($user) {
                     $countStmt = $pdo->prepare(
@@ -174,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $_SESSION['mfa_verified'] = false;
                 $_SESSION['last_activity'] = time();
 
+                auditLog($pdo, 'login', 'User signed in successfully.', 'authentication', (int) $user['user_id'], 'session', null, 'success', (string) $user['role']);
                 header('Location: ' . $successRedirect);
                 exit;
             }

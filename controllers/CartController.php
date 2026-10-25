@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/../includes/audit.php';
 
 class CartController
 {
@@ -148,6 +149,7 @@ class CartController
                 $insertStmt->execute([$cartId, $editionId, $quantity]);
             }
 
+            auditLogRequired($this->pdo, $existing ? 'cart_update' : 'cart_add', 'Customer changed a cart item quantity.', 'cart', $userId, 'cart_item', $existing ? (int) $existing['cart_item_id'] : (int) $this->pdo->lastInsertId(), 'success', 'customer');
             $this->pdo->commit();
         } catch (Throwable $e) {
             if ($this->pdo->inTransaction()) {
@@ -184,6 +186,7 @@ class CartController
 
         $updateStmt = $this->pdo->prepare('UPDATE cart_items SET quantity = ? WHERE cart_item_id = ?');
         $updateStmt->execute([$quantity, $cartItemId]);
+        auditLog($this->pdo, 'cart_update', 'Customer updated a cart item quantity.', 'cart', $userId, 'cart_item', $cartItemId, 'success', 'customer');
     }
 
     public function removeItem(int $userId, int $cartItemId): bool
@@ -194,8 +197,11 @@ class CartController
              WHERE ci.cart_item_id = ? AND c.user_id = ?'
         );
         $stmt->execute([$cartItemId, $userId]);
-
-        return $stmt->rowCount() > 0;
+        $removed = $stmt->rowCount() > 0;
+        if ($removed) {
+            auditLog($this->pdo, 'cart_remove', 'Customer removed an item from the cart.', 'cart', $userId, 'cart_item', $cartItemId, 'success', 'customer');
+        }
+        return $removed;
     }
 
     public function clearCart(int $userId): void
@@ -207,6 +213,9 @@ class CartController
         if ($cartId > 0) {
             $delStmt = $this->pdo->prepare('DELETE FROM cart_items WHERE cart_id = ?');
             $delStmt->execute([$cartId]);
+            if ($delStmt->rowCount() > 0) {
+                auditLog($this->pdo, 'cart_remove', 'Customer cleared the cart.', 'cart', $userId, 'cart', $cartId, 'success', 'customer');
+            }
         }
     }
 }

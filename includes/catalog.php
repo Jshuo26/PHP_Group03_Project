@@ -1,4 +1,5 @@
 <?php
+require_once __DIR__ . '/audit.php';
 
 function catalogCover(?string $path): string
 {
@@ -86,6 +87,7 @@ function addEditionToCart(PDO $pdo, int $userId, int $editionId, int $quantity):
         );
 
         $saveStmt->execute([$cartId, $editionId, $quantity]);
+        auditLogRequired($pdo, $existingQuantity > 0 ? 'cart_update' : 'cart_add', 'Customer added a book edition to the cart.', 'cart', $userId, 'edition', $editionId, 'success', 'customer');
 
         $pdo->commit();
 

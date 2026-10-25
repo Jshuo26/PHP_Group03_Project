@@ -10,6 +10,7 @@ require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/password_policy.php';
 require_once __DIR__ . '/../includes/crypto.php';
 require_once __DIR__ . '/../includes/upload_security.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 $errors  = [];
 $passwordPolicy = getPasswordPolicy($pdo);
@@ -204,6 +205,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     if (empty($errors) && $newUserId > 0) {
+
+        auditLog($pdo, 'register', 'Customer account registered and awaits email verification.', 'authentication', $newUserId, 'user', $newUserId, 'success', 'customer', $full_name);
 
         $sent = false;
 

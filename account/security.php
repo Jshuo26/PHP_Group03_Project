@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/otp.php';
 require_once __DIR__ . '/../includes/mailer.php';
 require_once __DIR__ . '/../includes/password_policy.php';
 require_once __DIR__ . '/../includes/crypto.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 requireRole(['customer']);
 
@@ -128,6 +129,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $userId
                     ]);
 
+                    auditLog($pdo, 'password_changed', 'Customer changed their account password.', 'security', $userId, 'user', $userId, 'success', 'customer');
                     unset($_SESSION['pw_change']);
                     session_regenerate_id(true);
 

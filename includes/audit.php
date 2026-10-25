@@ -23,7 +23,7 @@ function auditSchemaMissingColumns(PDO $pdo): array
         return $missing;
     }
 
-    $required = ['user_id', 'action', 'description', 'created_at', 'module', 'actor_role', 'record_type', 'record_id', 'result'];
+    $required = ['user_id', 'actor_name', 'action', 'description', 'created_at', 'module', 'actor_role', 'record_type', 'record_id', 'result'];
     try {
         $columns = $pdo->query('SHOW COLUMNS FROM audit_logs')->fetchAll(PDO::FETCH_COLUMN, 0);
         $missing = array_values(array_diff($required, $columns));
@@ -102,6 +102,9 @@ function auditLog(
 
     if ($actorName === null && $userId !== null && (int) ($_SESSION['user_id'] ?? 0) === $userId) {
         $actorName = isset($_SESSION['full_name']) ? (string) $_SESSION['full_name'] : null;
+    }
+    if ($actorName === null && $userId === null) {
+        $actorName = $actorRole === 'system' ? 'System' : ($actorRole === 'anonymous' ? 'Anonymous visitor' : null);
     }
 
     if (auditSchemaMissingColumns($pdo)) {

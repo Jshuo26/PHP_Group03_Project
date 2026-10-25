@@ -16,6 +16,7 @@ $session_timeout_minutes = 2;
 
 try {
     require_once __DIR__ . '/db.php';
+    require_once __DIR__ . '/audit.php';
 
     $stmt = $pdo->query(
         'SELECT session_timeout_minutes
@@ -43,6 +44,9 @@ if (!empty($_SESSION['user_id']) && isset($_SESSION['last_activity'])) {
 
     if ($inactive_time >= $session_timeout) {
         $expiredRole = $_SESSION['role'] ?? 'customer';
+        if (isset($pdo) && $pdo instanceof PDO && function_exists('auditLog')) {
+            auditLog($pdo, 'session_expired', 'User session expired after inactivity.', 'authentication', (int) $_SESSION['user_id'], 'session', null, 'info', (string) $expiredRole);
+        }
         $_SESSION = [];
 
         if (ini_get('session.use_cookies')) {

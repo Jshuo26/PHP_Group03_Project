@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/password_policy.php';
 require_once __DIR__ . '/../includes/crypto.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 requireRole(['admin']);
 
@@ -37,6 +38,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     updated_by = VALUES(updated_by)'
             );
             $stmt->execute([$attempts, $_SESSION['user_id']]);
+            auditLog($pdo, 'update', 'Administrator changed the login attempt policy.', 'security', (int) $_SESSION['user_id'], 'security_policy', 1, 'success', 'admin');
             $_SESSION['flash_ok'] = 'Maximum login attempts set to ' . $attempts . '.';
         }
 
@@ -96,6 +98,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $values['special_min_length'],
                 $_SESSION['user_id'],
             ]);
+            auditLog($pdo, 'update', 'Administrator changed the password policy.', 'security', (int) $_SESSION['user_id'], 'security_policy', 1, 'success', 'admin');
             $_SESSION['flash_ok'] = 'Password rules updated. They apply to new and changed passwords.';
         }
     
@@ -124,6 +127,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $timeout,
                 $_SESSION['user_id']
             ]);
+            auditLog($pdo, 'update', 'Administrator changed the session timeout policy.', 'security', (int) $_SESSION['user_id'], 'security_policy', 1, 'success', 'admin');
 
             $_SESSION['flash_ok'] =
                 'Session timeout updated to ' . $timeout . ' minute(s).';
@@ -143,6 +147,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  WHERE user_id = ? AND unlocked_at IS NULL'
             );
             $stmt->execute([$_SESSION['user_id'], $targetId]);
+            if ($stmt->rowCount() > 0) {
+                auditLog($pdo, 'unlock', 'Administrator unlocked a user account.', 'security', (int) $_SESSION['user_id'], 'user', (int) $targetId, 'success', 'admin');
+            }
             $_SESSION['flash_ok'] = $stmt->rowCount() > 0
                 ? 'Account unlocked. The user can log in again.'
                 : 'That account was not locked.';

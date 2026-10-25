@@ -143,7 +143,7 @@ if (!$missingColumns) {
 
         $listStmt = $pdo->prepare(
             'SELECT logs.log_id, logs.user_id, logs.actor_role, logs.action, logs.description,
-                    logs.module, logs.record_type, logs.record_id, logs.result, logs.created_at,
+                    logs.module, logs.record_type, logs.record_id, logs.result, logs.created_at, logs.actor_name,
                     users.full_name AS actor_full_name
                FROM audit_logs AS logs
                LEFT JOIN users ON users.user_id = logs.user_id'
@@ -152,8 +152,9 @@ if (!$missingColumns) {
         $listStmt->execute($params);
         $rows = $listStmt->fetchAll();
         foreach ($rows as &$row) {
-            $row['actor_name'] = !empty($row['user_id']) ? 'User #' . (int) $row['user_id'] : 'System / unknown';
-            if (!empty($row['user_id']) && isset($row['actor_full_name'])) {
+            $storedActorName = trim((string) ($row['actor_name'] ?? ''));
+            $row['actor_name'] = $storedActorName !== '' ? $storedActorName : (!empty($row['user_id']) ? 'User #' . (int) $row['user_id'] : 'System / unknown');
+            if ($storedActorName === '' && !empty($row['user_id']) && isset($row['actor_full_name'])) {
                 try {
                     $name = decryptPersonalField(
                         (string) $row['actor_full_name'],

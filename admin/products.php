@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/author_verification.php';
 require_once __DIR__ . '/../includes/upload_security.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -73,6 +74,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if ($deleteStmt->rowCount() !== 1) {
                     $errors[] = 'Book not found.';
                 } else {
+                    auditLog($pdo, 'delete', 'Staff deleted a book product.', 'products', (int) $_SESSION['user_id'], 'book', $bookId, 'success', (string) $_SESSION['role']);
                     $_SESSION['admin_flash'] = 'Book deleted.';
                     header('Location: /admin/products.php');
                     exit;
@@ -277,6 +279,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $genreInsert->execute([$bookId, $genreId]);
                     }
                     $reviewOutcome = linkBookAuthors($pdo, $bookId, $authorNames, (int) $_SESSION['user_id']);
+                    auditLogRequired($pdo, $isEdit ? 'update' : 'create', $isEdit ? 'Staff updated a book product and edition.' : 'Staff created a book product and edition.', 'products', (int) $_SESSION['user_id'], 'book', $bookId, 'success', (string) $_SESSION['role']);
                     $pdo->commit();
 
                     $flash = $isEdit ? 'Book updated.' : 'Book added.';

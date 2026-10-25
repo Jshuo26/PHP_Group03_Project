@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/author_verification.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -327,6 +328,7 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
                 ]);
             }
 
+            auditLogRequired($pdo, 'delete', 'Staff deleted a product through the books API.', 'products', (int) $_SESSION['user_id'], 'book', (int) $bookId, 'success', (string) $_SESSION['role']);
             $pdo->commit();
 
             apiResponse(200, [
@@ -434,6 +436,7 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
         }
 
         $reviewStatus = apiSaveRelations($pdo, $bookId, $data);
+        auditLogRequired($pdo, $method === 'POST' ? 'create' : 'update', $method === 'POST' ? 'Staff created a product through the books API.' : 'Staff updated a product through the books API.', 'products', (int) $_SESSION['user_id'], 'book', (int) $bookId, 'success', (string) $_SESSION['role']);
         $pdo->commit();
         apiResponse($method === 'POST' ? 201 : 200, [
             'success' => true,

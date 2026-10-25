@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/crypto.php';
 require_once __DIR__ . '/../includes/upload_security.php';
+require_once __DIR__ . '/../includes/audit.php';
 
 requireRole(['customer']);
 
@@ -47,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId,
                 ]);
 
+                auditLog($pdo, 'update', 'Customer updated their account name.', 'account', $userId, 'user', $userId, 'success', 'customer', $fullName);
                 $_SESSION['full_name'] = $fullName;
                 $profile['full_name'] = $fullName;
                 $success = 'Full name updated successfully.';
@@ -87,6 +89,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId,
                 ]);
 
+                auditLog($pdo, 'update', 'Customer updated their account email.', 'account', $userId, 'user', $userId, 'success', 'customer');
                 $_SESSION['email'] = $email;
                 $profile['email'] = $email;
                 $success = 'Email address updated successfully.';
@@ -123,6 +126,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $userId
                 ]);
 
+                auditLog($pdo, 'update', 'Customer updated their mobile number.', 'account', $userId, 'user', $userId, 'success', 'customer');
                 $profile['mobile_number'] = $mobileNumber;
                 $success = 'Mobile number updated successfully.';
             } catch (PDOException $e) {
@@ -147,6 +151,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                 $upStmt = $pdo->prepare('UPDATE users SET profile_picture_path = ? WHERE user_id = ?');
                 $upStmt->execute([$newWebPath, $userId]);
+                auditLog($pdo, 'update', 'Customer changed their profile picture.', 'account', $userId, 'user', $userId, 'success', 'customer');
                 $oldFile = appProfilePicturePath((string) ($profile['profile_picture_path'] ?? ''));
                 if ($oldFile !== null) {
                     @unlink($oldFile);
@@ -179,6 +184,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         try {
             $rmStmt = $pdo->prepare('UPDATE users SET profile_picture_path = NULL WHERE user_id = ?');
             $rmStmt->execute([$userId]);
+            auditLog($pdo, 'update', 'Customer removed their profile picture.', 'account', $userId, 'user', $userId, 'success', 'customer');
             $oldFile = appProfilePicturePath((string) ($profile['profile_picture_path'] ?? ''));
             if ($oldFile !== null) {
                 @unlink($oldFile);
