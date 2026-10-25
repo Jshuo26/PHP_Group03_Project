@@ -14,7 +14,7 @@ class OrderController
 
     public function createPendingOrder(int $userId, array $shipping, string $paymentMethod = 'cod'): array
     {
-        if (!in_array($paymentMethod, ['cod', 'gcash', 'qrph'], true)) {
+        if (!in_array($paymentMethod, ['cod', 'qrph'], true)) {
             throw new InvalidArgumentException('Select a supported payment method.');
         }
         $paymentColumnsAvailable = paymentSchemaHasColumn($this->pdo, 'orders', 'payment_method')
