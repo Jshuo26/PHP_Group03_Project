@@ -4,8 +4,6 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
-require_once __DIR__ . '/../includes/csrf.php';
-require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../controllers/OrderController.php';
 require_once __DIR__ . '/../includes/crypto.php';
 
@@ -14,6 +12,8 @@ $errors = [];
 $success = $_SESSION['admin_flash'] ?? '';
 unset($_SESSION['admin_flash']);
 $statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+$customerId = filter_var($_GET['customer_id'] ?? 0, FILTER_VALIDATE_INT, ['options' => ['min_range' => 0]]) ?: 0;
+$ordersUrl = '/admin/orders.php' . ($customerId > 0 ? '?customer_id=' . $customerId : '');
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
@@ -26,7 +26,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $orderController = new OrderController($pdo);
             $orderController->updateOrderStatus($orderId, $status, (int) $_SESSION['user_id']);
             $_SESSION['admin_flash'] = 'Order status updated successfully.';
-            header('Location: /admin/orders.php');
+            header('Location: ' . $ordersUrl);
             exit;
         } catch (Throwable $e) {
             $errors[] = $e->getMessage();
@@ -34,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-$orders = $pdo->query(
+$sql =
     'SELECT o.order_id, o.order_number, u.user_id,
             MAX(o.shipping_name) AS shipping_name,
             MAX(o.shipping_mobile) AS shipping_mobile,
@@ -48,11 +48,14 @@ $orders = $pdo->query(
      JOIN users u ON u.user_id = o.user_id
      JOIN order_items oi ON oi.order_id = o.order_id
      JOIN book_editions e ON e.edition_id = oi.edition_id
-     JOIN books b ON b.book_id = e.book_id
-     GROUP BY o.order_id, o.order_number, u.user_id,
+     JOIN books b ON b.book_id = e.book_id'
+    . ($customerId > 0 ? ' WHERE o.user_id = ?' : '')
+    . ' GROUP BY o.order_id, o.order_number, u.user_id,
               o.status, o.total_amount, o.placed_at
-     ORDER BY o.placed_at DESC'
-)->fetchAll();
+       ORDER BY o.placed_at DESC';
+$orderStmt = $pdo->prepare($sql);
+$orderStmt->execute($customerId > 0 ? [$customerId] : []);
+$orders = $orderStmt->fetchAll();
 
 foreach ($orders as &$order) {
     $order = decryptOrderPersonalFields($order);
@@ -66,7 +69,8 @@ unset($order);
 include __DIR__ . '/../includes/header.php';
 ?>
 <section class="container">
-    <h1 class="card-title">Order Management</h1>
+    <h1 class="card-title"><?= $customerId > 0 ? 'Customer Order History' : 'Order Management' ?></h1>
+    <?php if ($customerId > 0): ?><p><a class="btn btn-secondary" href="/admin/customers.php">Back to customers</a></p><?php endif; ?>
     <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
     <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
     <?php if (!$orders): ?>
@@ -78,7 +82,7 @@ include __DIR__ . '/../includes/header.php';
             <p><strong>Ship to:</strong> <?= htmlspecialchars($order['shipping_street'] . ', ' . $order['shipping_city'] . ', ' . $order['shipping_province'] . ' ' . $order['shipping_zip'], ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars($order['shipping_mobile'], ENT_QUOTES, 'UTF-8') ?></p>
             <p><strong>Items:</strong> <?= htmlspecialchars($order['items'], ENT_QUOTES, 'UTF-8') ?></p>
             <p><strong>Total:</strong> ₱<?= number_format((float) $order['total_amount'], 2) ?> · <?= htmlspecialchars($order['placed_at'], ENT_QUOTES, 'UTF-8') ?></p>
-            <form method="post" action="/admin/orders.php" class="inline-form">
+            <form method="post" action="<?= htmlspecialchars($ordersUrl, ENT_QUOTES, 'UTF-8') ?>" class="inline-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="order_id" value="<?= (int) $order['order_id'] ?>">
                 <label for="status-<?= (int) $order['order_id'] ?>">Status</label>
