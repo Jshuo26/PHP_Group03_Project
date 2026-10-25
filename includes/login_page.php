@@ -1,7 +1,7 @@
 <?php
 
-require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/session.php';
 require_once __DIR__ . '/csrf.php';
 require_once __DIR__ . '/input.php';
 require_once __DIR__ . '/crypto.php';

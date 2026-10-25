@@ -37,7 +37,6 @@ return [
     'SMTP_PASS'     => 'your_16_char_app_password_here',
     'SMTP_FROM'     => 'your_gmail_here@gmail.com',
 
-    // Keep in test mode by default. Set live explicitly in the deployed root config.php only.
     'PAYMONGO_MODE' => 'test',
     'PAYMONGO_TEST_PUBLIC_KEY' => 'pk_test_your_test_public_key_here',
     'PAYMONGO_TEST_SECRET_KEY' => 'sk_test_your_test_secret_key_here',
