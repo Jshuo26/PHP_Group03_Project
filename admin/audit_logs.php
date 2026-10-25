@@ -35,6 +35,52 @@ function auditPageUrl(array $filters, int $page): string
     return '/admin/audit_logs.php?' . http_build_query($query);
 }
 
+$auditActionGroups = [
+    'create' => ['create', 'register', 'cart_add', 'order_created', 'payment_initiated'],
+    'update' => ['update', 'approve', 'reject', 'lock', 'unlock', 'email_verified', 'order_status_changed', 'order_cancelled', 'checkout_succeeded', 'checkout_failed', 'cart_update', 'payment_succeeded', 'payment_failed', 'payment_cancelled', 'payment_expired', 'mfa_failed', 'mfa_enabled', 'mfa_disabled', 'password_change_failed', 'password_changed', 'authorization_denied'],
+    'delete' => ['delete', 'cart_remove'],
+    'login' => ['login', 'login_failed', 'login_challenge'],
+    'logout' => ['logout', 'session_expired'],
+];
+
+$auditModuleGroups = [
+    'products' => ['products', 'books', 'genres', 'authors'],
+    'checkout' => ['cart', 'checkout', 'orders'],
+    'payments' => ['payments'],
+    'account_security' => ['authentication', 'account', 'security'],
+    'administration' => ['administration'],
+    'system' => ['system'],
+];
+
+function auditPageActionLabel(string $action): string
+{
+    global $auditActionGroups;
+    foreach ($auditActionGroups as $label => $actions) {
+        if (in_array($action, $actions, true)) {
+            return ucfirst($label);
+        }
+    }
+    return 'Update';
+}
+
+function auditPageModuleLabel(?string $module): string
+{
+    global $auditModuleGroups;
+    foreach ($auditModuleGroups as $label => $modules) {
+        if (in_array($module, $modules, true)) {
+            return match ($label) {
+                'products' => 'Products',
+                'checkout' => 'Check-out',
+                'payments' => 'Payment',
+                'account_security' => 'Account & Security',
+                'administration' => 'Administration',
+                default => 'System',
+            };
+        }
+    }
+    return 'Unknown / legacy';
+}
+
 $filters = [
     'user_id' => filter_var($_GET['user_id'] ?? '', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: '',
     'role' => trim((string) ($_GET['role'] ?? '')),
@@ -46,13 +92,13 @@ $filters = [
     'q' => mb_substr(trim((string) ($_GET['q'] ?? '')), 0, 100),
 ];
 
-if (!in_array($filters['role'], array_merge(AUDIT_ROLES, ['']), true)) {
+if (!in_array($filters['role'], ['customer', 'staff', 'admin', ''], true)) {
     $filters['role'] = '';
 }
-if (!in_array($filters['action'], array_merge(AUDIT_ACTIONS, ['']), true)) {
+if (!in_array($filters['action'], array_merge(array_keys($auditActionGroups), ['']), true)) {
     $filters['action'] = '';
 }
-if (!in_array($filters['module'], array_merge(AUDIT_MODULES, ['__unknown', '']), true)) {
+if (!in_array($filters['module'], array_merge(array_keys($auditModuleGroups), ['']), true)) {
     $filters['module'] = '';
 }
 if (!in_array($filters['result'], ['success', 'failure', 'info', 'unknown', ''], true)) {
@@ -96,20 +142,19 @@ if (!$missingColumns) {
             $where[] = 'logs.user_id = ?';
             $params[] = (int) $filters['user_id'];
         }
-        if ($filters['role'] === 'unknown') {
-            $where[] = '(logs.actor_role IS NULL OR logs.actor_role = ?)';
-            $params[] = 'unknown';
-        } elseif ($filters['role'] !== '') {
+        if ($filters['role'] !== '') {
             $where[] = 'logs.actor_role = ?';
             $params[] = $filters['role'];
         }
-        foreach (['action' => 'action', 'module' => 'module'] as $filter => $column) {
-            if ($filters[$filter] === '__unknown') {
-                $where[] = 'logs.' . $column . ' IS NULL';
-            } elseif ($filters[$filter] !== '') {
-                $where[] = 'logs.' . $column . ' = ?';
-                $params[] = $filters[$filter];
-            }
+        if ($filters['action'] !== '') {
+            $actions = $auditActionGroups[$filters['action']];
+            $where[] = 'logs.action IN (' . implode(',', array_fill(0, count($actions), '?')) . ')';
+            array_push($params, ...$actions);
+        }
+        if ($filters['module'] !== '') {
+            $modules = $auditModuleGroups[$filters['module']];
+            $where[] = 'logs.module IN (' . implode(',', array_fill(0, count($modules), '?')) . ')';
+            array_push($params, ...$modules);
         }
         if ($filters['result'] === 'unknown') {
             $where[] = 'logs.result IS NULL';
@@ -205,26 +250,25 @@ include __DIR__ . '/../includes/header.php';
                 <label>Role
                     <select name="role" class="form-input">
                         <option value="">All roles</option>
-                        <?php foreach (array_merge(AUDIT_ROLES, ['unknown']) as $role): ?>
-                            <option value="<?= auditPageEscape($role) ?>" <?= $filters['role'] === $role ? 'selected' : '' ?>><?= auditPageEscape(ucfirst($role)) ?></option>
+                        <?php foreach (['customer' => 'Customer', 'staff' => 'Staff', 'admin' => 'Admin'] as $role => $label): ?>
+                            <option value="<?= auditPageEscape($role) ?>" <?= $filters['role'] === $role ? 'selected' : '' ?>><?= auditPageEscape($label) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </label>
                 <label>Action
                     <select name="action" class="form-input">
                         <option value="">All actions</option>
-                        <?php foreach (AUDIT_ACTIONS as $action): ?>
-                            <option value="<?= auditPageEscape($action) ?>" <?= $filters['action'] === $action ? 'selected' : '' ?>><?= auditPageEscape(str_replace('_', ' ', ucfirst($action))) ?></option>
+                        <?php foreach (['create' => 'Create', 'update' => 'Update', 'delete' => 'Delete', 'login' => 'Login', 'logout' => 'Logout'] as $action => $label): ?>
+                            <option value="<?= auditPageEscape($action) ?>" <?= $filters['action'] === $action ? 'selected' : '' ?>><?= auditPageEscape($label) ?></option>
                         <?php endforeach; ?>
                     </select>
                 </label>
                 <label>Module
                     <select name="module" class="form-input">
                         <option value="">All modules</option>
-                        <?php foreach (AUDIT_MODULES as $module): ?>
-                            <option value="<?= auditPageEscape($module) ?>" <?= $filters['module'] === $module ? 'selected' : '' ?>><?= auditPageEscape(ucfirst($module)) ?></option>
+                        <?php foreach (['products' => 'Products', 'checkout' => 'Check-out', 'payments' => 'Payment', 'account_security' => 'Account & Security', 'administration' => 'Administration', 'system' => 'System'] as $module => $label): ?>
+                            <option value="<?= auditPageEscape($module) ?>" <?= $filters['module'] === $module ? 'selected' : '' ?>><?= auditPageEscape($label) ?></option>
                         <?php endforeach; ?>
-                        <option value="__unknown" <?= $filters['module'] === '__unknown' ? 'selected' : '' ?>>Unknown / legacy</option>
                     </select>
                 </label>
                 <label>Result
@@ -247,15 +291,15 @@ include __DIR__ . '/../includes/header.php';
             <p class="card-text">Showing <?= $totalRows ? ($offset + 1) : 0 ?>–<?= min($offset + $pageSize, $totalRows) ?> of <?= $totalRows ?> records.</p>
             <div style="overflow-x:auto;">
                 <table class="table">
-                    <thead><tr><th>Date and time</th><th>User</th><th>Role</th><th>Action</th><th>Module</th><th>Record</th><th>Result</th><th>Description</th></tr></thead>
+                    <thead><tr><th>Date and time</th><th>User</th><th>Role / actor</th><th>Action</th><th>Module</th><th>Record</th><th>Result</th><th>Description</th></tr></thead>
                     <tbody>
                     <?php foreach ($rows as $row): ?>
                         <tr>
                             <td><?= auditPageEscape($row['created_at']) ?></td>
                             <td><?= auditPageEscape($row['actor_name']) ?></td>
-                            <td><?= auditPageEscape($row['actor_role'] ?? 'Unknown') ?></td>
-                            <td><?= auditPageEscape(str_replace('_', ' ', (string) $row['action'])) ?></td>
-                            <td><?= auditPageEscape($row['module'] ?? 'Unknown / legacy') ?></td>
+                            <td><?= auditPageEscape(ucfirst((string) ($row['actor_role'] ?? 'unknown'))) ?></td>
+                            <td><?= auditPageEscape(auditPageActionLabel((string) $row['action'])) ?></td>
+                            <td><?= auditPageEscape(auditPageModuleLabel(isset($row['module']) ? (string) $row['module'] : null)) ?></td>
                             <td><?= auditPageEscape($row['record_type'] ? $row['record_type'] . ' #' . ($row['record_id'] ?? '') : '') ?></td>
                             <td><?= auditPageEscape($row['result'] ?? 'Unknown / legacy') ?></td>
                             <td><?= auditPageEscape($row['description']) ?></td>
