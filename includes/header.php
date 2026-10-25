@@ -28,6 +28,10 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/header.css">
 
+    <?php if (($_SERVER['SCRIPT_NAME'] ?? '') === '/admin/index.php' && ($_SESSION['role'] ?? '') === 'admin'): ?>
+        <link rel="stylesheet" href="/css/admin-dashboard.css">
+    <?php endif; ?>
+
     <?php if (basename($_SERVER['PHP_SELF']) === 'featured.php'): ?>
         <link rel="stylesheet" href="/css/featured.css">
     <?php endif; ?>
