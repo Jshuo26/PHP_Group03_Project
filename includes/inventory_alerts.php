@@ -66,15 +66,15 @@ function syncEditionLowStockAlert(PDO $pdo, int $editionId, ?int $thresholdOverr
 
         if (isInventoryItemLow($stock, $threshold)) {
             if ($activeId !== false) {
-                $pdo->prepare('UPDATE low_stock_alerts SET current_stock = ?, threshold_at_detection = ?, book_title = ?, edition_format = ? WHERE alert_id = ?')
-                    ->execute([$stock, $threshold, $edition['title'], $edition['format'], (int) $activeId]);
+                $pdo->prepare('UPDATE low_stock_alerts SET current_stock = ?, threshold_at_detection = ?, book_title = ?, edition_format = ?, active_edition_id = ? WHERE alert_id = ?')
+                    ->execute([$stock, $threshold, $edition['title'], $edition['format'], $editionId, (int) $activeId]);
                 $result = 'updated';
             } else {
                 try {
                     $pdo->prepare(
-                        'INSERT INTO low_stock_alerts (edition_id, book_title, edition_format, current_stock, threshold_at_detection, status)
-                         VALUES (?, ?, ?, ?, ?, \'active\')'
-                    )->execute([$editionId, $edition['title'], $edition['format'], $stock, $threshold]);
+                        'INSERT INTO low_stock_alerts (edition_id, active_edition_id, book_title, edition_format, current_stock, threshold_at_detection, status)
+                         VALUES (?, ?, ?, ?, ?, ?, \'active\')'
+                    )->execute([$editionId, $editionId, $edition['title'], $edition['format'], $stock, $threshold]);
                     $result = 'created';
                 } catch (PDOException $e) {
                     if ((string) $e->getCode() !== '23000') throw $e;
@@ -82,14 +82,14 @@ function syncEditionLowStockAlert(PDO $pdo, int $editionId, ?int $thresholdOverr
                     $reload->execute([$editionId]);
                     $existingId = $reload->fetchColumn();
                     if ($existingId === false) throw $e;
-                    $pdo->prepare('UPDATE low_stock_alerts SET current_stock = ?, threshold_at_detection = ?, book_title = ?, edition_format = ? WHERE alert_id = ?')
-                        ->execute([$stock, $threshold, $edition['title'], $edition['format'], (int) $existingId]);
+                    $pdo->prepare('UPDATE low_stock_alerts SET current_stock = ?, threshold_at_detection = ?, book_title = ?, edition_format = ?, active_edition_id = ? WHERE alert_id = ?')
+                        ->execute([$stock, $threshold, $edition['title'], $edition['format'], $editionId, (int) $existingId]);
                     $result = 'updated';
                 }
             }
         } elseif ($activeId !== false) {
             $pdo->prepare(
-                'UPDATE low_stock_alerts SET current_stock = ?, status = \'resolved\', resolved_at = CURRENT_TIMESTAMP WHERE alert_id = ?'
+                'UPDATE low_stock_alerts SET current_stock = ?, active_edition_id = NULL, status = \'resolved\', resolved_at = CURRENT_TIMESTAMP WHERE alert_id = ?'
             )->execute([$stock, (int) $activeId]);
             $result = 'resolved';
         } else {
