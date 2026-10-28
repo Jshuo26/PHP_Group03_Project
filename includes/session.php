@@ -1,5 +1,20 @@
-
 <?php
+
+function sessionExpiryLoginPath(?string $role, ?string $scriptName = null): string
+{
+    if (in_array($role, ['admin', 'staff'], true)) {
+        return '/admin/login.php';
+    }
+    if ($role === 'customer') {
+        return '/auth/login.php';
+    }
+
+    $scriptPath = str_replace('\\', '/', $scriptName ?? ($_SERVER['SCRIPT_NAME'] ?? ''));
+    return strpos($scriptPath, '/admin/') !== false
+        ? '/admin/login.php'
+        : '/auth/login.php';
+}
+
 if (session_status() === PHP_SESSION_NONE) {
     ini_set('session.use_strict_mode', '1');
     ini_set('session.cookie_httponly', '1');
@@ -43,7 +58,20 @@ if (!empty($_SESSION['user_id']) && isset($_SESSION['last_activity'])) {
     $inactive_time = time() - (int) $_SESSION['last_activity'];
 
     if ($inactive_time >= $session_timeout) {
-        $expiredRole = $_SESSION['role'] ?? 'customer';
+        $expiredRole = (string) ($_SESSION['role'] ?? '');
+        if (isset($pdo) && $pdo instanceof PDO) {
+            try {
+                $roleStmt = $pdo->prepare('SELECT role FROM users WHERE user_id = ? LIMIT 1');
+                $roleStmt->execute([(int) $_SESSION['user_id']]);
+                $databaseRole = (string) ($roleStmt->fetchColumn() ?: '');
+                if (in_array($databaseRole, ['admin', 'staff', 'customer'], true)) {
+                    $expiredRole = $databaseRole;
+                }
+            } catch (Throwable $e) {
+                error_log('Unable to resolve role for expired session redirect.');
+            }
+        }
+        $timeoutLoginPath = sessionExpiryLoginPath($expiredRole);
         if (isset($pdo) && $pdo instanceof PDO && function_exists('auditLog')) {
             auditLog($pdo, 'session_expired', 'User session expired after inactivity.', 'authentication', (int) $_SESSION['user_id'], 'session', null, 'info', (string) $expiredRole);
         }
@@ -86,12 +114,7 @@ if (!empty($_SESSION['user_id']) && isset($_SESSION['last_activity'])) {
             exit;
         }
 
-        if (in_array($expiredRole, ['admin', 'staff'], true)) {
-            header('Location: /admin/login.php?timeout=1');
-        } else {
-            header('Location: /auth/login.php?timeout=1');
-        }
-
+        header('Location: ' . $timeoutLoginPath . '?timeout=1');
         exit;
     }
 }

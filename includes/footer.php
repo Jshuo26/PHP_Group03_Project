@@ -63,9 +63,10 @@
 
         window.sessionTimeoutLoginUrl =
             <?php echo json_encode(
-                in_array($_SESSION['role'] ?? '', ['admin', 'staff'], true)
-                    ? '/admin/login.php?timeout=1'
-                    : '/auth/login.php?timeout=1'
+                sessionExpiryLoginPath(
+                    isset($_SESSION['role']) ? (string) $_SESSION['role'] : null,
+                    $_SERVER['SCRIPT_NAME'] ?? ''
+                ) . '?timeout=1'
             ); ?>;
     </script>
     <script src="/js/session-timeout.js"></script>

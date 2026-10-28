@@ -678,6 +678,17 @@
   color: var(--muted-text);
 }
 
+.tracking-info-message {
+    margin: -8px 0 20px;
+    padding: 11px 13px;
+    border-left: 3px solid var(--primary-color);
+    border-radius: 6px;
+    background: #fff8ee;
+    color: var(--muted-text);
+    font-size: 0.84rem;
+    line-height: 1.5;
+}
+
 /* Vertical Timeline */
 .tracking-vertical-timeline {
   display: flex;

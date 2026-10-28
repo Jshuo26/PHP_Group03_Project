@@ -249,6 +249,13 @@ include __DIR__ . '/../includes/header.php';
         </p>
     </div>
 
+    <?php if ($flashError !== ''): ?>
+        <div class="form-errors" role="alert"><p><?= e($flashError) ?></p></div>
+    <?php endif; ?>
+    <?php if ($flashSuccess !== ''): ?>
+        <div class="form-success" role="status"><p><?= e($flashSuccess) ?></p></div>
+    <?php endif; ?>
+
     <nav class="order-status-tabs" aria-label="Order status filters">
 
         <a
@@ -458,6 +465,7 @@ include __DIR__ . '/../includes/header.php';
                 <span class="tracking-modal-status-label">Current Status:</span>
                 <span class="order-status" id="modalStatusBadge">Pending</span>
             </div>
+            <p class="tracking-info-message" role="status">No courier tracking number or tracking link is available yet. This timeline shows the bookstore's latest order status.</p>
 
             <div class="tracking-vertical-timeline">
                 <div class="timeline-step" data-step="1">

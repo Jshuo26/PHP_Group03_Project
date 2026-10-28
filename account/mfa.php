@@ -94,22 +94,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
         if (!$errors && $step !== null) {
+            $enrollmentStage = 'saving authenticator settings';
             try {
+                $pdo->beginTransaction();
                 $pdo->prepare(
                     "INSERT INTO mfa_settings (user_id, method, secret_key, last_used_step)
-                     VALUES (?, 'totp', ?, ?)
-                     ON DUPLICATE KEY UPDATE
-                        method = VALUES(method),
-                        secret_key = VALUES(secret_key),
-                        last_used_step = VALUES(last_used_step),
-                        enabled_at = NOW()"
+                     VALUES (?, 'totp', ?, ?)"
                 )->execute([$userId, encryptField($secret), $step]);
+
+                if ($isStaffEnrollment) {
+                    $enrollmentStage = 'recording successful staff login';
+                    recordSuccessfulLogin($pdo, $userId);
+                }
+                $pdo->commit();
 
                 unset($_SESSION['mfa_setup_secret']);
                 session_regenerate_id(true);
-                auditLog($pdo, 'create', 'Authenticator enrollment completed', 'authentication', $userId);
                 if ($isStaffEnrollment) {
-                    recordSuccessfulLogin($pdo, $userId);
                     unset($_SESSION['mfa_pending']);
                     $_SESSION['user_id'] = (int) $user['user_id'];
                     $_SESSION['full_name'] = $user['full_name'];
@@ -118,17 +119,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $_SESSION['profile_picture_path'] = $user['profile_picture_path'] ?? null;
                     $_SESSION['mfa_verified'] = true;
                     $_SESSION['last_activity'] = time();
+                    auditLog($pdo, 'create', 'Authenticator enrollment completed', 'authentication', $userId);
                     auditLog($pdo, 'login', 'MFA enrollment and login completed', 'authentication', $userId);
                     header('Location: /admin/index.php');
                     exit;
                 }
+                auditLog($pdo, 'create', 'Authenticator enrollment completed', 'authentication', $userId);
                 $_SESSION['mfa_verified'] = true;
                 $_SESSION['mfa_flash_ok'] = 'Google Authenticator is now on. You will be asked for a code each time you log in.';
 
                 header('Location: /account/mfa.php');
                 exit;
             } catch (Throwable $e) {
-                error_log('MFA enable failed: ' . $e->getMessage());
+                if ($pdo->inTransaction()) {
+                    $pdo->rollBack();
+                }
+                error_log('MFA enrollment failed while ' . $enrollmentStage . ' (' . get_class($e) . ', SQLSTATE ' . $e->getCode() . ').');
                 $errors[] = 'We could not turn on Google Authenticator right now. Please try again later.';
             }
         }

@@ -6,6 +6,17 @@ require_once __DIR__ . '/csrf.php';
 $isLoggedIn = !empty($_SESSION['user_id']);
 $userRole = $_SESSION['role'] ?? '';
 $userAvatar = $_SESSION['profile_picture_path'] ?? '';
+$scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
+$isAdminAreaRequest = strpos($scriptPath, '/admin/') !== false;
+$isStaffMfaPending = is_array($_SESSION['mfa_pending'] ?? null)
+    && ($_SESSION['mfa_pending']['audience'] ?? '') === 'staff';
+$isAdminPortal = in_array($userRole, ['admin', 'staff'], true)
+    || $isAdminAreaRequest
+    || $isStaffMfaPending;
+$brandUrl = $isAdminPortal ? '/admin/login.php' : '/index.php';
+if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)) {
+    $brandUrl = '/admin/index.php';
+}
 
 $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
@@ -46,9 +57,9 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
 
 <header class="site-header">
 
-    <div class="header-container">
+    <div class="header-container<?php echo $isAdminPortal ? ' admin-portal-header' : ''; ?>">
 
-        <a href="/index.php" class="brand">
+        <a href="<?php echo htmlspecialchars($brandUrl, ENT_QUOTES, 'UTF-8'); ?>" class="brand">
 
             <img
                 src="/images/logo/aklAAAt!-wordmark.png"
@@ -57,8 +68,20 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
             >
         </a>
 
-        <nav class="main-navigation">
+        <nav class="main-navigation<?php echo $isAdminPortal ? ' admin-portal-navigation' : ''; ?>" aria-label="Main navigation">
 
+            <?php if ($isAdminPortal): ?>
+                <?php if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
+                    <a class="nav-link" href="/admin/index.php">Dashboard</a>
+                    <a class="nav-link" href="/admin/products.php">Books</a>
+                    <a class="nav-link" href="/admin/orders.php">Orders</a>
+                    <a class="nav-link" href="/admin/author_reviews.php">Author Reviews</a>
+                    <?php if ($userRole === 'admin'): ?>
+                        <a class="nav-link" href="/admin/users.php">Staff &amp; Roles</a>
+                        <a class="nav-link" href="/admin/audit_logs.php">Activity</a>
+                    <?php endif; ?>
+                <?php endif; ?>
+            <?php else: ?>
             <a class="nav-link" href="/featured.php">
                 Featured
             </a>
@@ -71,23 +94,14 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
                 Filipino Authors
             </a>
 
-            <?php if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
-
-                <a class="nav-link" href="/admin/index.php">
-                    Admin
-                </a>
-
             <?php endif; ?>
 
         </nav>
 
         <div class="header-actions">
 
-            <a
-                href="/cart.php"
-                class="cart-link"
-                aria-label="Shopping cart"
-            >
+            <?php if (!$isAdminPortal): ?>
+            <a href="/cart.php" class="cart-link" aria-label="Shopping cart">
 
                 <svg
                     xmlns="http://www.w3.org/2000/svg"
@@ -100,8 +114,9 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
                 </svg>
 
             </a>
+            <?php endif; ?>
 
-            <?php if ($isLoggedIn && $userRole === 'customer'): ?>
+            <?php if ($isLoggedIn && $userRole === 'customer' && !$isAdminPortal): ?>
 
                 <div class="account-menu">
 
@@ -155,6 +170,10 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
                     </div>
 
                 </div>
+
+            <?php elseif (!$isLoggedIn && !$isLoginPage && $isAdminPortal): ?>
+
+                <a class="login-button" href="/admin/login.php">Staff Login</a>
 
             <?php elseif (!$isLoggedIn && !$isLoginPage): ?>
 

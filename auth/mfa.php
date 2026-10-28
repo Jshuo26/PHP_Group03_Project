@@ -13,7 +13,8 @@ const MFA_PENDING_SECONDS = 300;
 const MFA_MAX_ATTEMPTS    = 3;
 
 if (!empty($_SESSION['user_id'])) {
-    header('Location: /index.php');
+    $signedInRole = (string) ($_SESSION['role'] ?? 'customer');
+    header('Location: ' . (in_array($signedInRole, ['admin', 'staff'], true) ? '/admin/index.php' : '/index.php'));
     exit;
 }
 
@@ -109,7 +110,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         auditLog($pdo, 'login', 'MFA login verified', 'authentication', $userId);
 
-        header('Location: /index.php');
+        header('Location: ' . (in_array($user['role'], ['admin', 'staff'], true) ? '/admin/index.php' : '/index.php'));
         exit;
     }
 

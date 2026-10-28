@@ -104,11 +104,10 @@ function sendActivationEmail(
                 <p>Your email address has been verified.</p>
                 <p>Click below to activate your account.</p>
                 <p>
-                    <a href='{$safeUrl}'
-                       style='display:inline-block;background:#8b7e74;
-                              color:#ffffff;padding:12px 22px;
-                              border-radius:8px;text-decoration:none;'
-                              font-weight:bold;'>
+                      <a href='{$safeUrl}' target='_self'
+                         style='display:inline-block;background:#8b7e74;
+                                color:#ffffff;padding:12px 22px;
+                                border-radius:8px;text-decoration:none;font-weight:bold;'>
                         Activate my account
                     </a>
                 </p>

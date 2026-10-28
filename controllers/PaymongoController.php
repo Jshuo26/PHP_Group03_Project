@@ -39,6 +39,9 @@ class PaymongoController
         if ($order['payment_status'] === 'paid') {
             return '/payments/return.php?order_id=' . $orderId;
         }
+        if ($order['status'] !== 'pending') {
+            throw new RuntimeException('Payment can only be started for a pending order. Contact support if you need help with this order.');
+        }
 
         $payment = $this->latestPayment($orderId);
         if ($payment && !empty($payment['checkout_session_id'])) {

@@ -40,6 +40,7 @@ CREATE TABLE mfa_settings (
     user_id         INT UNSIGNED NOT NULL,
     method          ENUM('totp','email_otp','sms_otp') NOT NULL,
     secret_key      VARCHAR(255) NOT NULL,
+    last_used_step  BIGINT UNSIGNED NULL,
     enabled_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_mfa_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)

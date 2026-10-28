@@ -428,6 +428,20 @@
   }
 }
 
+@media (max-width: 1150px) {
+  .admin-portal-header {
+    flex-wrap: wrap;
+    padding: 14px 0;
+    row-gap: 10px;
+  }
+
+  .admin-portal-header .main-navigation {
+    order: 3;
+    width: 100%;
+    justify-content: center;
+  }
+}
+
 @media (max-width: 1000px) {
   .header-container {
     flex-wrap: wrap;
@@ -438,6 +452,11 @@
   .header-actions {
     flex: 1 1 0;
     min-width: 0;
+  }
+
+  .admin-portal-header .header-actions {
+    flex: 0 0 auto;
+    margin-left: auto;
   }
 
   .search-form {
