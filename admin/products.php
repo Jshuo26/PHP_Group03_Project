@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/author_verification.php';
 require_once __DIR__ . '/../includes/upload_security.php';
 require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/inventory_alerts.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -245,6 +246,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $editionSql .= ' WHERE edition_id = ?';
                         $editionParams[] = (int) $form['edition_id'];
                         $pdo->prepare($editionSql)->execute($editionParams);
+                        syncEditionLowStockAlert($pdo, (int) $form['edition_id']);
                         $bookId = (int) $form['book_id'];
                     } else {
                         $bookStmt = $pdo->prepare(
@@ -261,16 +263,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         ]);
                         $bookId = (int) $pdo->lastInsertId();
                         $editionStmt = $pdo->prepare(
-                            'INSERT INTO book_editions (book_id, format, price, stock_quantity, cover_image_path)
-                             VALUES (?, ?, ?, ?, ?)'
+                            'INSERT INTO book_editions (book_id, format, price, stock_quantity, low_stock_threshold, cover_image_path)
+                             VALUES (?, ?, ?, ?, ?, ?)'
                         );
                         $editionStmt->execute([
                             $bookId,
                             $form['format'],
                             $form['price'],
                             (int) $form['stock_quantity'],
+                            getLowStockThreshold($pdo),
                             $uploadName
                         ]);
+                        syncEditionLowStockAlert($pdo, (int) $pdo->lastInsertId());
                     }
 
                     $pdo->prepare('DELETE FROM book_genres WHERE book_id = ?')->execute([$bookId]);

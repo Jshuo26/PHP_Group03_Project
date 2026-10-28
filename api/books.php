@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/author_verification.php';
 require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/inventory_alerts.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -358,16 +359,18 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
 
             $stmt = $pdo->prepare(
                 'INSERT INTO book_editions
-                    (book_id, format, price, stock_quantity)
-                 VALUES (?, ?, ?, ?)'
+                    (book_id, format, price, stock_quantity, low_stock_threshold)
+                 VALUES (?, ?, ?, ?, ?)'
             );
 
             $stmt->execute([
                 $bookId,
                 $data['format'],
                 $data['price'],
-                $data['stock_quantity']
+                $data['stock_quantity'],
+                getLowStockThreshold($pdo)
             ]);
+            syncEditionLowStockAlert($pdo, (int) $pdo->lastInsertId());
         } else {
             $stmt = $pdo->prepare(
                 'SELECT book_id FROM books WHERE book_id = ?'
@@ -420,18 +423,21 @@ if (in_array($method, ['POST', 'PUT', 'DELETE'], true)) {
                     $data['stock_quantity'],
                     $editionId
                 ]);
+                syncEditionLowStockAlert($pdo, (int) $editionId);
             } else {
                 $stmt = $pdo->prepare(
                     'INSERT INTO book_editions
-                        (book_id, format, price, stock_quantity)
-                     VALUES (?, ?, ?, ?)'
+                        (book_id, format, price, stock_quantity, low_stock_threshold)
+                     VALUES (?, ?, ?, ?, ?)'
                 );
                 $stmt->execute([
                     $bookId,
                     $data['format'],
                     $data['price'],
-                    $data['stock_quantity']
+                    $data['stock_quantity'],
+                    getLowStockThreshold($pdo)
                 ]);
+                syncEditionLowStockAlert($pdo, (int) $pdo->lastInsertId());
             }
         }
 

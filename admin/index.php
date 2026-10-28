@@ -4,6 +4,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/payment_schema.php';
+require_once __DIR__ . '/../includes/inventory_alerts.php';
 
 requireRole(['admin', 'staff']);
 $role = (string) $_SESSION['role'];
@@ -22,6 +23,16 @@ $paidSales = null;
 if (paymentSchemaHasColumn($pdo, 'orders', 'payment_status')) {
     $paidSales = (float) $pdo->query("SELECT COALESCE(SUM(total_amount), 0) FROM orders WHERE payment_status = 'paid'")->fetchColumn();
 }
+$lowStockReady = lowStockAlertsReady($pdo);
+$activeLowStockCount = 0;
+$activeLowStockItems = [];
+if ($lowStockReady) {
+    $activeLowStockCount = (int) $pdo->query("SELECT COUNT(*) FROM low_stock_alerts WHERE status = 'active'")->fetchColumn();
+    $activeLowStockItems = $pdo->query(
+        "SELECT edition_id, book_title, edition_format, current_stock, threshold_at_detection
+           FROM low_stock_alerts WHERE status = 'active' ORDER BY current_stock ASC, created_at ASC LIMIT 5"
+    )->fetchAll(PDO::FETCH_ASSOC);
+}
 $recentActivity = [];
 if (!auditSchemaMissingColumns($pdo)) {
     $recentActivity = $pdo->query(
@@ -32,6 +43,7 @@ if (!auditSchemaMissingColumns($pdo)) {
 include __DIR__ . '/../includes/header.php';
 ?>
 <section class="container <?= $isAdmin ? 'admin-dashboard' : 'staff-dashboard' ?>">
+    <?php include __DIR__ . '/../includes/low_stock_widget.php'; ?>
     <?php if ($isAdmin): ?>
         <header class="admin-dashboard-hero">
             <div>
@@ -67,8 +79,9 @@ include __DIR__ . '/../includes/header.php';
                 <a class="admin-tool-card" href="/admin/genres.php"><span class="admin-tool-icon">C</span><span><strong>Categories</strong><small>Organize the book catalog</small></span><b aria-hidden="true">→</b></a>
                 <a class="admin-tool-card" href="/admin/customers.php"><span class="admin-tool-icon">U</span><span><strong>Customers</strong><small>Accounts and order history</small></span><b aria-hidden="true">→</b></a>
                 <a class="admin-tool-card" href="/admin/orders.php"><span class="admin-tool-icon">O</span><span><strong>Orders</strong><small>Review payments and fulfillment</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/low_stock.php"><span class="admin-tool-icon">!</span><span><strong>Inventory alerts</strong><small><?= $lowStockReady ? number_format($activeLowStockCount) . ' active low-stock alert(s)' : 'Configure low-stock monitoring' ?></small></span><b aria-hidden="true">→</b></a>
                 <a class="admin-tool-card" href="/admin/users.php"><span class="admin-tool-icon">S</span><span><strong>Staff &amp; roles</strong><small>Create accounts and manage access</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/security.php"><span class="admin-tool-icon">盾</span><span><strong>Security settings</strong><small>Manage account protection settings</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/security.php"><span class="admin-tool-icon">S</span><span><strong>Security settings</strong><small>Manage account protection settings</small></span><b aria-hidden="true">→</b></a>
             </div>
         </section>
 
@@ -105,6 +118,7 @@ include __DIR__ . '/../includes/header.php';
                 <a class="btn btn-secondary" href="/admin/author_reviews.php">Author reviews</a>
                 <a class="btn btn-secondary" href="/admin/customers.php">Customers</a>
                 <a class="btn btn-secondary" href="/admin/orders.php">Manage orders</a>
+                <a class="btn btn-secondary" href="/admin/low_stock.php">Low-stock alerts (<?= number_format($activeLowStockCount) ?>)</a>
             </div>
         </div>
         <div class="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:20px 0;">

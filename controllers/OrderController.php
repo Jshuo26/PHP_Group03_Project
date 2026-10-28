@@ -2,6 +2,7 @@
 require_once __DIR__ . '/../includes/crypto.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/payment_schema.php';
+require_once __DIR__ . '/../includes/inventory_alerts.php';
 
 class OrderController
 {
@@ -127,6 +128,7 @@ class OrderController
                 if ($stockStmt->rowCount() !== 1) {
                     throw new RuntimeException('Stock changed during checkout for "' . $item['title'] . '". Please review your cart.');
                 }
+                syncEditionLowStockAlert($this->pdo, $editionId);
             }
 
             $delStmt = $this->pdo->prepare('DELETE FROM cart_items WHERE cart_id = ?');
@@ -273,6 +275,7 @@ class OrderController
                         (int) $item['quantity'],
                         (int) $item['edition_id']
                     ]);
+                    syncEditionLowStockAlert($this->pdo, (int) $item['edition_id']);
                 }
             }
 
@@ -299,6 +302,7 @@ class OrderController
                     if ($deductStmt->rowCount() !== 1) {
                         throw new RuntimeException('Stock update conflict for "' . $item['title'] . '". Please try again.');
                     }
+                    syncEditionLowStockAlert($this->pdo, (int) $item['edition_id']);
                 }
             }
 

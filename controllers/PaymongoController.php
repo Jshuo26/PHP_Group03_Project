@@ -3,6 +3,7 @@
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/paymongo.php';
 require_once __DIR__ . '/../includes/payment_schema.php';
+require_once __DIR__ . '/../includes/inventory_alerts.php';
 
 class PaymongoController
 {
@@ -256,6 +257,7 @@ class PaymongoController
             $restore = $this->pdo->prepare('UPDATE book_editions SET stock_quantity = stock_quantity + ? WHERE edition_id = ?');
             foreach ($itemsStmt->fetchAll() as $item) {
                 $restore->execute([(int) $item['quantity'], (int) $item['edition_id']]);
+                syncEditionLowStockAlert($this->pdo, (int) $item['edition_id']);
             }
             $this->pdo->prepare("UPDATE orders SET status = 'cancelled', payment_status = 'cancelled' WHERE order_id = ?")
                 ->execute([$orderId]);
