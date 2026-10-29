@@ -40,6 +40,44 @@ $author = trim((string) ($input['author'] ?? ''));
 $isbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($input['isbn'] ?? ''))) ?? '');
 $providerRequested = strtolower(trim((string) ($input['provider'] ?? 'google_books')));
 
+if ($providerRequested === 'open_library_cover') {
+    $workKey = trim((string) ($input['work_key'] ?? ''));
+    if (!preg_match('~^/works/OL[0-9]+W$~', $workKey)) {
+        bookMetadataRespond(400, ['success' => false, 'message' => 'A valid Open Library work record is required.']);
+    }
+    $contact = trim((string) (getenv('OPEN_LIBRARY_CONTACT') ?: ($config['OPEN_LIBRARY_CONTACT'] ?? '')));
+    $userAgent = 'AklAAAtBookCatalogImport/1.0' . ($contact !== '' ? ' (' . $contact . ')' : ' (educational catalog lookup)');
+    $curl = curl_init('https://openlibrary.org' . $workKey . '.json');
+    curl_setopt_array($curl, [
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_FOLLOWLOCATION => false,
+        CURLOPT_CONNECTTIMEOUT => 4,
+        CURLOPT_TIMEOUT => 8,
+        CURLOPT_HTTPHEADER => ['Accept: application/json', 'User-Agent: ' . $userAgent],
+    ]);
+    $body = curl_exec($curl);
+    $status = (int) curl_getinfo($curl, CURLINFO_RESPONSE_CODE);
+    $curlError = curl_error($curl);
+    curl_close($curl);
+    $work = is_string($body) && $status >= 200 && $status < 300 ? json_decode($body, true) : null;
+    if (!is_array($work)) {
+        error_log('Open Library cover lookup failed (HTTP ' . $status . '): ' . $curlError);
+        bookMetadataRespond(200, ['success' => true, 'cover_url' => '', 'cover_source_url' => 'https://openlibrary.org' . $workKey]);
+    }
+    $coverId = '';
+    foreach (($work['covers'] ?? []) as $candidateCoverId) {
+        if (is_numeric($candidateCoverId) && (int) $candidateCoverId > 0) {
+            $coverId = (string) (int) $candidateCoverId;
+            break;
+        }
+    }
+    bookMetadataRespond(200, [
+        'success' => true,
+        'cover_url' => $coverId !== '' ? 'https://covers.openlibrary.org/b/id/' . rawurlencode($coverId) . '-L.jpg?default=false' : '',
+        'cover_source_url' => 'https://openlibrary.org' . $workKey,
+    ]);
+}
+
 function openLibraryItems(string $title, string $author, string $isbn, array $config): array
 {
     $fields = 'key,title,author_name,first_publish_year,cover_i,isbn,publisher,language,first_sentence,subject,edition_key,number_of_pages_median';
@@ -97,6 +135,7 @@ function openLibraryItems(string $title, string $author, string $isbn, array $co
                 'description' => (string) $description,
                 'language' => $language,
                 'pageCount' => (int) ($doc['number_of_pages_median'] ?? 0),
+                'printType' => 'BOOK',
                 'categories' => is_array($doc['subject'] ?? null) ? array_slice($doc['subject'], 0, 10) : [],
                 'industryIdentifiers' => array_values(array_filter([
                     $isbn13 !== '' ? ['type' => 'ISBN_13', 'identifier' => $isbn13] : null,

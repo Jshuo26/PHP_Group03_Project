@@ -20,7 +20,7 @@
   var autoMatchingInProgress = false;
   var imported = state.status === 'imported';
   var formats = [['', 'Select format'], ['paperback', 'Paperback / softbound'], ['hardbound', 'Hardcover / hardbound'], ['ebook', 'Ebook']];
-  var languageNames = { en: 'English', eng: 'English', fil: 'Filipino', tl: 'Tagalog', tgl: 'Tagalog', ceb: 'Cebuano', ilo: 'Ilocano', es: 'Spanish', spa: 'Spanish', zh: 'Chinese', ja: 'Japanese' };
+  var languageOptions = [['', 'Select language'], ['English', 'English'], ['Filipino', 'Filipino'], ['Other Languages', 'Other Languages']];
 
   function el(tag, cls, text) {
     var node = document.createElement(tag);
@@ -30,6 +30,56 @@
   }
   function norm(value) { return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, ' ').trim().replace(/\s+/g, ' '); }
   function authorNorm(value) { return norm(value).split(';')[0]; }
+  function languageCategory(value) {
+    var raw = String(value || '').trim().toLowerCase();
+    if (!raw) return '';
+    var key = norm(raw.split(/[\\/_]/).pop());
+    var shortCode = norm(raw.split(/[-_]/)[0]);
+    if (['en', 'eng'].indexOf(shortCode) !== -1) return 'English';
+    if (['fil', 'tl', 'tgl'].indexOf(shortCode) !== -1) return 'Filipino';
+    if (!key) return '';
+    if (['en', 'eng', 'english'].indexOf(key) !== -1) return 'English';
+    if (['fil', 'filipino', 'tl', 'tgl', 'tagalog'].indexOf(key) !== -1) return 'Filipino';
+    return 'Other Languages';
+  }
+  function inferFormat(item, info) {
+    if (item.saleInfo && item.saleInfo.isEbook === true) return 'ebook';
+    var formatText = norm([info.format, info.binding, info.editionType].filter(Boolean).join(' '));
+    if (/\b(hardcover|hardback|hardbound)\b/.test(formatText)) return 'hardbound';
+    if (/\b(ebook|e book|digital)\b/.test(formatText)) return 'ebook';
+    if (/\b(paperback|softcover|softbound)\b/.test(formatText)) return 'paperback';
+    if (String(info.printType || '').toUpperCase() === 'BOOK') return 'paperback';
+    return '';
+  }
+  function metadataGenreIds(categories) {
+    var aliases = {
+      "Children's Literature": ['children', 'juvenile'],
+      'Classics': ['classic'],
+      'Contemporary Fiction': ['contemporary fiction'],
+      'Fantasy & Speculative Fiction': ['fantasy', 'science fiction', 'speculative fiction'],
+      'Food & Culture': ['food', 'cooking', 'cookery', 'culture'],
+      'Graphic Novels & Comics': ['graphic novel', 'comics', 'comic book'],
+      'Historical Fiction': ['historical fiction'],
+      'History': ['history', 'biography', 'autobiography'],
+      'Horror': ['horror'],
+      'Literary Fiction': ['literary fiction'],
+      'Mystery & Crime': ['mystery', 'crime', 'detective', 'thriller'],
+      'Poetry': ['poetry', 'poems'],
+      'Romance': ['romance'],
+      'Young Adult': ['young adult', 'young adult fiction', 'ya fiction']
+    };
+    var normalized = (categories || []).map(norm).filter(Boolean);
+    return state.genres.filter(function (genre) {
+      var choices = aliases[genre.name] || [genre.name];
+      return normalized.some(function (category) {
+        var categoryWords = category.split(' ');
+        return choices.some(function (choice) {
+          var phrase = norm(choice);
+          return category.indexOf(phrase) !== -1 || phrase.indexOf(category) !== -1 || phrase.split(' ').every(function (word) { return categoryWords.indexOf(word) !== -1; });
+        });
+      });
+    }).map(function (genre) { return genre.id; });
+  }
   function inputField(rowIndex, key, label, opts) {
     opts = opts || {};
     var wrap = el('label', 'bulk-field' + (opts.wide ? ' bulk-field-wide' : '') + (opts.required ? ' is-required' : ''));
@@ -52,7 +102,8 @@
     }
     input.dataset.row = rowIndex; input.dataset.field = key;
     if (opts.required) input.required = true;
-    input.value = rowValue(rowIndex, key, opts.default || '');
+    var initialValue = rowValue(rowIndex, key, opts.default || '');
+    input.value = key === 'language' ? languageCategory(initialValue) : initialValue;
     if (opts.placeholder) input.placeholder = opts.placeholder;
     if (opts.disabled || imported) input.disabled = true;
     wrap.appendChild(input);
@@ -100,56 +151,75 @@
     var closeButton = el('button', 'bulk-row-dialog-close', '×'); closeButton.type = 'button'; closeButton.setAttribute('aria-label', 'Close book details');
     closeButton.addEventListener('click', function () { dialog.close(); }); dialogHead.appendChild(closeButton); dialog.appendChild(dialogHead);
     var body = el('div', 'bulk-row-body');
-    var grid = el('div', 'bulk-field-grid');
-    var fTitle = inputField(index, 'title', 'Book title', { required: true });
+    var grid = el('div', 'bulk-review-grid');
+    var fTitle = inputField(index, 'title', 'Book Title', { required: true }); fTitle.wrap.classList.add('bulk-field-title');
     var fAuthor = inputField(index, 'author', 'Author(s)', { required: true, placeholder: 'Separate contributors with semicolons' });
+    fAuthor.wrap.classList.add('bulk-field-author');
     var authorCheck = el('small', 'bulk-author-check', 'Filipino identity was checked during batch preparation.'); authorCheck.dataset.authorCheck = index; authorCheck.setAttribute('aria-live', 'polite');
     fAuthor.wrap.appendChild(authorCheck);
-    var fAuthorBio = inputField(index, 'author_description', 'Primary author description (optional)', { type: 'textarea', rows: 3 });
+    var fDescription = inputField(index, 'description', 'Book Synopsis/Description', { type: 'textarea', rows: 5, required: true });
+    fDescription.wrap.classList.add('bulk-field-synopsis');
+    fDescription.wrap.appendChild(el('small', 'bulk-hint', 'Use the publisher’s synopsis or trusted catalog description. If metadata has none, enter an accurate description before publishing.'));
+    var fAuthorBio = inputField(index, 'author_description', 'Author Description (Optional)', { type: 'textarea', rows: 5 });
+    fAuthorBio.wrap.classList.add('bulk-field-author-description');
     var fIsbn = inputField(index, 'isbn', 'ISBN (optional)');
-    var fPublisher = inputField(index, 'publisher', 'Publisher');
-    var fFormat = inputField(index, 'format', 'Edition / format', { type: 'select', options: formats, required: true });
-    fFormat.wrap.appendChild(el('small', 'bulk-hint', 'Each row adds stock for one format. Choose the format you intend to stock; metadata can list editions but cannot decide which ones you ordered.'));
-    var fLanguage = inputField(index, 'language', 'Language', { required: true, placeholder: 'Filipino, English…' });
-    var fDescription = inputField(index, 'description', 'Synopsis / description', { type: 'textarea', rows: 4, required: true });
-    var fCost = inputField(index, 'unit_cost', 'Unit cost (optional)', { type: 'number', min: '0', step: '0.01' });
+    var fPublisher = inputField(index, 'publisher', 'Publisher (Optional)');
+    var fFormat = inputField(index, 'format', 'Edition / Format', { type: 'select', options: formats, required: true });
+    fFormat.wrap.appendChild(el('small', 'bulk-hint', 'Ebooks are selected when identified; print books default to paperback. Confirm the binding you intend to stock.'));
+    var fLanguage = inputField(index, 'language', 'Language', { type: 'select', options: languageOptions, required: true });
+    fLanguage.wrap.appendChild(el('small', 'bulk-hint', 'Automatically grouped from the metadata language.'));
+    var fCost = inputField(index, 'unit_cost', 'Unit Cost (Optional)', { type: 'number', min: '0', step: '0.01' });
     var fMarkup = inputField(index, 'markup_percent', 'Markup (%)', { type: 'number', min: '0', max: '500', step: '0.01', default: '25' });
     fMarkup.wrap.appendChild(el('small', 'bulk-hint', 'Applied to cost, online price, or fallback price basis.'));
-    var fPrice = inputField(index, 'price', 'Website selling price (₱)', { type: 'number', min: '0.01', step: '0.01', required: true });
+    var fPrice = inputField(index, 'price', 'Website Selling Price (₱)', { type: 'number', min: '0.01', step: '0.01', required: true });
     fPrice.input.readOnly = !!String(row.unit_cost || '').trim();
     fPrice.wrap.appendChild(el('small', 'bulk-hint bulk-price-source', row.price_source || 'Uses cost + markup, an online PHP price + markup, or the fallback basis + markup.'));
-    var fQuantity = inputField(index, 'quantity', 'Copies to add to stock', { type: 'number', min: '1', max: '9999999', required: true, default: '1' });
-    var fCover = inputField(index, 'cover_url', 'Book cover image', { required: true, placeholder: 'Filled from selected metadata or existing catalog record' });
-    var fEvidence = inputField(index, 'filipino_evidence_url', 'Filipino identity evidence URL', { placeholder: 'Public author statement or profile' });
+    var fQuantity = inputField(index, 'quantity', 'Quantity', { type: 'number', min: '1', max: '9999999', required: true, default: '1' });
+    var fCover = inputField(index, 'cover_url', 'Book Cover Image', { required: true, placeholder: 'Filled from selected metadata or existing catalog record' });
+    fCover.wrap.classList.add('bulk-field-cover-url');
+    var fEvidence = inputField(index, 'filipino_evidence_url', 'Filipino Identity Evidence URL', { placeholder: 'Public author statement or profile', wide: true });
     fEvidence.wrap.appendChild(el('small', 'bulk-hint', 'Unknown authors remain excluded until staff verify them in author review.'));
-    [fTitle, fAuthor, fAuthorBio, fIsbn, fPublisher, fFormat, fLanguage, fDescription, fCost, fMarkup, fPrice, fQuantity, fCover, fEvidence].forEach(function (field) { grid.appendChild(field.wrap); });
-    var localCoverWrap = el('label', 'bulk-field'); localCoverWrap.appendChild(el('span', '', 'Or upload an authorized cover file'));
-    var localCover = el('input', 'form-input'); localCover.type = 'file'; localCover.accept = 'image/jpeg,image/png,image/webp'; localCover.dataset.row = index; localCover.dataset.field = 'cover_file'; localCover.disabled = imported;
-    localCoverWrap.appendChild(localCover); localCoverWrap.appendChild(el('small', 'bulk-hint', 'JPEG, PNG, or WebP up to 5 MB. Use a file you created or are permitted to display.'));
-    grid.appendChild(localCoverWrap);
-
-    var genreWrap = el('label', 'bulk-field');
-    var genreLabel = el('span', 'bulk-field-label', 'Store genres'); genreLabel.appendChild(el('span', 'bulk-asterisk', '*')); genreWrap.className += ' is-required'; genreWrap.appendChild(genreLabel);
-    var genreSelect = el('select', 'form-input bulk-genre-select'); genreSelect.multiple = true; genreSelect.size = 4; genreSelect.dataset.row = index; genreSelect.dataset.field = 'genre_ids'; genreSelect.required = true; genreSelect.disabled = imported;
+    var titleAuthorRow = el('div', 'bulk-review-row bulk-row-title-author');
+    titleAuthorRow.append(fTitle.wrap, fAuthor.wrap); grid.appendChild(titleAuthorRow);
+    var descriptionRow = el('div', 'bulk-review-row bulk-row-descriptions');
+    descriptionRow.append(fDescription.wrap, fAuthorBio.wrap); grid.appendChild(descriptionRow);
+    var metadataRow = el('div', 'bulk-review-row bulk-row-metadata');
+    [fIsbn, fLanguage, fFormat].forEach(function (field) { metadataRow.appendChild(field.wrap); });
+    var genreWrap = el('label', 'bulk-field bulk-field-genre');
+    var genreLabel = el('span', 'bulk-field-label', 'Genres'); genreLabel.appendChild(el('span', 'bulk-asterisk', '*')); genreWrap.className += ' is-required'; genreWrap.appendChild(genreLabel);
+    var genreSelect = el('select', 'form-input bulk-genre-select'); genreSelect.multiple = true; genreSelect.size = 3; genreSelect.dataset.row = index; genreSelect.dataset.field = 'genre_ids'; genreSelect.required = true; genreSelect.disabled = imported;
     state.genres.forEach(function (genre) {
       var option = el('option', '', genre.name); option.value = String(genre.id); option.selected = selectedGenres(index).indexOf(String(genre.id)) !== -1; genreSelect.appendChild(option);
     });
-    genreWrap.appendChild(genreSelect); genreWrap.appendChild(el('small', 'bulk-hint', 'Hold Ctrl or Command to select more than one. Metadata categories suggest matches but do not replace your store categories.'));
-    grid.appendChild(genreWrap);
-
-    var coverConsent = el('label', 'bulk-consent bulk-field-wide');
-    var consentBox = el('input'); consentBox.type = 'checkbox'; consentBox.dataset.row = index; consentBox.dataset.field = 'cover_permission_confirmed'; consentBox.checked = row.cover_permission_confirmed === undefined ? true : !!row.cover_permission_confirmed; consentBox.disabled = imported;
-    coverConsent.appendChild(consentBox); coverConsent.appendChild(el('span', '', 'I have confirmed this cover is appropriate and permitted for this project’s display.'));
-    coverConsent.appendChild(el('small', 'bulk-hint bulk-field-wide', 'Prechecked for review speed. Inspect the image and uncheck this if it is wrong or not permitted.'));
-    grid.appendChild(coverConsent);
-    body.appendChild(grid);
-
+    genreWrap.appendChild(genreSelect);
+    var genreHelp = el('small', 'bulk-hint', 'Select or confirm a store category.'); genreHelp.dataset.genreHint = index; genreWrap.appendChild(genreHelp);
+    metadataRow.append(genreWrap, fPublisher.wrap); grid.appendChild(metadataRow);
+    var priceRow = el('div', 'bulk-review-row bulk-row-pricing');
+    [fCost, fMarkup, fPrice, fQuantity].forEach(function (field) { priceRow.appendChild(field.wrap); }); grid.appendChild(priceRow);
+    var coverRow = el('div', 'bulk-review-row bulk-row-cover');
+    coverRow.appendChild(fCover.wrap);
+    var coverUploadGroup = el('div', 'bulk-cover-upload-group');
+    var localCoverWrap = el('label', 'bulk-field bulk-field-cover-upload'); localCoverWrap.appendChild(el('span', 'bulk-field-label', 'Or Upload an Authorized Cover File'));
+    var localCover = el('input', 'form-input'); localCover.type = 'file'; localCover.accept = 'image/jpeg,image/png,image/webp'; localCover.dataset.row = index; localCover.dataset.field = 'cover_file'; localCover.disabled = imported;
+    localCoverWrap.appendChild(localCover); localCoverWrap.appendChild(el('small', 'bulk-hint', 'JPEG, PNG, or WebP up to 5 MB. Use a file you created or are permitted to display.'));
+    coverUploadGroup.appendChild(localCoverWrap);
     var preview = el('div', 'bulk-cover-preview'); preview.dataset.preview = index;
     if (row.cover_url) {
       var image = el('img'); image.src = row.cover_url; image.alt = 'Suggested cover for ' + (row.title || 'book'); image.loading = 'lazy'; preview.appendChild(image);
     }
-    var previewHelp = el('small', 'bulk-hint', 'Cover source: ' + (row.cover_source_url || 'not selected yet'));
-    preview.appendChild(previewHelp); body.appendChild(preview);
+    var previewHelp = el('small', 'bulk-hint'); previewHelp.dataset.coverHelp = index;
+    updateCoverHelp(index, previewHelp);
+    preview.appendChild(previewHelp);
+    coverRow.append(coverUploadGroup, preview); grid.appendChild(coverRow);
+
+    var coverConsent = el('label', 'bulk-consent bulk-field-wide bulk-cover-consent');
+    var consentBox = el('input'); consentBox.type = 'checkbox'; consentBox.dataset.row = index; consentBox.dataset.field = 'cover_permission_confirmed'; consentBox.checked = row.cover_permission_confirmed === undefined ? true : !!row.cover_permission_confirmed; consentBox.disabled = imported;
+    coverConsent.appendChild(consentBox); coverConsent.appendChild(el('span', '', 'I have confirmed this cover is appropriate and permitted for this project’s display.'));
+    coverConsent.appendChild(el('small', 'bulk-hint bulk-field-wide', 'Prechecked for review speed. Inspect the image and uncheck this if it is wrong or not permitted.'));
+    grid.appendChild(coverConsent);
+    grid.appendChild(fEvidence.wrap);
+    body.appendChild(grid);
+
     var source = el('p', 'bulk-source'); source.dataset.source = index;
     source.textContent = row.metadata_source_url ? 'Metadata source: ' + row.metadata_source_url : 'No metadata source selected.';
     body.appendChild(source);
@@ -199,7 +269,21 @@
         if (!tile.querySelector('.bulk-book-cover-placeholder')) tile.appendChild(el('span', 'bulk-book-cover-placeholder', 'Cover pending'));
       }
     }
-    var note = preview && preview.querySelector('small'); if (note) note.textContent = 'Cover source: ' + (row.cover_source_url || 'not selected yet');
+    var note = preview && preview.querySelector('[data-cover-help]'); if (note) updateCoverHelp(index, note);
+  }
+  function updateCoverHelp(index, node) {
+    var row = state.rows[index];
+    node.textContent = '';
+    if (row.cover_url) {
+      node.appendChild(document.createTextNode('Cover image found. Source: '));
+      var source = row.cover_source_url || row.cover_url;
+      var link = el('a', '', 'view source'); link.href = source; link.target = '_blank'; link.rel = 'noopener noreferrer'; node.appendChild(link);
+    } else if (row.metadata_source_url) {
+      node.appendChild(document.createTextNode('No cover image was returned. Metadata record: '));
+      var record = el('a', '', 'open book record'); record.href = row.metadata_source_url; record.target = '_blank'; record.rel = 'noopener noreferrer'; node.appendChild(record);
+    } else {
+      node.textContent = 'No cover image selected yet.';
+    }
   }
   function updateUploadedCover(index, file) {
     if (uploadedCoverUrls[index]) URL.revokeObjectURL(uploadedCoverUrls[index]);
@@ -391,6 +475,34 @@
     try { var url = new URL(raw); if (!(url.hostname === 'books.google.com' || url.hostname === 'books.googleusercontent.com' || url.hostname.endsWith('.books.googleusercontent.com') || url.hostname === 'covers.openlibrary.org')) return ''; if (url.protocol === 'http:') url.protocol = 'https:'; if (url.protocol !== 'https:') return ''; return url.href; }
     catch (_) { return ''; }
   }
+  function openLibraryWorkKey(item) {
+    var raw = item && item.id || item && item.volumeInfo && item.volumeInfo.infoLink || '';
+    try {
+      var url = new URL(raw, 'https://openlibrary.org');
+      var match = url.pathname.match(/^\/works\/(OL[0-9]+W)$/);
+      return url.hostname === 'openlibrary.org' && match ? '/works/' + match[1] : '';
+    } catch (_) { return ''; }
+  }
+  async function fetchOpenLibraryCover(index, item) {
+    var row = state.rows[index], workKey = openLibraryWorkKey(item);
+    if (!workKey || row.cover_url) return;
+    try {
+      var response = await fetch('/api/book_metadata.php', {
+        method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+        body: JSON.stringify({ query: row.title || 'cover lookup', title: row.title, author: row.author, provider: 'open_library_cover', work_key: workKey, csrf_token: state.csrf })
+      });
+      var data = await response.json();
+      if (!response.ok || !data.success || !data.cover_url) return;
+      readRows(); row = state.rows[index];
+      if (row.cover_url || row.skip || isExisting(row)) return;
+      row.cover_url = data.cover_url;
+      row.cover_source_url = data.cover_source_url || ('https://openlibrary.org' + workKey);
+      renderRowFields(index); updateCover(index); refreshSummary();
+      setNotice(index, 'Open Library supplied a cover image. Review that it matches this edition and is permitted for display.', 'info');
+    } catch (_) {
+      // A missing or unavailable cover must not block metadata review.
+    }
+  }
   function googleBooksPreviewLink(item) {
     var raw = item.volumeInfo && (item.volumeInfo.previewLink || item.volumeInfo.infoLink) || '';
     try {
@@ -475,17 +587,21 @@
   }
   function applyCandidate(index, item, confidence) {
     var row = state.rows[index], info = item.volumeInfo || {};
-    var formatWasProvided = !!String(row.format || '').trim();
+    var formatWasProvided = ['csv', 'manual'].indexOf(row.format_source) !== -1;
     if (!formatWasProvided) {
-      if (item.saleInfo && item.saleInfo.isEbook === true) row.format = 'ebook';
-      else if (String(info.printType || '').toUpperCase() === 'BOOK') row.format = 'paperback';
+      var detectedFormat = inferFormat(item, info);
+      row.format = detectedFormat || 'paperback';
+      row.format_source = detectedFormat ? 'metadata' : 'default';
     }
     row.title = info.title || row.title;
     if (Array.isArray(info.authors) && info.authors.length) row.author = info.authors.join('; ');
     row.isbn = isbnFrom(item) || row.isbn || '';
     row.publisher = info.publisher || row.publisher || '';
     row.description = info.description || row.description || '';
-    row.language = languageNames[String(info.language || '').toLowerCase()] || info.language || row.language || '';
+    if (['csv', 'manual'].indexOf(row.language_source) === -1) {
+      row.language = languageCategory(info.language || '');
+      row.language_source = row.language ? 'metadata' : '';
+    }
     var retail = item.saleInfo && item.saleInfo.listPrice;
     if (!String(row.unit_cost || '').trim() && (!String(row.price || '').trim() || row.price_source_type === 'fallback_baseline') && retail && String(retail.currencyCode || '').toUpperCase() === 'PHP' && Number.isFinite(Number(retail.amount)) && Number(retail.amount) > 0) {
       row.reference_price = Number(retail.amount);
@@ -495,16 +611,13 @@
       row.price_source_type = 'online_reference';
     }
     row.cover_url = coverFrom(item) || row.cover_url || '';
-    row.cover_source_url = item.volumeInfo && item.volumeInfo.infoLink || item.selfLink || '';
-    row.metadata_source_url = row.cover_source_url;
+    row.metadata_source_url = item.volumeInfo && item.volumeInfo.infoLink || item.selfLink || '';
+    if (row.cover_url) row.cover_source_url = row.metadata_source_url || row.cover_url;
     row.metadata_provider = item.provider || 'Google Books';
     row.lookup_status = confidence >= 90 ? 'High-confidence match' : 'Staff-confirmed match';
-    var categories = (info.categories || []).map(norm);
-    var guesses = state.genres.filter(function (genre) {
-      var g = norm(genre.name);
-      return categories.some(function (category) { return category === g || category.includes(g) || g.includes(category); });
-    }).map(function (g) { return g.id; });
-    if (guesses.length && !row.genre_ids.length) row.genre_ids = guesses;
+    var guesses = metadataGenreIds(info.categories || []);
+    if (guesses.length && (!row.genre_ids.length || row.genre_assignment_source === 'fallback')) { row.genre_ids = guesses; row.genre_assignment_source = 'metadata'; }
+    else if (!row.genre_ids.length && Number(state.fallbackGenreId) > 0) { row.genre_ids = [Number(state.fallbackGenreId)]; row.genre_assignment_source = 'fallback'; }
     var source = container.querySelector('[data-source="' + index + '"]');
     if (source) source.textContent = 'Metadata source (' + row.metadata_provider + '): ' + row.metadata_source_url;
     renderRowFields(index);
@@ -512,7 +625,8 @@
     if (priceSource) priceSource.textContent = row.price_source || 'Uses cost + markup, an online PHP price + markup, or the fallback basis + markup.';
     updateRowHeading(index, confidence >= 90 ? 'matched' : 'suggestion', row.lookup_status);
     updateCover(index); refreshSummary(); checkCatalog(index); scheduleAuthorCheck(index);
-    if (!formatWasProvided && row.format) setNotice(index, 'Format preselected as ' + row.format + (row.format === 'paperback' ? ' (default for print books; verify the binding before import).' : ' from the metadata ebook signal.'), 'info');
+    if (!formatWasProvided && row.format) setNotice(index, 'Format preselected as ' + row.format + (row.format === 'paperback' ? ' (default; verify the binding before import).' : ' from the metadata ebook signal.'), 'info');
+    if (item.provider === 'Open Library' && !row.cover_url) fetchOpenLibraryCover(index, item);
   }
   function showCandidates(index, items) {
     var box = container.querySelector('[data-online-candidates="' + index + '"]');
@@ -521,25 +635,35 @@
     box.appendChild(el('h4', '', 'Choose the exact title and edition'));
     items.slice(0, 5).forEach(function (item) {
       var info = item.volumeInfo || {}, score = scoreCandidate(state.rows[index], item);
-      var card = el('article', 'bulk-candidate');
+      var card = el('article', 'bulk-candidate' + (coverFrom(item) ? '' : ' bulk-candidate-no-cover'));
       var cover = coverFrom(item);
       if (cover) { var img = el('img'); img.src = cover; img.alt = ''; img.loading = 'lazy'; card.appendChild(img); }
       var details = el('div', 'bulk-candidate-info');
-      details.appendChild(el('strong', '', info.title || 'Untitled result'));
-      details.appendChild(el('small', 'bulk-confidence', item.provider || 'Google Books'));
-      details.appendChild(el('small', '', (info.authors || []).join(', ') || 'Author not listed'));
-      details.appendChild(el('small', '', [info.publisher, info.publishedDate, isbnFrom(item) ? 'ISBN ' + isbnFrom(item) : 'No ISBN'].filter(Boolean).join(' · ')));
-      details.appendChild(el('small', 'bulk-confidence', score.titleConflict ? 'Title conflict · do not auto-select' : score.score >= 90 ? 'High-confidence candidate · verify edition' : 'Possible match · compare details'));
-      details.appendChild(el('small', '', 'Match signals: ' + [score.isbnMatch ? 'ISBN exact' : '', score.exactTitle ? 'title exact' : '', score.exactAuthor ? 'author exact' : score.authorPartial ? 'author similar' : '', score.publisherMatch ? 'publisher exact' : ''].filter(Boolean).join(' · ') || 'no exact identifier/title/author signal'));
+      details.appendChild(el('strong', 'bulk-candidate-title', info.title || 'Untitled result'));
+      details.appendChild(el('small', 'bulk-candidate-provider', item.provider || 'Google Books'));
+      details.appendChild(el('small', 'bulk-candidate-author', (info.authors || []).join(', ') || 'Author not listed'));
+      details.appendChild(el('small', 'bulk-candidate-edition', [info.publisher, info.publishedDate, isbnFrom(item) ? 'ISBN ' + isbnFrom(item) : 'No ISBN'].filter(Boolean).join(' · ')));
+      details.appendChild(el('small', 'bulk-confidence bulk-candidate-match', score.titleConflict ? 'Title conflict · do not auto-select' : score.score >= 90 ? 'High-confidence candidate · verify edition' : 'Possible match · compare details'));
+      details.appendChild(el('small', 'bulk-candidate-signals', 'Match signals: ' + [score.isbnMatch ? 'ISBN exact' : '', score.exactTitle ? 'title exact' : '', score.exactAuthor ? 'author exact' : score.authorPartial ? 'author similar' : '', score.publisherMatch ? 'publisher exact' : ''].filter(Boolean).join(' · ') || 'no exact identifier/title/author signal'));
       var editionDetails = [info.printType ? info.printType.toLowerCase() : '', info.pageCount ? info.pageCount + ' pages' : '', (info.industryIdentifiers || []).filter(function (id) { return id.identifier; }).map(function (id) { return id.type.replace('_', '-') + ' ' + id.identifier; }).join(' · ')].filter(Boolean).join(' · ');
-      if (editionDetails) details.appendChild(el('small', '', editionDetails));
+      if (editionDetails) details.appendChild(el('small', 'bulk-candidate-edition', editionDetails));
       if (info.description) details.appendChild(el('p', 'bulk-candidate-description', info.description));
       var previewUrl = googleBooksPreviewLink(item);
       if (previewUrl) {
         var previewLink = el('a', 'btn btn-link btn-sm', 'Preview book details'); previewLink.href = previewUrl; previewLink.target = '_blank'; previewLink.rel = 'noopener noreferrer'; details.appendChild(previewLink);
       } else details.appendChild(el('small', '', 'Google Books search link is unavailable for this result.'));
-      var button = el('button', 'btn btn-secondary btn-sm', 'Use this record'); button.type = 'button'; button.addEventListener('click', function () { applyCandidate(index, item, score.score); box.textContent = ''; });
-      details.appendChild(button); card.appendChild(details); box.appendChild(card);
+      if (score.titleConflict && !score.isbnMatch) {
+        details.appendChild(el('p', 'bulk-candidate-conflict', 'This result has a different title, so it cannot be selected. Check another result or complete this row manually.'));
+      } else {
+        var buttonLabel = score.titleConflict ? 'Confirm ISBN Match' : 'Use This Record';
+        var button = el('button', 'btn btn-secondary btn-sm', buttonLabel); button.type = 'button';
+        button.addEventListener('click', function () {
+          if (score.titleConflict && !window.confirm('The ISBN matches, but the online title is different from the CSV title. Using this record will replace the CSV title with “' + (info.title || 'Untitled result') + '”. Continue only if you verified this is the same edition.')) return;
+          applyCandidate(index, item, score.score); box.textContent = '';
+        });
+        details.appendChild(button);
+      }
+      card.appendChild(details); box.appendChild(card);
     });
     setNotice(index, 'Select the exact book record. The system will not publish a low-confidence result automatically.', 'info');
   }
@@ -585,10 +709,14 @@
       items.sort(function (a, b) { return scoreCandidate(row, b).score - scoreCandidate(row, a).score; });
       var best = scoreCandidate(row, items[0]);
       if (!best.titleConflict && (best.isbnMatch || (best.exactTitle && best.exactAuthor && best.score >= 90))) applyCandidate(index, items[0], best.score);
-      else { row.lookup_status = 'Needs match'; updateRowHeading(index, 'needs-review', 'Select a match'); showCandidates(index, items); refreshSummary(); }
+      else {
+        row.lookup_status = 'Needs match'; updateRowHeading(index, 'needs-review', 'Select a match'); showCandidates(index, items); refreshSummary();
+        refreshSummary();
+      }
     } catch (error) {
       row.lookup_status = 'Lookup unavailable'; updateRowHeading(index, 'lookup-error', 'Lookup unavailable');
-      setNotice(index, 'Online lookup could not complete. ' + error.message, 'warning'); refreshSummary();
+      setNotice(index, 'Online lookup could not complete. ' + error.message + ' Complete this row manually.', 'warning');
+      refreshSummary();
     }
   }
   function renderRowFields(index) {
@@ -599,8 +727,16 @@
       var key = field.dataset.field;
       if (key === 'genre_ids') {
         Array.prototype.slice.call(field.options).forEach(function (option) { option.selected = (row.genre_ids || []).map(String).indexOf(option.value) !== -1; });
+        var genreHint = container.querySelector('[data-genre-hint="' + index + '"]');
+        if (genreHint) genreHint.textContent = row.genre_assignment_source === 'fallback' ? 'No provider category matched; using Other / General for this demonstration. Choose a specific genre when one is known.' : row.genre_assignment_source === 'metadata' ? 'Suggested from the book’s catalog subjects. Adjust if needed.' : 'Choose one or more real genres. If sources do not identify one, select the best-supported category manually.';
       } else if (field.type === 'checkbox') field.checked = !!row[key];
-      else if (document.activeElement !== field && row[key] !== undefined) field.value = String(row[key]);
+      else if (field.tagName === 'SELECT' || document.activeElement !== field) {
+        if (row[key] !== undefined) field.value = String(row[key]);
+      }
+      if (key === 'language') {
+        var languageHint = field.closest('.bulk-field') && field.closest('.bulk-field').querySelector('.bulk-hint');
+        if (languageHint) languageHint.textContent = 'Automatically grouped from book metadata when available; otherwise choose the language manually.';
+      }
     });
   }
   var catalogCheckTimers = Object.create(null);
@@ -743,7 +879,7 @@
     var chosenEdition = chosenFormat ? (book.editions || {})[chosenFormat] : null;
     row.isbn = (chosenEdition && chosenEdition.isbn) || (availableEditionKeys.length <= 1 ? (book.isbn || row.isbn || '') : row.isbn || '');
     row.description = book.description || row.description || '';
-    row.language = book.language || row.language || '';
+    row.language = languageCategory(book.language || row.language || '');
     row.publisher = book.publisher || row.publisher || '';
     row.genre_ids = Array.isArray(book.genre_ids) ? book.genre_ids : row.genre_ids;
     var primary = (book.authors || [])[0];
@@ -854,7 +990,10 @@
       updateRowHeading(index, state.rows[index].lookup_status || 'needs-details'); refreshSummary();
     });
     container.addEventListener('change', function (event) {
-      if (event.target.dataset.field === 'genre_ids' || event.target.type === 'checkbox') refreshSummary();
+      if (event.target.dataset.field === 'genre_ids') { state.rows[Number(event.target.dataset.row)].genre_assignment_source = 'manual'; refreshSummary(); }
+      if (event.target.dataset.field === 'language') { state.rows[Number(event.target.dataset.row)].language_source = 'manual'; refreshSummary(); }
+      if (event.target.dataset.field === 'format') { state.rows[Number(event.target.dataset.row)].format_source = 'manual'; refreshSummary(); }
+      if (event.target.type === 'checkbox') refreshSummary();
       if (event.target.dataset.field === 'format') scheduleCatalogCheck(Number(event.target.dataset.row));
       if (event.target.dataset.field === 'cover_file') {
         var index = Number(event.target.dataset.row), file = event.target.files && event.target.files[0];
@@ -896,6 +1035,14 @@
     }, 700);
   }
 
+  state.rows.forEach(function (row) {
+    if (String(row.language || '').trim() && !row.language_source) row.language_source = 'csv';
+    if (String(row.format || '').trim() && !row.format_source) row.format_source = 'csv';
+    if (!String(row.format || '').trim()) { row.format = 'paperback'; row.format_source = 'default'; }
+    if ((!Array.isArray(row.genre_ids) || !row.genre_ids.length) && Number(state.fallbackGenreId) > 0) {
+      row.genre_ids = [Number(state.fallbackGenreId)]; row.genre_assignment_source = 'fallback';
+    }
+  });
   state.rows.forEach(makeRow);
   attachInputListeners(); refreshSummary();
   state.rows.forEach(function (_, index) { renderPreparedAuthorCheck(index); });
@@ -965,12 +1112,7 @@
         importButton.disabled = false; return;
       }
       imported = true;
-      var s = data.summary || {};
-      showScanStatus(data.already_imported ? data.message : 'Done: ' + (s.created || 0) + ' new books added, ' + (s.skipped || 0) + ' skipped. Existing books and unverified authors were excluded. Reloading this batch will not apply it twice.', 'success');
-      dismissScanStatusAfter(5000);
-      var importButtonLabel = importButton.querySelector('.bulk-button-label');
-      if (importButtonLabel) importButtonLabel.textContent = 'Batch Imported';
-      container.querySelectorAll('input,select,textarea,button').forEach(function (field) { field.disabled = true; });
+      window.location.assign('/admin/bulk_import.php?batch=' + encodeURIComponent(state.batchId));
     } catch (error) {
       showScanStatus('Import request failed: ' + (error.message || 'network error') + ' The batch is safe to retry after resolving the issue.', 'error'); dismissScanStatusAfter(5000); importButton.disabled = false;
     }

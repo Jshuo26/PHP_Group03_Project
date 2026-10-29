@@ -222,6 +222,8 @@ $errors = [];
 $batchId = (string) ($_GET['batch'] ?? '');
 $batch = null;
 $rows = [];
+$importedBooks = [];
+$importResult = [];
 $success = (string) ($_SESSION['admin_flash'] ?? '');
 unset($_SESSION['admin_flash']);
 
@@ -269,7 +271,7 @@ if ($batchId !== '') {
     if (!preg_match('/^[a-f0-9]{32}$/', $batchId)) {
         $errors[] = 'The import batch link is invalid.';
     } else {
-        $stmt = $pdo->prepare('SELECT batch_id, user_id, status, rows_json, row_count, imported_count FROM book_import_batches WHERE batch_id = ?');
+        $stmt = $pdo->prepare('SELECT batch_id, user_id, status, rows_json, row_count, imported_count, result_json FROM book_import_batches WHERE batch_id = ?');
         $stmt->execute([$batchId]);
         $batch = $stmt->fetch();
         if (!$batch || (int) $batch['user_id'] !== (int) $_SESSION['user_id']) {
@@ -277,23 +279,62 @@ if ($batchId !== '') {
             $batch = null;
         } else {
             $rows = json_decode((string) $batch['rows_json'], true) ?: [];
+            $importResult = json_decode((string) ($batch['result_json'] ?? ''), true) ?: [];
+            if ($batch['status'] === 'imported') {
+                foreach ($rows as $row) {
+                    if (!is_array($row) || !empty($row['skip']) || !empty($row['server_excluded_existing']) || !empty($row['server_excluded_unknown_author'])) continue;
+                    $importedBooks[] = ['title' => (string) ($row['title'] ?? 'Untitled book'), 'author' => (string) ($row['author'] ?? 'Author unknown')];
+                }
+            }
         }
     }
 }
 
 $genres = $pdo->query("SELECT genre_id, genre_name FROM genres WHERE status = 'active' ORDER BY genre_name")->fetchAll();
+$fallbackGenreId = 0;
+foreach ($genres as $genre) {
+    if (mb_strtolower(trim((string) $genre['genre_name']), 'UTF-8') === 'other / general') {
+        $fallbackGenreId = (int) $genre['genre_id'];
+        break;
+    }
+}
 include __DIR__ . '/../includes/header.php';
 ?>
 <link rel="stylesheet" href="/css/admin-bulk-import.css?v=<?= (int) filemtime(__DIR__ . '/../css/admin-bulk-import.css') ?>">
 <section class="container bulk-import-page">
     <div class="bulk-hero">
         <div><p class="bulk-eyebrow">Product management</p><h1>Bulk add books</h1><p>Upload book titles and authors, review automatic matches, and import approved new books together.</p></div>
-        <a class="btn btn-secondary" href="/admin/products.php">← Product management</a>
+        <a class="btn btn-secondary" href="/admin/products.php"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true" focusable="false"><path fill-rule="evenodd" d="M11.03 3.97a.75.75 0 0 1 0 1.06l-6.22 6.22H21a.75.75 0 0 1 0 1.5H4.81l6.22 6.22a.75.75 0 1 1-1.06 1.06l-7.5-7.5a.75.75 0 0 1 0-1.06l7.5-7.5a.75.75 0 0 1 1.06 0Z" clip-rule="evenodd"/></svg> Product management</a>
     </div>
     <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= bulkImportEscape($success) ?></p></div><?php endif; ?>
 
     <?php if ($batch): ?>
-        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-complete"><span class="bulk-step-number">01</span><span>Upload CSV File</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-complete' : 'is-current' ?>"><span class="bulk-step-number">02</span><span>Enrich &amp; Review</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-current' : '' ?>"><span class="bulk-step-number">03</span><span>Import &amp; Publish</span></li></ol>
+        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-complete"><span class="bulk-step-number">01</span><span>Upload CSV File</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-complete' : 'is-current' ?>"><span class="bulk-step-number">02</span><span>Enrich &amp; Review</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-complete' : '' ?>"><span class="bulk-step-number">03</span><span>Import &amp; Publish</span></li></ol>
+        <?php if ($batch['status'] === 'imported'): ?>
+            <section class="bulk-completion card" aria-labelledby="bulk-completion-title">
+                <div class="bulk-completion-layout">
+                    <div class="bulk-completion-message">
+                        <div class="bulk-completion-icon" aria-hidden="true"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25"><path stroke-linecap="round" stroke-linejoin="round" d="m5 12.5 4.5 4.5L19 7.5"/></svg></div>
+                        <p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?> complete</p>
+                        <h2 id="bulk-completion-title">Imported and Published Successfully!</h2>
+                        <p class="bulk-completion-summary"><strong><?= (int) ($batch['imported_count'] ?? 0) ?></strong> <?= (int) ($batch['imported_count'] ?? 0) === 1 ? 'book has' : 'books have' ?> been added to the bookstore’s catalog.</p>
+                    </div>
+                    <div class="bulk-completion-results">
+                        <div class="bulk-completion-list-wrap">
+                            <div class="bulk-completion-list-heading"><h3>Published books</h3><span><?= count($importedBooks) ?> <?= count($importedBooks) === 1 ? 'title' : 'titles' ?></span></div>
+                            <?php if ($importedBooks): ?>
+                                <ul class="bulk-completion-list" aria-label="Published book titles and authors">
+                                    <?php foreach ($importedBooks as $book): ?><li><strong><?= bulkImportEscape($book['title']) ?></strong><span><?= bulkImportEscape($book['author']) ?></span></li><?php endforeach; ?>
+                                </ul>
+                            <?php else: ?>
+                                <p class="bulk-completion-empty">No new titles were published from this batch.</p>
+                            <?php endif; ?>
+                        </div>
+                        <?php if (!empty($importResult['skipped'])): ?><p class="bulk-completion-note"><?= (int) $importResult['skipped'] ?> <?= (int) $importResult['skipped'] === 1 ? 'row was' : 'rows were' ?> skipped because they were excluded or marked to skip.</p><?php endif; ?>
+                    </div>
+                </div>
+            </section>
+        <?php else: ?>
         <section class="bulk-controls card">
             <div><p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?></p><h2><?= (int) $batch['row_count'] ?> book rows</h2><p><?= $batch['status'] === 'imported' ? 'This batch has already been applied; retrying it will not change stock again.' : 'Author checks run during preparation. Catalog and online metadata matching now starts automatically.' ?></p></div>
             <div class="bulk-actions">
@@ -314,8 +355,9 @@ include __DIR__ . '/../includes/header.php';
             <input type="hidden" name="batch_id" value="<?= bulkImportEscape($batchId) ?>">
             <input type="hidden" name="rows_json" id="rows-json">
         </form>
-        <script>window.bulkImportState = <?= json_encode(['batchId' => $batchId, 'status' => $batch['status'], 'rows' => $rows, 'genres' => array_map(static fn($g) => ['id' => (int) $g['genre_id'], 'name' => $g['genre_name']], $genres), 'csrf' => generateCsrfToken()], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?>;</script>
+        <script>window.bulkImportState = <?= json_encode(['batchId' => $batchId, 'status' => $batch['status'], 'rows' => $rows, 'genres' => array_map(static fn($g) => ['id' => (int) $g['genre_id'], 'name' => $g['genre_name']], $genres), 'fallbackGenreId' => $fallbackGenreId, 'csrf' => generateCsrfToken()], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?>;</script>
         <script src="/js/admin-bulk-import.js?v=<?= (int) filemtime(__DIR__ . '/../js/admin-bulk-import.js') ?>" defer></script>
+        <?php endif; ?>
     <?php else: ?>
         <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-current"><span class="bulk-step-number">01</span><span>Upload CSV File</span></li><li><span class="bulk-step-number">02</span><span>Enrich &amp; Review</span></li><li><span class="bulk-step-number">03</span><span>Import &amp; Publish</span></li></ol>
         <div class="bulk-layout">

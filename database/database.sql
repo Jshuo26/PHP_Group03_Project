@@ -150,6 +150,10 @@ CREATE TABLE genres (
     UNIQUE KEY uk_genres_name (genre_name)
 ) ENGINE=InnoDB;
 
+INSERT INTO genres (genre_name, status)
+VALUES ('Other / General', 'active')
+ON DUPLICATE KEY UPDATE status = 'active';
+
 CREATE TABLE authors (
     author_id               INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     full_name               VARCHAR(150) NOT NULL,
