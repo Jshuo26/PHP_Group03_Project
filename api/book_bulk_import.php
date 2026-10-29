@@ -538,6 +538,7 @@ try {
     $coverUploads = [];
     $existingRows = [];
     $catalogConflictRows = [];
+    $unknownAuthorRows = [];
     // Existing catalog rows are visible for comparison, but this workflow is
     // strictly for adding new books. Detect and exclude them server-side too.
     foreach ($rows as $index => $row) {
@@ -552,8 +553,25 @@ try {
             $issues[] = ['index' => (int) $index, 'message' => $e->getMessage()];
         }
     }
+    // Rows with valid author names that are not verified are displayed in the
+    // Unknown Author filter and must not prevent other ready rows from being
+    // published. Malformed/missing author values still reach normal validation.
     foreach ($rows as $index => $row) {
-        if (!is_array($row) || !empty($row['skip']) || isset($existingRows[(int) $index]) || isset($catalogConflictRows[(int) $index])) continue;
+        $rowIndex = (int) $index;
+        if (!is_array($row) || !empty($row['skip']) || isset($existingRows[$rowIndex]) || isset($catalogConflictRows[$rowIndex])) continue;
+        $authorNames = parseAuthorNames(trim((string) ($row['author'] ?? '')));
+        if (validateAuthorNames($authorNames) !== null) continue;
+        foreach ($authorNames as $name) {
+            $matches = findAuthorMatches($pdo, $name);
+            if (count($matches['exact']) !== 1) {
+                $unknownAuthorRows[$rowIndex] = true;
+                $rows[$index]['server_excluded_unknown_author'] = true;
+                break;
+            }
+        }
+    }
+    foreach ($rows as $index => $row) {
+        if (!is_array($row) || !empty($row['skip']) || isset($existingRows[(int) $index]) || isset($catalogConflictRows[(int) $index]) || isset($unknownAuthorRows[(int) $index])) continue;
         $fileKey = 'cover_' . (int) $index;
         if (!isset($_FILES[$fileKey]) || (int) ($_FILES[$fileKey]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) continue;
         try {
@@ -566,7 +584,7 @@ try {
     $seenIsbns = [];
     foreach ($rows as $index => $row) {
         if (!is_array($row)) { $issues[] = ['index' => $index, 'message' => 'Invalid row data.']; continue; }
-        if (!empty($row['skip']) || isset($existingRows[(int) $index]) || isset($catalogConflictRows[(int) $index])) continue;
+        if (!empty($row['skip']) || isset($existingRows[(int) $index]) || isset($catalogConflictRows[(int) $index]) || isset($unknownAuthorRows[(int) $index])) continue;
         $isbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($row['isbn'] ?? ''))) ?? '');
         if ($isbn !== '' && isset($seenIsbns[$isbn])) {
             $issues[] = ['index' => $index, 'message' => 'This ISBN appears more than once in the batch. Keep one row and combine its quantity.'];
@@ -610,6 +628,7 @@ try {
     foreach ($rows as $index => $row) {
         if (!empty($row['skip'])) { $skipped++; continue; }
         if (isset($existingRows[(int) $index])) { $skipped++; continue; }
+        if (isset($unknownAuthorRows[(int) $index])) { $skipped++; continue; }
         // Close the gap between preflight and the write transaction. If the
         // catalog gained this title while staff were reviewing the batch,
         // leave it untouched instead of silently restocking it.
