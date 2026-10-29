@@ -10,13 +10,15 @@ CREATE TABLE users (
     last_name           VARCHAR(100) NOT NULL,
     full_name           VARCHAR(150) NOT NULL,
     email               VARCHAR(255) NOT NULL,
+    email_lookup_hash   CHAR(64) NULL,
     mobile_number       VARCHAR(255) NULL,
     profile_picture_path VARCHAR(255) NULL,
     password_hash       VARCHAR(255) NOT NULL,
     role                ENUM('customer','staff','admin') NOT NULL DEFAULT 'customer',
     account_status      ENUM('active','suspended') NOT NULL DEFAULT 'active',
     created_at          DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE KEY uk_users_email (email)
+    UNIQUE KEY uk_users_email (email),
+    UNIQUE KEY uk_users_email_lookup_hash (email_lookup_hash)
 ) ENGINE=InnoDB;
 
 
@@ -252,6 +254,7 @@ CREATE TABLE book_editions (
     edition_id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     book_id             INT UNSIGNED NOT NULL,
     format              ENUM('paperback','hardbound','ebook') NOT NULL,
+    isbn                VARCHAR(20) NULL,
     price               DECIMAL(10,2) UNSIGNED NOT NULL,
     stock_quantity      INT UNSIGNED NOT NULL DEFAULT 0,
     low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5,
@@ -262,6 +265,7 @@ CREATE TABLE book_editions (
         FOREIGN KEY (book_id) REFERENCES books(book_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     UNIQUE KEY uk_edition_book_format (book_id, format),
+    UNIQUE KEY uk_book_editions_isbn (isbn),
     INDEX idx_editions_stock (stock_quantity, low_stock_threshold)
 ) ENGINE=InnoDB;
 
