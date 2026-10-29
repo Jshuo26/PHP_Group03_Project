@@ -60,12 +60,29 @@ INSERT INTO tmp_authors (full_name, bio, verification_status, verification_confi
     ('Christine S. Bellen', 'Filipino writer who retold Severino Reyes''s Lola Basyang stories for Anvil Publishing''s picture-book series.', 'verified', 95.00, 'external', NOW()),
     ('F. H. Batacan', 'Filipino writer and author of Smaller and Smaller Circles.', 'verified', 100.00, 'external', NOW()),
     ('Jose Y. Dalisay Jr.', 'Filipino writer, novelist, and academic; author of Soledad''s Sister.', 'verified', 100.00, 'external', NOW()),
-    ('Ricky Lee', 'Filipino screenwriter, novelist, and writer; author of Para Kay B.', 'verified', 100.00, 'external', NOW());
+    ('Ricky Lee', 'Filipino screenwriter, novelist, and writer; author of Para Kay B.', 'verified', 100.00, 'external', NOW()),
+    ('Glenn Diaz', 'Filipino novelist born and raised in Manila; author of The Quiet Ones and Yñiga, both recognized with Philippine National Book Awards.', 'verified', 100.00, 'external', NOW()),
+    ('Marivi Soliven', 'Filipino author who publicly identifies as Filipino; author of The Mango Bride and other novels.', 'verified', 100.00, 'external', NOW());
 
 INSERT INTO authors (full_name, bio, verification_status, verification_confidence, verification_method, verified_at)
 SELECT t.full_name, t.bio, t.verification_status, t.verification_confidence, t.verification_method, t.verified_at
 FROM tmp_authors t
 WHERE NOT EXISTS (SELECT 1 FROM authors a WHERE a.full_name = t.full_name);
+
+INSERT INTO author_evidence (author_id, source_url)
+SELECT a.author_id, evidence.source_url
+FROM (
+    SELECT 'Glenn Diaz' AS full_name, 'https://glenndiaz.ph/about/' AS source_url
+    UNION ALL
+    SELECT 'Glenn Diaz', 'https://queersoutheastasia.com/wp-content/uploads/2020/10/A-CONVERSATION-WITH-GLENN-DIAZ-10.2020.pdf'
+    UNION ALL
+    SELECT 'Marivi Soliven', 'https://www.readingwomenpodcast.com/blog/2019/05/17/qa-marivi-soliven'
+) AS evidence
+JOIN authors a ON a.full_name = evidence.full_name
+WHERE NOT EXISTS (
+    SELECT 1 FROM author_evidence ae
+    WHERE ae.author_id = a.author_id AND ae.source_url = evidence.source_url
+);
 
 INSERT INTO tmp_books (title, description, isbn) VALUES
     ('Noli Me Tangere', 'Jose Rizal''s 1887 novel, originally written in Spanish and widely considered the foundational novel of the Philippines.', NULL),

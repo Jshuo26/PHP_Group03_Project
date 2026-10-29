@@ -5,8 +5,10 @@
   var container = document.getElementById('bulk-rows');
   var summary = document.getElementById('bulk-summary');
   var message = document.getElementById('bulk-message');
-  var lookupAll = document.getElementById('lookup-all');
   var importButton = document.getElementById('import-ready');
+  var filters = document.getElementById('bulk-filters');
+  var activeFilter = 'all';
+  var lookupTimers = Object.create(null);
   var imported = state.status === 'imported';
   var formats = [['', 'Select format'], ['paperback', 'Paperback / softbound'], ['hardbound', 'Hardcover / hardbound'], ['ebook', 'Ebook']];
   var languageNames = { en: 'English', eng: 'English', fil: 'Filipino', tl: 'Tagalog', tgl: 'Tagalog', ceb: 'Cebuano', ilo: 'Ilocano', es: 'Spanish', spa: 'Spanish', zh: 'Chinese', ja: 'Japanese' };
@@ -63,7 +65,7 @@
     var grid = el('div', 'bulk-field-grid');
     var fTitle = inputField(index, 'title', 'Book title', { required: true });
     var fAuthor = inputField(index, 'author', 'Author(s)', { required: true, placeholder: 'Separate contributors with semicolons' });
-    var authorCheck = el('small', 'bulk-author-check', 'Filipino author check runs when an author is selected.'); authorCheck.dataset.authorCheck = index; authorCheck.setAttribute('aria-live', 'polite');
+    var authorCheck = el('small', 'bulk-author-check', 'Filipino identity was checked during batch preparation.'); authorCheck.dataset.authorCheck = index; authorCheck.setAttribute('aria-live', 'polite');
     fAuthor.wrap.appendChild(authorCheck);
     var fAuthorBio = inputField(index, 'author_description', 'Primary author description (optional)', { type: 'textarea', rows: 3, wide: true });
     var fIsbn = inputField(index, 'isbn', 'ISBN (optional)');
@@ -114,10 +116,9 @@
     body.appendChild(source);
 
     var actions = el('div', 'bulk-row-actions');
-    var lookup = el('button', 'btn btn-secondary', 'Search metadata'); lookup.type = 'button'; lookup.dataset.lookup = index; lookup.disabled = imported;
     var skipLabel = el('label', 'bulk-skip'); var skip = el('input'); skip.type = 'checkbox'; skip.dataset.row = index; skip.dataset.field = 'skip'; skip.checked = !!row.skip; skip.disabled = imported;
     skipLabel.appendChild(skip); skipLabel.appendChild(el('span', '', 'Skip this row'));
-    actions.appendChild(lookup); actions.appendChild(skipLabel); body.appendChild(actions);
+    actions.appendChild(skipLabel); body.appendChild(actions);
     var catalogCandidates = el('div', 'bulk-candidates'); catalogCandidates.dataset.catalogCandidates = index; body.appendChild(catalogCandidates);
     var onlineCandidates = el('div', 'bulk-candidates'); onlineCandidates.dataset.onlineCandidates = index; body.appendChild(onlineCandidates);
     var rowNotice = el('div', 'bulk-row-notice'); rowNotice.dataset.notice = index; body.appendChild(rowNotice);
@@ -174,12 +175,49 @@
     });
     var duplicateCount = Object.keys(seen).filter(function (isbn) { return seen[isbn] > 1; }).length;
     summary.textContent = '';
-    [[ready, 'Ready to import', 'is-ready'], [needs, 'Need details', 'is-needs'], [skipped, 'Skipped', 'is-skipped']].forEach(function (item) {
+    [[ready, 'Ready for Import', 'is-ready'], [needs, 'Needs Details', 'is-needs'], [skipped, 'Skipped', 'is-skipped']].forEach(function (item) {
       var chip = el('span', 'bulk-summary-chip ' + item[2]); chip.appendChild(el('strong', '', item[0])); chip.appendChild(el('small', '', item[1])); summary.appendChild(chip);
     });
+    renderFilters(ready, needs, skipped);
     if (duplicateCount) { var dup = el('span', 'bulk-duplicate-warning', duplicateCount + ' ISBN duplicate group(s): combine rows before import.'); summary.appendChild(dup); }
     if (importButton) importButton.disabled = imported || ready === 0 || duplicateCount > 0;
     return { ready: ready, skipped: skipped, duplicateCount: duplicateCount };
+  }
+  function renderFilters(ready, needs, skipped) {
+    if (!filters) return;
+    var counts = { all: state.rows.length, ready: ready, needs: needs, skipped: skipped };
+    var labels = [['all', 'All'], ['ready', 'Ready for Import'], ['needs', 'Needs Details'], ['skipped', 'Skipped']];
+    filters.textContent = '';
+    labels.forEach(function (entry) {
+      var button = el('button', 'bulk-filter' + (activeFilter === entry[0] ? ' is-active' : ''), entry[1] + ' (' + counts[entry[0]] + ')');
+      button.type = 'button'; button.setAttribute('aria-pressed', activeFilter === entry[0] ? 'true' : 'false');
+      button.addEventListener('click', function () { activeFilter = entry[0]; applyFilter(); renderFilters(ready, needs, skipped); });
+      filters.appendChild(button);
+    });
+    applyFilter();
+  }
+  function applyFilter() {
+    state.rows.forEach(function (row, index) {
+      var card = container.children[index];
+      if (!card) return;
+      var isReady = !row.skip && rowReady(row, index);
+      var show = activeFilter === 'all' || (activeFilter === 'ready' && isReady) || (activeFilter === 'needs' && !row.skip && !isReady) || (activeFilter === 'skipped' && !!row.skip);
+      card.hidden = !show;
+    });
+  }
+  function renderPreparedAuthorCheck(index) {
+    var note = container.querySelector('[data-author-check="' + index + '"]');
+    if (!note) return;
+    var checks = state.rows[index].filipino_author_checks || [];
+    if (!checks.length) { note.className = 'bulk-author-check is-review'; note.textContent = 'No author identity result was saved during preparation. Evidence and staff review may be needed.'; return; }
+    var allVerified = checks.every(function (check) { return check.status === 'verified'; });
+    note.className = 'bulk-author-check ' + (allVerified ? 'is-verified' : 'is-review');
+    note.textContent = checks.map(function (check) {
+      if (check.status === 'verified') return check.name + ': matched verified Filipino author ' + (check.matched_name || '') + '.';
+      if (check.status === 'possible_match') return check.name + ': possible name variation of ' + (check.matched_name || 'a verified author') + '; review identity.';
+      if (check.status === 'ambiguous') return check.name + ': multiple local author matches; resolve identity.';
+      return check.name + ': no verified local match. This is unknown, not proof the author is non-Filipino; add identity evidence for review.';
+    }).join(' ');
   }
   function setNotice(index, text, kind) {
     var box = container.querySelector('[data-notice="' + index + '"]');
@@ -336,7 +374,17 @@
     setNotice(index, 'Searching Google Books for metadata suggestions…', 'info');
     var query = row.isbn ? 'isbn:' + row.isbn + ' intitle:' + row.title + (row.author ? ' inauthor:' + row.author.split(';')[0].trim() : '') : 'intitle:' + row.title + (row.author ? '+inauthor:' + row.author.split(';')[0].trim() : '');
     try {
-      var data = await googleBooksFetch(query, row); var items = Array.isArray(data.items) ? data.items : [];
+      var data, items = [];
+      try {
+        data = await googleBooksFetch(query, row);
+        items = Array.isArray(data.items) ? data.items : [];
+      } catch (googleError) {
+        // Google quota/network errors should trigger the configured Open Library fallback.
+        try {
+          data = await googleBooksFetch(query, row, 'open_library');
+          items = Array.isArray(data.items) ? data.items : [];
+        } catch (_) { throw googleError; }
+      }
       items.forEach(function (item) { item.provider = item.provider || data.provider || 'Google Books'; });
       if (!items.length && row.isbn) {
         data = await googleBooksFetch('intitle:' + row.title + (row.author ? '+inauthor:' + row.author.split(';')[0].trim() : ''), row);
@@ -607,6 +655,7 @@
       if (key === 'cover_url') updateCover(index);
       if (['title', 'author', 'isbn'].indexOf(key) !== -1) scheduleCatalogCheck(index);
       if (key === 'author') scheduleAuthorCheck(index);
+      if (key === 'title' || key === 'author' || key === 'isbn') scheduleAutomaticLookup(index);
       updateRowHeading(index, state.rows[index].lookup_status || 'needs-details'); refreshSummary();
     });
     container.addEventListener('change', function (event) {
@@ -622,10 +671,6 @@
         refreshSummary();
       }
     });
-    container.addEventListener('click', function (event) {
-      var lookupIndex = event.target.dataset.lookup;
-      if (lookupIndex !== undefined) enqueueLookup(Number(lookupIndex));
-    });
   }
   var lookupQueue = Promise.resolve();
   var lookupPending = Object.create(null);
@@ -639,16 +684,29 @@
   async function concurrentLookup(indices) {
     for (var i = 0; i < indices.length; i++) await enqueueLookup(indices[i]);
   }
+  function scheduleAutomaticLookup(index) {
+    if (lookupTimers[index]) clearTimeout(lookupTimers[index]);
+    lookupTimers[index] = setTimeout(function () { if (!state.rows[index].skip) enqueueLookup(index); }, 700);
+  }
 
   state.rows.forEach(makeRow);
   attachInputListeners(); refreshSummary();
-  if (!imported) checkCatalogBatch();
+  state.rows.forEach(function (_, index) { renderPreparedAuthorCheck(index); });
+  if (!imported) {
+    checkCatalogBatch().then(function () {
+      var pending = state.rows.map(function (row, index) { return index; }).filter(function (index) { return !state.rows[index].skip && !(state.rows[index].local_match && state.rows[index].lookup_status === 'Existing catalog book'); });
+      if (pending.length) {
+        message.className = 'bulk-message is-info'; message.textContent = 'Automatically matching book titles and authors online: 0 of ' + pending.length + ' checked…';
+        return concurrentLookup(pending.map(function (index, position) {
+          var task = enqueueLookup(index);
+          task.then(function () { message.textContent = 'Automatically matching book titles and authors online: ' + (position + 1) + ' of ' + pending.length + ' checked…'; });
+          return task;
+        })).then(function () { message.textContent = 'Automatic online matching is complete. Review any uncertain matches and fill remaining required details.'; });
+      }
+      message.textContent = 'Catalog checks are complete. Existing records are shown below; review and complete any remaining details.';
+    });
+  }
   if (imported) { message.textContent = 'This batch is already complete. Reloading it is safe and will not add stock again.'; }
-  lookupAll.addEventListener('click', async function () {
-    readRows(); lookupAll.disabled = true; lookupAll.textContent = 'Searching…';
-    await concurrentLookup(state.rows.map(function (_, index) { return index; }).filter(function (index) { return !state.rows[index].skip; }));
-    lookupAll.disabled = imported; lookupAll.textContent = 'Find metadata for all';
-  });
   importButton.addEventListener('click', async function () {
     var result = refreshSummary();
     if (!result.ready || result.duplicateCount) { message.textContent = 'Complete the required fields and resolve duplicate ISBN rows before importing.'; return; }
@@ -674,15 +732,10 @@
       imported = true; message.className = 'bulk-message is-success';
       var s = data.summary || {};
       message.textContent = data.already_imported ? data.message : 'Done: ' + (s.created || 0) + ' new products, ' + (s.restocked || 0) + ' existing products restocked, ' + (s.pending_review || 0) + ' books awaiting author approval, ' + (s.skipped || 0) + ' skipped. Reloading this batch will not apply it twice.';
-      importButton.textContent = 'Batch imported'; lookupAll.disabled = true;
+      importButton.textContent = 'Batch imported';
       container.querySelectorAll('input,select,textarea,button').forEach(function (field) { field.disabled = true; });
     } catch (error) {
       message.className = 'bulk-message is-error'; message.textContent = 'Import request failed: ' + (error.message || 'network error') + ' The batch is safe to retry after resolving the issue.'; importButton.disabled = false;
     }
   });
-  function maybeAutoLookup() {
-    var query = new URLSearchParams(window.location.search);
-    if (query.get('lookup') === '1' && !imported) lookupAll.click();
-  }
-  maybeAutoLookup();
 })();

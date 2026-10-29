@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/audit.php';
+require_once __DIR__ . '/../includes/author_verification.php';
 
 requireRole(['admin', 'staff']);
 
@@ -142,6 +143,59 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
     }
 }
 
+/** Check submitted names against verified local identities while Prepare batch is running. */
+function bulkImportCheckAuthors(PDO $pdo, array &$rows): void
+{
+    $authors = $pdo->query('SELECT author_id, full_name, verification_status FROM authors')->fetchAll();
+    $aliases = [];
+    try {
+        foreach ($pdo->query('SELECT author_id, alias FROM author_aliases')->fetchAll() as $alias) {
+            $aliases[(int) $alias['author_id']][] = (string) $alias['alias'];
+        }
+    } catch (Throwable $e) {
+        // Older databases can still check canonical author names.
+    }
+    $nameIndex = [];
+    foreach ($authors as $author) {
+        foreach (array_merge([(string) $author['full_name']], $aliases[(int) $author['author_id']] ?? []) as $alternate) {
+            $normalized = normalizeAuthorName($alternate);
+            if ($normalized !== '') $nameIndex[$normalized][] = $author;
+        }
+    }
+    foreach ($rows as &$row) {
+        $checks = [];
+        foreach (parseAuthorNames((string) ($row['author'] ?? '')) as $name) {
+            $needle = normalizeAuthorName($name);
+            $exact = $nameIndex[$needle] ?? [];
+            $uniqueExact = [];
+            foreach ($exact as $author) $uniqueExact[(int) $author['author_id']] = $author;
+            $exact = array_values($uniqueExact);
+            if (count($exact) === 1 && $exact[0]['verification_status'] === 'verified') {
+                $checks[] = ['name' => $name, 'status' => 'verified', 'matched_name' => (string) $exact[0]['full_name']];
+            } elseif (count($exact) === 1) {
+                $checks[] = ['name' => $name, 'status' => (string) $exact[0]['verification_status'], 'matched_name' => (string) $exact[0]['full_name']];
+            } elseif (count($exact) > 1) {
+                $checks[] = ['name' => $name, 'status' => 'ambiguous'];
+            } else {
+                $possible = [];
+                foreach ($nameIndex as $normalized => $records) {
+                    if (authorNamesPossiblyMatch($needle, $normalized) === null) continue;
+                    foreach ($records as $author) if ($author['verification_status'] === 'verified') $possible[(int) $author['author_id']] = $author;
+                }
+                if ($possible) {
+                    $first = reset($possible);
+                    $checks[] = ['name' => $name, 'status' => 'possible_match', 'matched_name' => (string) $first['full_name']];
+                } else {
+                    $checks[] = ['name' => $name, 'status' => 'needs_evidence'];
+                }
+            }
+        }
+        $row['filipino_author_checks'] = $checks;
+        $row['author_check_complete'] = true;
+    }
+    unset($row);
+}
+
 $errors = [];
 $batchId = (string) ($_GET['batch'] ?? '');
 $batch = null;
@@ -169,6 +223,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!$errors) {
         try {
             $rows = bulkImportRowsFromCsv($_FILES['csv_file'] ?? [], (int) $defaultQuantity, (float) $defaultMarkup);
+            bulkImportCheckAuthors($pdo, $rows);
             $batchId = bin2hex(random_bytes(16));
             $insert = $pdo->prepare("INSERT INTO book_import_batches (batch_id, user_id, status, rows_json, row_count) VALUES (?, ?, 'review', ?, ?)");
             $insert->execute([$batchId, (int) $_SESSION['user_id'], json_encode($rows, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR), count($rows)]);
@@ -215,13 +270,13 @@ include __DIR__ . '/../includes/header.php';
     <?php if ($batch): ?>
         <div class="bulk-stepbar"><span class="is-current">1 · Upload</span><span class="is-current">2 · Enrich &amp; review</span><span class="<?= $batch['status'] === 'imported' ? 'is-current' : '' ?>">3 · Import</span></div>
         <section class="bulk-controls card">
-            <div><p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?></p><h2><?= (int) $batch['row_count'] ?> book rows</h2><p><?= $batch['status'] === 'imported' ? 'This batch has already been applied; retrying it will not change stock again.' : 'Search the catalog, review matches, and import ready rows.' ?></p></div>
+        <div><p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?></p><h2><?= (int) $batch['row_count'] ?> book rows</h2><p><?= $batch['status'] === 'imported' ? 'This batch has already been applied; retrying it will not change stock again.' : 'Author checks run during preparation. Catalog and online metadata matching now starts automatically.' ?></p></div>
             <div class="bulk-actions">
-                <button class="btn btn-secondary" type="button" id="lookup-all" <?= $batch['status'] === 'imported' ? 'disabled' : '' ?>>Find metadata for all</button>
                 <button class="btn btn-primary" type="button" id="import-ready" <?= $batch['status'] === 'imported' ? 'disabled' : '' ?>>Import ready books</button>
             </div>
         </section>
         <div class="bulk-summary" id="bulk-summary" aria-live="polite"><span>Preparing rows…</span></div>
+        <nav class="bulk-filters" id="bulk-filters" aria-label="Filter book rows"></nav>
         <div id="bulk-rows" class="bulk-rows"></div>
         <div id="bulk-message" class="bulk-message" role="status" aria-live="polite"></div>
         <form id="bulk-import-form" method="post" action="/api/book_bulk_import.php" hidden>
@@ -251,7 +306,7 @@ include __DIR__ . '/../includes/header.php';
             </section>
             <aside class="card bulk-guide">
                 <p class="bulk-eyebrow">Automated catalog workflow</p><h2>Match carefully. Import once.</h2>
-                <ol><li><strong>Identify:</strong> provide both title and author in every CSV row; ISBN is helpful but optional.</li><li><strong>Enrich:</strong> Google Books is searched first. Open Library is tried when Google has no strong match or is unavailable.</li><li><strong>Prevent duplicates:</strong> exact ISBN or title-and-author matches show the existing catalog record and restock its matching format. Similar names and conflicting ISBNs are flagged for review.</li><li><strong>Verify authors:</strong> known verified Filipino authors are recognized from your local author catalog. Unknown authors need self-identification evidence and staff review.</li><li><strong>Import:</strong> only rows with required listing details and a selected format are added; unresolved rows stay out.</li></ol>
+                <ol><li><strong>Identify:</strong> provide both title and author in every CSV row; ISBN is helpful but optional.</li><li><strong>Enrich automatically:</strong> after preparation, Google Books is searched and Open Library is used when Google has no strong match or is unavailable. High-confidence records fill details; uncertain matches wait for staff selection.</li><li><strong>Prevent duplicates:</strong> exact ISBN or title-and-author matches show the existing catalog record and restock its matching format. Similar names and conflicting ISBNs are flagged for review.</li><li><strong>Check author identity:</strong> verified Filipino-author matches are checked during preparation. A name missing from that list is unknown, not automatically foreign; add evidence and let staff review it.</li><li><strong>Import:</strong> only rows with required listing details and a selected format are added; unresolved rows stay out.</li></ol>
                 <p class="bulk-note">Online results are suggestions, not proof of the correct book or Filipino identity. Compare edition ISBNs and covers before importing. Open Library is a no-key fallback; configure an application contact email for its API User-Agent if available.</p>
             </aside>
         </div>

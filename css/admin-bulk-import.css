@@ -36,6 +36,11 @@
 .bulk-summary-chip.is-ready { border-color: #b6ddc1; background: #f1fbf4; }
 .bulk-summary-chip.is-needs { border-color: #efd5a9; background: #fff9ed; }
 .bulk-summary-chip.is-skipped { background: #f7f5f2; }
+.bulk-filters { display: flex; flex-wrap: wrap; gap: .5rem; margin: -.15rem 0 1rem; }
+.bulk-filter { padding: .52rem .85rem; border: 1px solid #e5d8c8; border-radius: 999px; color: #62482f; background: #fff; font: inherit; font-size: .82rem; font-weight: 750; cursor: pointer; transition: background .15s ease, border-color .15s ease, color .15s ease; }
+.bulk-filter:hover { border-color: #bd8244; background: #fff8ed; }
+.bulk-filter.is-active { border-color: #8a4715; color: #fff; background: #8a4715; }
+.bulk-row[hidden] { display: none; }
 .bulk-duplicate-warning { color: #9a3412; font-size: .86rem; font-weight: 700; }
 .bulk-rows { display: grid; gap: .75rem; }
 .bulk-row { overflow: hidden; border: 1px solid #e7ddd2; border-radius: 14px; background: #fff; box-shadow: var(--shadow-sm); }
