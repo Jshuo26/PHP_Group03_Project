@@ -33,6 +33,64 @@
   border-radius: 6px;
 }
 
+.catalog-cover-link {
+  display: block;
+  margin: 0 auto 18px;
+  width: 100%;
+  text-decoration: none;
+}
+
+.catalog-cover-link .catalog-cover,
+.catalog-cover-link .catalog-cover-placeholder {
+  margin-bottom: 0;
+}
+
+.catalog-cover-placeholder {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 220px;
+  aspect-ratio: 3 / 4;
+  padding: clamp(18px, 5%, 32px);
+  overflow: hidden;
+  border: 1px solid #e5d4be;
+  border-radius: 7px;
+  background: radial-gradient(ellipse at 50% 20%, #fffaf1 0, #f4e7d4 78%);
+  color: #70411f;
+  text-align: center;
+}
+
+.catalog-cover-placeholder-kicker {
+  color: #a85d20;
+  font-family: Arial, sans-serif;
+  font-size: .62rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+}
+
+.catalog-cover-placeholder strong {
+  display: -webkit-box;
+  max-width: 100%;
+  overflow: hidden;
+  color: #4a2b1b;
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(1rem, 2.2vw, 1.35rem);
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+}
+
+.catalog-cover-placeholder-rule {
+  width: 34%;
+  height: 2px;
+  background: #bd7a3e;
+}
+
 .catalog-card h2 {
   margin: 0 0 8px;
   color: #30251f;
@@ -149,6 +207,13 @@
   background: #fbf7f0;
 }
 
+.book-detail-cover-placeholder {
+  width: 100%;
+  max-height: 480px;
+  min-height: 360px;
+  border-radius: 8px;
+}
+
 .book-detail-info {
   min-width: 0;
 }
@@ -261,6 +326,12 @@
   .book-detail-cover {
     width: min(100%, 300px);
     max-height: 420px;
+    margin: 0 auto;
+  }
+
+  .book-detail-cover-placeholder {
+    width: min(100%, 300px);
+    min-height: 390px;
     margin: 0 auto;
   }
 

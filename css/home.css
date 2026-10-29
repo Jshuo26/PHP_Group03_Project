@@ -348,6 +348,13 @@ a.hero-cta:focus-visible {
   transition: transform 0.25s ease, filter 0.25s ease;
 }
 
+.book-tile-cover .catalog-cover-placeholder {
+  min-height: 0;
+  height: 100%;
+  border: 0;
+  border-radius: 4px;
+}
+
 .book-tile-body {
   flex: 1;
   display: flex;

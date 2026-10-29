@@ -140,7 +140,7 @@ include __DIR__ . '/includes/header.php';
                                     loading="lazy"
                                 >
                             <?php else: ?>
-                                <span>Book Cover</span>
+                                <?= catalogCoverPlaceholder($title, 'featured-cover-placeholder') ?>
                             <?php endif; ?>
                         </a>
 

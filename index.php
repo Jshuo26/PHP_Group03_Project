@@ -77,7 +77,7 @@ function homepageBookTile(array $book): string
     $coverUrl = !empty($book['cover_image_path']) ? homepageBookCover($book['cover_image_path']) : '';
     $cover = $coverUrl !== ''
         ? '<img src="' . htmlspecialchars($coverUrl, ENT_QUOTES, 'UTF-8') . '" alt="' . $title . ' cover" loading="lazy">'
-        : '<span>Book Cover</span>';
+        : catalogCoverPlaceholder((string) $book['title']);
 
     return '<article class="book-tile">'
         . '<a class="book-tile-cover" href="/books.php?id=' . $bookId . '">' . $cover . '</a>'

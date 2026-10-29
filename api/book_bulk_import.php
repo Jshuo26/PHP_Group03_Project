@@ -376,7 +376,9 @@ function bulkValidateRow(PDO $pdo, array $row, int $index, array $genreIds, bool
     if ($language === '' || mb_strlen($language) > 50) return 'Add the book language.';
     $savedCover = bulkReusableCatalogCover($pdo, $row);
     $canReuseSavedCover = !empty($row['reuse_catalog_cover']) && $savedCover !== null;
-    if ((!bulkIsAllowedCover($cover) && !$hasUploadedCover && !$canReuseSavedCover) || (empty($row['cover_permission_confirmed']) && !$canReuseSavedCover)) return 'Choose a Google Books cover or upload a permitted cover file, then confirm it is allowed for this project.';
+    $hasOnlineCover = bulkIsAllowedCover($cover);
+    if ($cover !== '' && !$hasOnlineCover && !$hasUploadedCover && !$canReuseSavedCover) return 'Use a supported cover image URL, upload a permitted cover, or leave the cover empty to show a title placeholder.';
+    if (($hasOnlineCover || $hasUploadedCover) && empty($row['cover_permission_confirmed']) && !$canReuseSavedCover) return 'Confirm that the selected cover is permitted for this project before importing.';
     try {
         $existingBook = bulkFindExistingBook($pdo, $row);
         if ($existingBook) return 'This book already exists in the shop catalog and is excluded from the new-book import.';
@@ -415,6 +417,8 @@ function bulkApplyRow(PDO $pdo, array $row, int $userId): array
             $row['cover_license_note'] = $savedCover['cover_license_note'];
         }
     }
+    $coverSource = $coverUrl !== '' ? (trim((string) ($row['cover_source_url'] ?? '')) ?: null) : null;
+    $coverLicenseNote = $coverUrl !== '' ? (trim((string) ($row['cover_license_note'] ?? '')) ?: null) : null;
     $unitCost = trim((string) ($row['unit_cost'] ?? ''));
     $markup = (float) ($row['markup_percent'] ?? 25);
     $price = $unitCost !== '' ? round((float) $unitCost * (1 + $markup / 100), 2) : round((float) $row['price'], 2);
@@ -445,12 +449,12 @@ function bulkApplyRow(PDO $pdo, array $row, int $userId): array
         $editionId = (int) $edition['edition_id'];
         $editionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($row['isbn'] ?? ''))) ?? '');
         $pdo->prepare('UPDATE book_editions SET isbn = COALESCE(NULLIF(isbn, \'\'), ?), stock_quantity = stock_quantity + ?, cover_image_path = IF(cover_image_path IS NULL OR cover_image_path = \'\', ?, cover_image_path), cover_source_url = IF(cover_source_url IS NULL OR cover_source_url = \'\', ?, cover_source_url), cover_license_note = IF(cover_license_note IS NULL OR cover_license_note = \'\', ?, cover_license_note) WHERE edition_id = ?')
-            ->execute([$editionIsbn !== '' ? $editionIsbn : null, $quantity, $coverUrl, trim((string) ($row['cover_source_url'] ?? '')) ?: null, (string) ($row['cover_license_note'] ?? 'Staff confirmed cover use for the project demo.'), $editionId]);
+            ->execute([$editionIsbn !== '' ? $editionIsbn : null, $quantity, $coverUrl !== '' ? $coverUrl : null, $coverSource, $coverLicenseNote, $editionId]);
         // Existing product prices are intentionally preserved; current inventory batches only restock them.
     } else {
         $editionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($row['isbn'] ?? ''))) ?? '');
         $pdo->prepare('INSERT INTO book_editions (book_id, format, isbn, price, stock_quantity, low_stock_threshold, cover_image_path, cover_source_url, cover_license_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$bookId, $format, $editionIsbn !== '' ? $editionIsbn : null, number_format($price, 2, '.', ''), $quantity, getLowStockThreshold($pdo), $coverUrl, trim((string) ($row['cover_source_url'] ?? '')) ?: null, (string) ($row['cover_license_note'] ?? 'Staff confirmed cover use for the project demo.')]);
+            ->execute([$bookId, $format, $editionIsbn !== '' ? $editionIsbn : null, number_format($price, 2, '.', ''), $quantity, getLowStockThreshold($pdo), $coverUrl !== '' ? $coverUrl : null, $coverSource, $coverLicenseNote]);
         $editionId = (int) $pdo->lastInsertId();
     }
     syncEditionLowStockAlert($pdo, $editionId);

@@ -19,6 +19,17 @@ function catalogCover(?string $path): string
     return $filename !== '' ? '/images/book-covers/' . rawurlencode($filename) : '';
 }
 
+function catalogCoverPlaceholder(string $title, string $class = ''): string
+{
+    $safeTitle = htmlspecialchars($title !== '' ? $title : 'Untitled book', ENT_QUOTES, 'UTF-8');
+    $safeClass = preg_match('/^[a-z0-9 _-]*$/i', $class) ? trim($class) : '';
+    return '<span class="catalog-cover-placeholder' . ($safeClass !== '' ? ' ' . $safeClass : '') . '" role="img" aria-label="No cover image available for ' . $safeTitle . '">'
+        . '<span class="catalog-cover-placeholder-kicker">COVER UNAVAILABLE</span>'
+        . '<strong>' . $safeTitle . '</strong>'
+        . '<span class="catalog-cover-placeholder-rule" aria-hidden="true"></span>'
+        . '</span>';
+}
+
 function catalogEscapeLike(string $text): string
 {
     return '%' . str_replace(['!', '%', '_'], ['!!', '!%', '!_'], $text) . '%';

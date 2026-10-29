@@ -373,11 +373,13 @@ include __DIR__ . '/includes/header.php';
                         ?>
 
                         <article class="card catalog-card">
-                            <?php if ($cover !== ''): ?>
-                                <a href="<?= $h($detail) ?>">
+                            <a class="catalog-cover-link" href="<?= $h($detail) ?>">
+                                <?php if ($cover !== ''): ?>
                                     <img class="catalog-cover" src="<?= $h($cover) ?>" alt="<?= $h($book['title']) ?> cover" loading="lazy">
-                                </a>
-                            <?php endif; ?>
+                                <?php else: ?>
+                                    <?= catalogCoverPlaceholder((string) $book['title']) ?>
+                                <?php endif; ?>
+                            </a>
 
                             <h2><a href="<?= $h($detail) ?>"><?= $h($book['title']) ?></a></h2>
 

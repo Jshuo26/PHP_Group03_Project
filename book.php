@@ -181,6 +181,8 @@ include __DIR__ . '/includes/header.php';
 
         <?php if ($cover !== ''): ?>
             <img class="book-detail-cover" src="<?= $h($cover) ?>" alt="<?= $h($book['title']) ?> cover">
+        <?php else: ?>
+            <?= catalogCoverPlaceholder((string) $book['title'], 'book-detail-cover-placeholder') ?>
         <?php endif; ?>
 
         <div class="book-detail-info">
@@ -282,11 +284,13 @@ include __DIR__ . '/includes/header.php';
 
                 <article class="card catalog-card">
 
-                    <?php if ($itemCover !== ''): ?>
-                        <a href="<?= $h($itemDetail) ?>">
+                    <a class="catalog-cover-link" href="<?= $h($itemDetail) ?>">
+                        <?php if ($itemCover !== ''): ?>
                             <img class="catalog-cover" src="<?= $h($itemCover) ?>" alt="<?= $h($item['title']) ?> cover" loading="lazy">
-                        </a>
-                    <?php endif; ?>
+                        <?php else: ?>
+                            <?= catalogCoverPlaceholder((string) $item['title']) ?>
+                        <?php endif; ?>
+                    </a>
 
                     <h3><a href="<?= $h($itemDetail) ?>"><?= $h($item['title']) ?></a></h3>
 
