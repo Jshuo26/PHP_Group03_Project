@@ -50,7 +50,7 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
             $key = bulkImportHeader((string) $header);
             $field = match ($key) {
                 'title', 'booktitle', 'name' => 'title',
-                'author', 'authors', 'contributor' => 'author',
+                'author', 'authors', 'authorname', 'contributor' => 'author',
                 'authordescription', 'authorbio', 'biography' => 'author_description',
                 'isbn', 'isbn10', 'isbn13', 'barcode' => 'isbn',
                 'quantity', 'stock', 'stockquantity', 'copies' => 'quantity',
@@ -86,8 +86,15 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
             $value = static function (string $field) use ($map, $values): string {
                 return isset($map[$field]) ? trim((string) ($values[$map[$field]] ?? '')) : '';
             };
-            if ($value('title') === '' || $value('author') === '') {
-                throw new RuntimeException('CSV row ' . $line . ' must include both a book title and author.');
+            $missingFields = [];
+            if ($value('title') === '') {
+                $missingFields[] = 'the book title';
+            }
+            if ($value('author') === '') {
+                $missingFields[] = 'the author';
+            }
+            if ($missingFields) {
+                throw new RuntimeException('CSV row ' . $line . ' is missing ' . implode(' and ', $missingFields) . '. Add the missing value' . (count($missingFields) > 1 ? 's' : '') . ' before preparing this batch.');
             }
             $qtyRaw = $value('quantity');
             $quantity = $qtyRaw === '' ? $defaultQuantity : filter_var($qtyRaw, FILTER_VALIDATE_INT);
@@ -150,7 +157,7 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
             ];
         }
         if (!$rows) {
-            throw new RuntimeException('The CSV does not contain any book rows.');
+            throw new RuntimeException('The CSV has no book rows to prepare. Add at least one row with a title and author.');
         }
         return $rows;
     } finally {
@@ -318,13 +325,25 @@ include __DIR__ . '/../includes/header.php';
                 <form method="post" enctype="multipart/form-data" class="bulk-upload-form">
                     <input type="hidden" name="csrf_token" value="<?= bulkImportEscape(generateCsrfToken()) ?>">
                     <label class="bulk-file-drop" for="csv_file"><span class="bulk-file-icon" aria-hidden="true">↑</span><strong>Choose a CSV file</strong><small>Up to 500 rows · 2 MB max · UTF-8 or Excel CSV</small><input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv" required></label>
-                    <?php if ($errors): ?><div class="bulk-upload-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= bulkImportEscape($error) ?></p><?php endforeach; ?></div><?php endif; ?>
+                    <div class="bulk-upload-errors" id="csv-preflight-notice" role="status" aria-live="polite" hidden></div>
+                    <?php if ($errors): ?><div class="bulk-upload-errors" id="csv-server-notice" role="alert" aria-live="assertive"><?php foreach ($errors as $error): ?><p><?= bulkImportEscape($error) ?></p><?php endforeach; ?></div><?php endif; ?>
                     <div class="bulk-defaults">
                         <label><span class="bulk-default-label">Default quantity per book</span><input class="form-input" type="number" name="default_quantity" min="1" max="9999999" value="10" required><small>Used when a CSV row has no quantity.</small></label>
                         <label><span class="bulk-default-label">Markup (%)</span><input class="form-input" type="number" name="default_markup" min="0" max="500" step="0.01" value="25" required><small>Applied to cost, reference price, or fallback price.</small></label>
                         <label><span class="bulk-default-label">Fallback price basis (₱)</span><input class="form-input" type="number" name="fallback_price" min="0.01" max="99999999" step="0.01" value="500" required><small>Used when no cost, CSV price, or PHP online price is available.</small></label>
                     </div>
-                    <div class="bulk-upload-actions"><button class="btn btn-primary bulk-button" type="submit">Prepare Batch</button><a class="btn btn-secondary bulk-button" href="/admin/bulk_import.php?template=1">Download CSV Template</a></div>
+                    <div class="bulk-upload-actions">
+                        <button class="btn btn-primary bulk-button" type="submit">
+                            <svg class="bulk-button-icon bulk-button-icon-outline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 6.878V6a2.25 2.25 0 0 1 2.25-2.25h7.5A2.25 2.25 0 0 1 18 6v.878m-12 0c.235-.083.487-.128.75-.128h10.5c.263 0 .515.045.75.128m-12 0A2.25 2.25 0 0 0 4.5 9v.878m13.5-3A2.25 2.25 0 0 1 19.5 9v.878m0 0a2.246 2.246 0 0 0-.75-.128H5.25c-.263 0-.515.045-.75.128m15 0A2.25 2.25 0 0 1 21 12v6a2.25 2.25 0 0 1-2.25 2.25H5.25A2.25 2.25 0 0 1 3 18v-6c0-.98.626-1.813 1.5-2.122" /></svg>
+                            <svg class="bulk-button-icon bulk-button-icon-filled" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M5.566 4.657A4.505 4.505 0 0 1 6.75 4.5h10.5c.41 0 .806.055 1.183.157A3 3 0 0 0 15.75 3h-7.5a3 3 0 0 0-2.684 1.657ZM2.25 12a3 3 0 0 1 3-3h13.5a3 3 0 0 1 3 3v6a3 3 0 0 1-3 3H5.25a3 3 0 0 1-3-3v-6ZM5.25 7.5c-.41 0-.806.055-1.184.157A3 3 0 0 1 6.75 6h10.5a3 3 0 0 1 2.683 1.657A4.505 4.505 0 0 0 18.75 7.5H5.25Z" /></svg>
+                            <span>Prepare Batch</span>
+                        </button>
+                        <a class="btn btn-secondary bulk-button" href="/admin/bulk_import.php?template=1">
+                            <svg class="bulk-button-icon bulk-button-icon-outline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M9 8.25H7.5a2.25 2.25 0 0 0-2.25 2.25v9a2.25 2.25 0 0 0 2.25 2.25h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25H15M9 12l3 3m0 0 3-3m-3 3V2.25" /></svg>
+                            <svg class="bulk-button-icon bulk-button-icon-filled" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 1.5a.75.75 0 0 1 .75.75V7.5h-1.5V2.25A.75.75 0 0 1 12 1.5ZM11.25 7.5v5.69l-1.72-1.72a.75.75 0 0 0-1.06 1.06l3 3a.75.75 0 0 0 1.06 0l3-3a.75.75 0 1 0-1.06-1.06l-1.72 1.72V7.5h3.75a3 3 0 0 1 3 3v9a3 3 0 0 1-3 3h-9a3 3 0 0 1-3-3v-9a3 3 0 0 1 3-3h3.75Z" /></svg>
+                            <span>Download CSV Template</span>
+                        </a>
+                    </div>
                 </form>
             </section>
             <div class="bulk-help-panels">
@@ -346,5 +365,113 @@ document.querySelectorAll('.bulk-dialog').forEach(function (dialog) {
 document.querySelectorAll('[data-dialog-close]').forEach(function (button) {
     button.addEventListener('click', function () { var dialog = button.closest('dialog'); if (dialog) dialog.close(); });
 });
+var bulkUploadForm = document.querySelector('.bulk-upload-form');
+if (bulkUploadForm) {
+    var csvInput = document.getElementById('csv_file');
+    var csvNotice = document.getElementById('csv-preflight-notice');
+    var prepareButton = bulkUploadForm.querySelector('button[type="submit"]');
+    var noticeTimer = null;
+
+    function hideCsvNotice(notice) {
+        if (!notice) return;
+        notice.classList.add('is-dismissing');
+        window.setTimeout(function () { notice.hidden = true; notice.classList.remove('is-dismissing'); }, 250);
+    }
+    function showCsvNotice(text, type, notice) {
+        notice = notice || csvNotice;
+        if (!notice) return;
+        if (notice === csvNotice && noticeTimer) window.clearTimeout(noticeTimer);
+        notice.textContent = text;
+        notice.classList.remove('is-success', 'is-error', 'is-info', 'is-dismissing');
+        notice.classList.add(type === 'success' ? 'is-success' : (type === 'info' ? 'is-info' : 'is-error'));
+        notice.hidden = false;
+        if (notice === csvNotice) noticeTimer = window.setTimeout(function () { hideCsvNotice(notice); }, 5000);
+    }
+    function parseCsvRecords(text) {
+        text = text.replace(/^\uFEFF/, '');
+        var records = [], record = [], cell = '', quoted = false;
+        for (var i = 0; i < text.length; i++) {
+            var char = text[i];
+            if (quoted) {
+                if (char === '"' && text[i + 1] === '"') { cell += '"'; i++; }
+                else if (char === '"') quoted = false;
+                else cell += char;
+            } else if (char === '"' && cell === '') quoted = true;
+            else if (char === ',') { record.push(cell); cell = ''; }
+            else if (char === '\n' || char === '\r') {
+                record.push(cell); records.push(record); record = []; cell = '';
+                if (char === '\r' && text[i + 1] === '\n') i++;
+            } else cell += char;
+        }
+        if (quoted) throw new Error('A quoted value is not closed. Check the CSV formatting and save the file again.');
+        if (cell !== '' || record.length) { record.push(cell); records.push(record); }
+        return records;
+    }
+    function inspectCsv(file) {
+        return file.text().then(function (text) {
+            var records = parseCsvRecords(text);
+            if (!records.length) return { errors: ['The selected CSV is empty. Add a header row and at least one book.'] };
+            var aliases = {
+                title: ['title', 'booktitle', 'name'],
+                author: ['author', 'authors', 'authorname', 'contributor']
+            };
+            var headers = records[0].map(function (header) { return String(header).trim().toLowerCase().replace(/[\s_-]+/g, ''); });
+            var titleIndex = headers.findIndex(function (header) { return aliases.title.indexOf(header) !== -1; });
+            var authorIndex = headers.findIndex(function (header) { return aliases.author.indexOf(header) !== -1; });
+            var errors = [];
+            if (titleIndex < 0) errors.push('The CSV header is missing a book title column (use “Title” or “Book Title”).');
+            if (authorIndex < 0) errors.push('The CSV header is missing an author column (use “Author” or “Author Name”).');
+            if (errors.length) return { errors: errors };
+            var books = records.slice(1), missingRows = [], bookCount = 0;
+            books.forEach(function (row, index) {
+                if (!row.some(function (cell) { return String(cell).trim() !== ''; })) return;
+                bookCount++;
+                var title = String(row[titleIndex] || '').trim(), author = String(row[authorIndex] || '').trim();
+                if (!title || !author) {
+                    var missing = [];
+                    if (!title) missing.push('the book title');
+                    if (!author) missing.push('the author');
+                    missingRows.push('CSV row ' + (index + 2) + ' is missing ' + missing.join(' and ') + '.');
+                }
+            });
+            if (!bookCount) errors.push('The CSV has a header but no book rows. Add at least one book with a title and author.');
+            if (missingRows.length) errors = errors.concat(missingRows.slice(0, 5), missingRows.length > 5 ? ['…and ' + (missingRows.length - 5) + ' more row' + (missingRows.length - 5 === 1 ? '' : 's') + ' need attention.'] : []);
+            if (bookCount > 500) errors.push('This CSV has ' + bookCount + ' book rows; the maximum batch size is 500.');
+            return { errors: errors };
+        });
+    }
+    function validateSelectedCsv() {
+        var file = csvInput.files && csvInput.files[0];
+        if (!file) return Promise.resolve({ errors: ['Choose a CSV file before preparing a batch.'] });
+        if (file.size > 2097152) return Promise.resolve({ errors: ['This file is larger than 2 MB. Choose a smaller CSV file.'] });
+        return inspectCsv(file).catch(function (error) { return { errors: [error.message || 'The CSV could not be checked. Verify its format and try again.'] }; });
+    }
+    function announceValidation(result) {
+        if (result.errors.length) showCsvNotice(result.errors.join(' '), 'error');
+        else showCsvNotice('CSV looks good: every book row has a title and author.', 'success');
+    }
+
+    csvInput.addEventListener('change', function () {
+        if (!csvInput.files || !csvInput.files.length) return;
+        showCsvNotice('Checking the CSV rows for book titles and authors…', 'info');
+        validateSelectedCsv().then(announceValidation);
+    });
+    csvInput.addEventListener('invalid', function () { showCsvNotice('Choose a CSV file before preparing a batch.', 'error'); });
+    bulkUploadForm.addEventListener('submit', function (event) {
+        event.preventDefault();
+        if (!bulkUploadForm.reportValidity()) return;
+        if (prepareButton) { prepareButton.disabled = true; prepareButton.querySelector('span').textContent = 'Checking CSV…'; }
+        validateSelectedCsv().then(function (result) {
+            if (result.errors.length) {
+                announceValidation(result);
+                if (prepareButton) { prepareButton.disabled = false; prepareButton.querySelector('span').textContent = 'Prepare Batch'; }
+                return;
+            }
+            HTMLFormElement.prototype.submit.call(bulkUploadForm);
+        });
+    });
+    var serverNotice = document.getElementById('csv-server-notice');
+    if (serverNotice) window.setTimeout(function () { hideCsvNotice(serverNotice); }, 5000);
+}
 </script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

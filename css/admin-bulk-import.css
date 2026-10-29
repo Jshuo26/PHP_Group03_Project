@@ -118,8 +118,21 @@
 .bulk-defaults .form-input { min-height: 44px; padding: .65rem .75rem; border-radius: 10px; }
 .bulk-upload-actions { display: flex; flex-wrap: wrap; gap: .65rem; }
 .bulk-button { display: inline-flex; align-items: center; justify-content: center; min-width: 170px; min-height: 45px; padding: .7rem 1rem; border-radius: 11px; font-weight: 800; letter-spacing: .01em; text-align: center; text-transform: capitalize; }
+.bulk-upload-actions .bulk-button { gap: .55rem; }
+.bulk-button-icon { width: 1.5rem; height: 1.5rem; flex: 0 0 auto; }
+.bulk-button-icon-filled { display: none; }
+.bulk-upload-actions .bulk-button:hover .bulk-button-icon-outline,
+.bulk-upload-actions .bulk-button:focus-visible .bulk-button-icon-outline,
+.bulk-upload-actions .bulk-button:active .bulk-button-icon-outline { display: none; }
+.bulk-upload-actions .bulk-button:hover .bulk-button-icon-filled,
+.bulk-upload-actions .bulk-button:focus-visible .bulk-button-icon-filled,
+.bulk-upload-actions .bulk-button:active .bulk-button-icon-filled { display: block; }
 .bulk-upload-actions .bulk-button { flex: 1 1 180px; }
-.bulk-upload-errors { padding: .65rem .8rem; border: 1px solid #f0b7b7; border-radius: 10px; color: #8b2929; background: #fff4f3; font-size: .84rem; }
+.bulk-upload-errors { padding: .65rem .8rem; border: 1px solid #f0b7b7; border-radius: 10px; color: #8b2929; background: #fff4f3; font-size: .84rem; opacity: 1; transition: opacity .25s ease, transform .25s ease; }
+.bulk-upload-errors[hidden] { display: none; }
+.bulk-upload-errors.is-success { border-color: #b8ddc2; color: #276244; background: #f0faf2; }
+.bulk-upload-errors.is-info { border-color: #cbdcf2; color: #435975; background: #f3f7fd; }
+.bulk-upload-errors.is-dismissing { opacity: 0; transform: translateY(-4px); }
 .bulk-upload-errors p { margin: .12rem 0; }
 .bulk-help-panels { display: grid; gap: .8rem; }
 .bulk-help-card { display: grid; grid-template-columns: 42px minmax(0,1fr) 20px; align-items: center; gap: .8rem; min-height: 108px; padding: 1rem; border: 1px solid #eee2d5; border-radius: 17px; color: var(--bulk-ink); background: #fff; box-shadow: 0 10px 25px rgba(72,46,20,.055); text-align: left; cursor: pointer; transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease; }
