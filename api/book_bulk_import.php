@@ -53,6 +53,19 @@ function bulkValidIsbn(string $raw): bool
     return false;
 }
 
+function bulkTitleSearchToken(string $normalizedTitle): string
+{
+    $tokens = preg_split('/\s+/u', trim($normalizedTitle), -1, PREG_SPLIT_NO_EMPTY) ?: [];
+    $articles = ['a', 'an', 'the', 'of', 'and', 'or', 'in', 'on', 'for', 'as', 'to'];
+    foreach ($tokens as $token) {
+        if (mb_strlen($token, 'UTF-8') >= 2 && !in_array($token, $articles, true)) return $token;
+    }
+    foreach ($tokens as $token) {
+        if (mb_strlen($token, 'UTF-8') >= 2) return $token;
+    }
+    return '';
+}
+
 function bulkIsAllowedCover(string $url): bool
 {
     if ($url === '' || strlen($url) > 1000 || filter_var($url, FILTER_VALIDATE_URL) === false) return false;
@@ -119,14 +132,14 @@ function bulkFindExistingBook(PDO $pdo, array $row, bool $lock = false): ?array
     $names = parseAuthorNames((string) ($row['author'] ?? ''));
     if (!$names) return null;
     $titleNeedle = bulkNormalizeText((string) $row['title']);
-    $firstToken = (explode(' ', $titleNeedle)[0] ?? '');
-    if (mb_strlen($firstToken) < 2) return null;
+    $searchToken = bulkTitleSearchToken($titleNeedle);
+    if ($searchToken === '') return null;
     $sql = 'SELECT b.book_id, b.title, b.isbn, b.description, b.language, b.publisher, b.status, b.review_status,
                    a.full_name AS author_name
               FROM books b JOIN book_authors ba ON ba.book_id = b.book_id JOIN authors a ON a.author_id = ba.author_id
              WHERE LOWER(b.title) LIKE ? LIMIT 300';
     $stmt = $pdo->prepare($sql . ($lock ? ' FOR UPDATE' : ''));
-    $stmt->execute(['%' . $firstToken . '%']);
+    $stmt->execute(['%' . $searchToken . '%']);
     $candidates = [];
     foreach ($stmt->fetchAll() as $candidate) {
         $bookId = (int) $candidate['book_id'];
@@ -161,8 +174,8 @@ function bulkFindExistingBook(PDO $pdo, array $row, bool $lock = false): ?array
 function bulkFindTitleCandidates(PDO $pdo, string $title): array
 {
     $needle = bulkNormalizeText($title);
-    $firstToken = explode(' ', $needle)[0] ?? '';
-    if (mb_strlen($firstToken) < 2) return [];
+    $searchToken = bulkTitleSearchToken($needle);
+    if ($searchToken === '') return [];
 
     $stmt = $pdo->prepare(
         'SELECT b.book_id, b.title, b.isbn, b.description, b.language, b.publisher, b.metadata_source_url,
@@ -178,7 +191,7 @@ function bulkFindTitleCandidates(PDO $pdo, string $title): array
           WHERE LOWER(b.title) LIKE ?
           LIMIT 300'
     );
-    $stmt->execute(['%' . $firstToken . '%']);
+    $stmt->execute(['%' . $searchToken . '%']);
     $candidates = [];
     foreach ($stmt->fetchAll() as $row) {
         if (bulkNormalizeText((string) $row['title']) !== $needle) continue;
