@@ -113,6 +113,9 @@
 .bulk-button { display: inline-flex; align-items: center; justify-content: center; min-width: 170px; min-height: 45px; padding: .7rem 1rem; border-radius: 11px; font-weight: 800; letter-spacing: .01em; text-align: center; text-transform: capitalize; }
 .bulk-upload-actions .bulk-button { gap: .55rem; }
 .bulk-button-icon { width: 1.5rem; height: 1.5rem; flex: 0 0 auto; }
+.bulk-import-button { gap: .6rem; }
+.bulk-import-button .bulk-button-icon { transition: transform .15s ease; }
+.bulk-import-button:hover .bulk-button-icon, .bulk-import-button:focus-visible .bulk-button-icon { transform: translateX(3px); }
 .bulk-button-icon-filled { display: none; }
 .bulk-upload-actions .bulk-button:hover .bulk-button-icon-outline,
 .bulk-upload-actions .bulk-button:focus-visible .bulk-button-icon-outline,

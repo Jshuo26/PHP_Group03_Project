@@ -297,7 +297,7 @@ include __DIR__ . '/../includes/header.php';
         <section class="bulk-controls card">
             <div><p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?></p><h2><?= (int) $batch['row_count'] ?> book rows</h2><p><?= $batch['status'] === 'imported' ? 'This batch has already been applied; retrying it will not change stock again.' : 'Author checks run during preparation. Catalog and online metadata matching now starts automatically.' ?></p></div>
             <div class="bulk-actions">
-                <button class="btn btn-primary bulk-button" type="button" id="import-ready" <?= $batch['status'] === 'imported' ? 'disabled' : '' ?>>Import Ready Books</button>
+                <button class="btn btn-primary bulk-button bulk-import-button" type="button" id="import-ready" <?= $batch['status'] === 'imported' ? 'disabled' : '' ?>><span class="bulk-button-label"><?= $batch['status'] === 'imported' ? 'Batch Imported' : 'Import &amp; Publish' ?></span><svg class="bulk-button-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path fill-rule="evenodd" d="M12.97 3.97a.75.75 0 0 1 1.06 0l7.5 7.5a.75.75 0 0 1 0 1.06l-7.5 7.5a.75.75 0 1 1-1.06-1.06l6.22-6.22H3a.75.75 0 0 1 0-1.5h16.19l-6.22-6.22a.75.75 0 0 1 0-1.06Z" clip-rule="evenodd" /></svg></button>
             </div>
         </section>
         <section class="bulk-scan-status bulk-toast is-info" id="bulk-scan-status" aria-label="Automatic matching progress" role="status" aria-live="polite" hidden>

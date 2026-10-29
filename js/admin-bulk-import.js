@@ -948,7 +948,8 @@
       var s = data.summary || {};
       showScanStatus(data.already_imported ? data.message : 'Done: ' + (s.created || 0) + ' new books added, ' + (s.skipped || 0) + ' skipped. Existing books and unverified authors were excluded. Reloading this batch will not apply it twice.', 'success');
       dismissScanStatusAfter(5000);
-      importButton.textContent = 'Batch Imported';
+      var importButtonLabel = importButton.querySelector('.bulk-button-label');
+      if (importButtonLabel) importButtonLabel.textContent = 'Batch Imported';
       container.querySelectorAll('input,select,textarea,button').forEach(function (field) { field.disabled = true; });
     } catch (error) {
       showScanStatus('Import request failed: ' + (error.message || 'network error') + ' The batch is safe to retry after resolving the issue.', 'error'); dismissScanStatusAfter(5000); importButton.disabled = false;
