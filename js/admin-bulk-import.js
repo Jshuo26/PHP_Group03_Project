@@ -812,7 +812,12 @@
     if (!Object.keys(checks).length) return;
     Object.keys(checks).forEach(function (index) { setNotice(Number(index), 'Checking this title against the current catalog…', 'info'); });
     try {
-      var response = await fetch('/api/book_bulk_import.php', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ action: 'match_many', csrf_token: state.csrf, rows: checks }) });
+      var controller = new AbortController();
+      var timeout = setTimeout(function () { controller.abort(); }, 12000);
+      var response;
+      try {
+        response = await fetch('/api/book_bulk_import.php', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' }, body: JSON.stringify({ action: 'match_many', csrf_token: state.csrf, rows: checks }), signal: controller.signal });
+      } finally { clearTimeout(timeout); }
       var data = await response.json();
       if (!response.ok || !data.success) throw new Error(data.message || 'Catalog check failed.');
       Object.keys(data.results || {}).forEach(function (index) {
@@ -870,8 +875,17 @@
     lookupQueue = task.catch(function () {}).then(function () { return delay(1200); });
     return lookupPending[index];
   }
-  async function concurrentLookup(indices) {
-    for (var i = 0; i < indices.length; i++) await enqueueLookup(indices[i]);
+  function concurrentLookup(indices, onProgress) {
+    var completed = 0;
+    return Promise.all(indices.map(function (index) {
+      return enqueueLookup(index).catch(function (error) {
+        state.rows[index].lookup_status = 'Lookup unavailable';
+        setNotice(index, 'Online lookup could not complete. ' + (error.message || 'Check this row manually.'), 'warning');
+      }).then(function () {
+        completed++;
+        if (onProgress) onProgress(completed);
+      });
+    }));
   }
   function scheduleAutomaticLookup(index) {
     if (lookupTimers[index]) clearTimeout(lookupTimers[index]);
@@ -894,14 +908,17 @@
       if (pending.length) {
         progress.max = pending.length; progress.value = 0; progress.hidden = false;
         showScanStatus('Searching online metadata: 0 of ' + pending.length + ' books checked…', 'info');
-        return concurrentLookup(pending.map(function (index, position) {
-          var task = enqueueLookup(index);
-          task.then(function () { progress.value = position + 1; message.textContent = 'Searching online metadata: ' + (position + 1) + ' of ' + pending.length + ' books checked…'; });
-          return task;
-        })).then(function () { showScanStatus('Online matching complete: ' + pending.length + ' of ' + pending.length + ' books checked.', 'success'); });
+        return concurrentLookup(pending, function (completed) {
+          progress.value = completed;
+          message.textContent = 'Searching online metadata: ' + completed + ' of ' + pending.length + ' books checked…';
+        }).then(function () { showScanStatus('All ' + pending.length + ' books checked. Review matches and any missing details.', 'success'); });
       }
       progress.hidden = true;
       showScanStatus('Catalog checks complete. Existing records are shown below; review remaining details for new books.', 'success');
+    }).catch(function (error) {
+      progress.hidden = true;
+      showScanStatus('Book checks finished with an issue. Review the row messages and try again.', 'warning');
+      if (window.console && console.error) console.error('Bulk import checks failed:', error);
     }).then(function () { autoMatchingInProgress = false; dismissScanStatusAfter(5000); });
   }
   if (imported) { showScanStatus('This batch is already complete. Reloading it is safe and will not add stock again.', 'success'); dismissScanStatusAfter(5000); }

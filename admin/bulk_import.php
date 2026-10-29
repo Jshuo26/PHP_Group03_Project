@@ -293,7 +293,7 @@ include __DIR__ . '/../includes/header.php';
     <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= bulkImportEscape($success) ?></p></div><?php endif; ?>
 
     <?php if ($batch): ?>
-        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-complete"><span class="bulk-step-number">01</span><span>Upload</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-complete' : 'is-current' ?>"><span class="bulk-step-number">02</span><span>Enrich &amp; review</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-current' : '' ?>"><span class="bulk-step-number">03</span><span>Import</span></li></ol>
+        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-complete"><span class="bulk-step-number">01</span><span>Upload CSV File</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-complete' : 'is-current' ?>"><span class="bulk-step-number">02</span><span>Enrich &amp; Review</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-current' : '' ?>"><span class="bulk-step-number">03</span><span>Import &amp; Publish</span></li></ol>
         <section class="bulk-controls card">
             <div><p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?></p><h2><?= (int) $batch['row_count'] ?> book rows</h2><p><?= $batch['status'] === 'imported' ? 'This batch has already been applied; retrying it will not change stock again.' : 'Author checks run during preparation. Catalog and online metadata matching now starts automatically.' ?></p></div>
             <div class="bulk-actions">
@@ -317,7 +317,7 @@ include __DIR__ . '/../includes/header.php';
         <script>window.bulkImportState = <?= json_encode(['batchId' => $batchId, 'status' => $batch['status'], 'rows' => $rows, 'genres' => array_map(static fn($g) => ['id' => (int) $g['genre_id'], 'name' => $g['genre_name']], $genres), 'csrf' => generateCsrfToken()], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?>;</script>
         <script src="/js/admin-bulk-import.js?v=<?= (int) filemtime(__DIR__ . '/../js/admin-bulk-import.js') ?>" defer></script>
     <?php else: ?>
-        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-current"><span class="bulk-step-number">01</span><span>Upload</span></li><li><span class="bulk-step-number">02</span><span>Enrich &amp; review</span></li><li><span class="bulk-step-number">03</span><span>Import</span></li></ol>
+        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-current"><span class="bulk-step-number">01</span><span>Upload CSV File</span></li><li><span class="bulk-step-number">02</span><span>Enrich &amp; Review</span></li><li><span class="bulk-step-number">03</span><span>Import &amp; Publish</span></li></ol>
         <div class="bulk-layout">
             <section class="card bulk-upload-card">
                 <p class="bulk-eyebrow">Create a catalog batch</p><h2>Start with a simple list</h2>
