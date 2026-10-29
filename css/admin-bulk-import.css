@@ -229,9 +229,22 @@
 .bulk-scan-status progress { width: min(180px,24vw); height: 8px; flex: 0 0 auto; overflow: hidden; border: 0; border-radius: 99px; background: #dfe7f2; accent-color: #517bb7; }
 .bulk-scan-status progress::-webkit-progress-bar { border-radius: 99px; background: #dfe7f2; }
 .bulk-scan-status progress::-webkit-progress-value { border-radius: 99px; background: linear-gradient(90deg,#4777b8,#80a6de); transition: width .25s ease; }
+@media (min-width: 761px) {
+  .bulk-layout { align-items: stretch; }
+  .bulk-help-panels { height: 100%; grid-template-rows: repeat(2,minmax(0,1fr)); }
+  .bulk-help-card { box-sizing: border-box; height: 100%; min-height: 0; align-items: start; padding: clamp(1rem,1.7vw,1.45rem); }
+  .bulk-help-copy { align-content: start; gap: .55rem !important; }
+  .bulk-help-overview { color: #62584f; font-size: .86rem; line-height: 1.55; }
+  .bulk-help-action { align-self: end; margin-top: auto; padding-top: .3rem; color: var(--bulk-brand); font-size: .75rem; font-weight: 800; }
+  .bulk-help-arrow { align-self: start; }
+}
 @media (max-width: 760px) {
   .bulk-layout { grid-template-columns: 1fr; }
   .bulk-help-panels { grid-template-columns: repeat(2,minmax(0,1fr)); }
+  .bulk-help-card { align-items: start; }
+  .bulk-help-copy { display: grid; gap: .35rem; }
+  .bulk-help-overview { color: #62584f; font-size: .82rem; line-height: 1.5; }
+  .bulk-help-action { padding-top: .2rem; color: var(--bulk-brand); font-size: .73rem; font-weight: 800; }
   .bulk-defaults { grid-template-columns: repeat(3,minmax(0,1fr)); }
 }
 @media (max-width: 560px) {
