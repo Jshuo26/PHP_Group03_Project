@@ -68,6 +68,9 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
         if (!isset($map['title'])) {
             throw new RuntimeException('The CSV needs a Title column. Download the sample template for supported columns.');
         }
+        if (!isset($map['author'])) {
+            throw new RuntimeException('The CSV needs an Author column as well as a Title column so similar books can be distinguished.');
+        }
 
         $rows = [];
         $line = 1;
@@ -82,6 +85,9 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
             $value = static function (string $field) use ($map, $values): string {
                 return isset($map[$field]) ? trim((string) ($values[$map[$field]] ?? '')) : '';
             };
+            if ($value('title') === '' || $value('author') === '') {
+                throw new RuntimeException('CSV row ' . $line . ' must include both a book title and author.');
+            }
             $qtyRaw = $value('quantity');
             $quantity = $qtyRaw === '' ? $defaultQuantity : filter_var($qtyRaw, FILTER_VALIDATE_INT);
             if ($quantity === false || $quantity < 1 || $quantity > 9999999) {
@@ -231,7 +237,7 @@ include __DIR__ . '/../includes/header.php';
         <div class="bulk-layout">
             <section class="card bulk-upload-card">
                 <p class="bulk-eyebrow">Create a catalog batch</p><h2>Start with a simple list</h2>
-                <p>Only the title is required in the CSV. Add author, ISBN, quantity, or cost when you have them. The system searches for matching metadata after upload.</p>
+                <p>Each CSV row must include the book title and author. ISBN, quantity, cost, format, and metadata can be filled or checked during review.</p>
                 <form method="post" enctype="multipart/form-data" class="bulk-upload-form">
                     <input type="hidden" name="csrf_token" value="<?= bulkImportEscape(generateCsrfToken()) ?>">
                     <label class="bulk-file-drop" for="csv_file"><span class="bulk-file-icon" aria-hidden="true">↑</span><strong>Choose a CSV file</strong><small>Up to 500 rows · 2 MB max · UTF-8 or Excel CSV</small><input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv" required></label>
@@ -244,12 +250,12 @@ include __DIR__ . '/../includes/header.php';
                 </form>
             </section>
             <aside class="card bulk-guide">
-                <p class="bulk-eyebrow">What happens next</p><h2>Review only what needs attention</h2>
-                <ol><li>Searches Google Books by ISBN or title and author.</li><li>Prefills descriptions, categories, edition details, and available covers.</li><li>Checks for existing books and duplicate ISBNs.</li><li>Holds missing, conflicting, or uncertain data for review.</li><li>Adds approved quantities to existing stock or creates new products.</li></ol>
-                <p class="bulk-note">API metadata and covers are suggestions. Review the match and confirm you may display the cover. New authors remain hidden until approved in Author Reviews.</p>
+                <p class="bulk-eyebrow">Automated catalog workflow</p><h2>Match carefully. Import once.</h2>
+                <ol><li><strong>Identify:</strong> provide both title and author in every CSV row; ISBN is helpful but optional.</li><li><strong>Enrich:</strong> Google Books is searched first. Open Library is tried when Google has no strong match or is unavailable.</li><li><strong>Prevent duplicates:</strong> exact ISBN or title-and-author matches show the existing catalog record and restock its matching format. Similar names and conflicting ISBNs are flagged for review.</li><li><strong>Verify authors:</strong> known verified Filipino authors are recognized from your local author catalog. Unknown authors need self-identification evidence and staff review.</li><li><strong>Import:</strong> only rows with required listing details and a selected format are added; unresolved rows stay out.</li></ol>
+                <p class="bulk-note">Online results are suggestions, not proof of the correct book or Filipino identity. Compare edition ISBNs and covers before importing. Open Library is a no-key fallback; configure an application contact email for its API User-Agent if available.</p>
             </aside>
         </div>
-        <section class="card bulk-field-help"><h2>CSV columns we recognize</h2><p><strong>Required:</strong> title. <strong>Optional:</strong> author, author description, ISBN, format, quantity, cost, price, publisher, description, and language. Column names such as <code>Book Title</code>, <code>Copies</code>, <code>Unit Cost</code>, and <code>Binding</code> are also accepted.</p><p>Spreadsheet exports from suppliers vary. Upload a copy with a title column; the importer maps common alternative headings and ignores unrelated columns. You can review and correct each row before anything enters the catalog.</p></section>
+        <section class="card bulk-field-help"><h2>CSV columns we recognize</h2><p><strong>Required for every row:</strong> title and author. <strong>Optional:</strong> author description, ISBN, format, quantity, cost, price, publisher, description, and language. Column names such as <code>Book Title</code>, <code>Author Name</code>, <code>Copies</code>, <code>Unit Cost</code>, and <code>Binding</code> are also accepted.</p><p>Spreadsheet exports from suppliers vary. The importer maps common alternative headings and ignores unrelated columns, but each row must contain both a title and author to reduce false matches.</p></section>
     <?php endif; ?>
 </section>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

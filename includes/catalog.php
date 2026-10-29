@@ -10,7 +10,7 @@ function catalogCover(?string $path): string
         $parts = parse_url($path);
         $host = strtolower((string) ($parts['host'] ?? ''));
         $allowedHost = $host === 'books.google.com' || $host === 'books.googleusercontent.com'
-            || str_ends_with($host, '.books.googleusercontent.com');
+            || str_ends_with($host, '.books.googleusercontent.com') || $host === 'covers.openlibrary.org';
         return strtolower((string) ($parts['scheme'] ?? '')) === 'https' && $allowedHost ? $path : '';
     }
 

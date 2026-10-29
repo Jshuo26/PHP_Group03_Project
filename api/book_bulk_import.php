@@ -61,7 +61,7 @@ function bulkIsAllowedCover(string $url): bool
     return strtolower((string) ($parts['scheme'] ?? '')) === 'https'
         && !isset($parts['user']) && !isset($parts['pass'])
         && ($host === 'books.google.com' || $host === 'books.googleusercontent.com'
-            || str_ends_with($host, '.books.googleusercontent.com'));
+            || str_ends_with($host, '.books.googleusercontent.com') || $host === 'covers.openlibrary.org');
 }
 
 function bulkReusableCatalogCover(PDO $pdo, array $row): ?array
@@ -78,14 +78,42 @@ function bulkFindExistingBook(PDO $pdo, array $row, bool $lock = false): ?array
 {
     $isbn = trim((string) ($row['isbn'] ?? ''));
     if ($isbn !== '') {
-        $stmt = $pdo->prepare('SELECT book_id, title, isbn, description, language, publisher, status, review_status FROM books WHERE isbn = ? LIMIT 1' . ($lock ? ' FOR UPDATE' : ''));
-        $stmt->execute([$isbn]);
-        $book = $stmt->fetch();
+        $stmt = $pdo->prepare('SELECT DISTINCT b.book_id, b.title, COALESCE(NULLIF(e.isbn, \'\'), b.isbn) AS isbn, b.description, b.language, b.publisher, b.status, b.review_status,
+                                      CASE WHEN e.isbn = ? THEN e.edition_id ELSE NULL END AS matched_edition_id,
+                                      CASE WHEN e.isbn = ? THEN e.format ELSE NULL END AS matched_format,
+                                      CASE WHEN e.isbn = ? THEN e.isbn ELSE NULL END AS matched_edition_isbn
+                                 FROM books b LEFT JOIN book_editions e ON e.book_id = b.book_id AND e.isbn = ?
+                                WHERE e.isbn = ? OR b.isbn = ?
+                                ORDER BY (matched_edition_id IS NOT NULL) DESC LIMIT 2' . ($lock ? ' FOR UPDATE' : ''));
+        $stmt->execute([$isbn, $isbn, $isbn, $isbn, $isbn, $isbn]);
+        $isbnMatches = $stmt->fetchAll();
+        if (count($isbnMatches) > 1) throw new RuntimeException('This ISBN is attached to more than one catalog record. Resolve the duplicate ISBN before importing.');
+        $book = $isbnMatches[0] ?? false;
         if ($book) {
             $a = bulkNormalizeText((string) $book['title']);
             $b = bulkNormalizeText((string) $row['title']);
-            if ($a !== $b && levenshtein($a, $b) > max(2, (int) (max(strlen($a), strlen($b)) * .12))) {
-                throw new RuntimeException('ISBN ' . $isbn . ' is already attached to a different title. Review this row instead of merging it.');
+            if ($a !== $b) {
+                throw new RuntimeException('ISBN ' . $isbn . ' is already attached to a different title. Verify the title and ISBN; this row will not be merged automatically.');
+            }
+            $inputAuthors = parseAuthorNames((string) ($row['author'] ?? ''));
+            if ($inputAuthors) {
+                $authorStmt = $pdo->prepare('SELECT a.full_name FROM book_authors ba JOIN authors a ON a.author_id = ba.author_id WHERE ba.book_id = ?');
+                $authorStmt->execute([(int) $book['book_id']]);
+                $existingAuthors = $authorStmt->fetchAll(PDO::FETCH_COLUMN);
+                $sameAuthor = false;
+                $possibleAuthor = false;
+                foreach ($inputAuthors as $inputAuthor) foreach ($existingAuthors as $existingAuthor) {
+                    $left = normalizeAuthorName($inputAuthor);
+                    $right = normalizeAuthorName((string) $existingAuthor);
+                    if ($left === $right) $sameAuthor = true;
+                    elseif (authorNamesPossiblyMatch($left, $right) !== null) $possibleAuthor = true;
+                }
+                if (!$sameAuthor && $possibleAuthor) throw new RuntimeException('The ISBN matches a title with a possible author-name variation. Confirm the author or add an alias before importing.');
+                if (!$sameAuthor && $existingAuthors) throw new RuntimeException('The ISBN matches a title with a different author. Verify the ISBN or author before importing.');
+            }
+            $inputFormat = trim((string) ($row['format'] ?? ''));
+            if (!empty($book['matched_format']) && $inputFormat !== '' && $inputFormat !== $book['matched_format']) {
+                throw new RuntimeException('This ISBN already identifies the ' . $book['matched_format'] . ' edition in the catalog. Change the selected format to match the ISBN.');
             }
             return $book;
         }
@@ -123,11 +151,6 @@ function bulkFindExistingBook(PDO $pdo, array $row, bool $lock = false): ?array
             }
         }
         if ($sameAuthor) {
-            $inputIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($row['isbn'] ?? ''))) ?? '');
-            $existingIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($candidate['isbn'] ?? ''))) ?? '');
-            if ($inputIsbn !== '' && $existingIsbn !== '' && $inputIsbn !== $existingIsbn) {
-                throw new RuntimeException('The title and author match a catalog book, but its ISBN differs. Verify whether this is a different edition before importing.');
-            }
             unset($candidate['author_name']);
             $matches[] = $candidate;
         } elseif ($possibleAuthor) {
@@ -147,7 +170,7 @@ function bulkFindTitleCandidates(PDO $pdo, string $title): array
     $stmt = $pdo->prepare(
         'SELECT b.book_id, b.title, b.isbn, b.description, b.language, b.publisher, b.metadata_source_url,
                 a.full_name AS author_name, a.bio AS author_bio,
-                e.format, e.stock_quantity, e.price, e.cover_image_path, e.cover_source_url, e.cover_license_note,
+                e.format, e.isbn AS edition_isbn, e.stock_quantity, e.price, e.cover_image_path, e.cover_source_url, e.cover_license_note,
                 g.genre_id, g.genre_name
            FROM books b
            LEFT JOIN book_authors ba ON ba.book_id = b.book_id
@@ -183,6 +206,7 @@ function bulkFindTitleCandidates(PDO $pdo, string $title): array
             $candidates[$id]['editions'][$format] = [
                 'stock_quantity' => (int) $row['stock_quantity'],
                 'price' => (float) $row['price'],
+                'isbn' => (string) ($row['edition_isbn'] ?? ''),
                 'cover_url' => catalogCover((string) ($row['cover_image_path'] ?? '')),
                 'cover_source_url' => (string) ($row['cover_source_url'] ?? ''),
                 'cover_license_note' => (string) ($row['cover_license_note'] ?? ''),
@@ -213,7 +237,7 @@ function bulkCatalogMatchResult(PDO $pdo, array $row): array
         if (count($authorMatches['exact']) === 1) $authorDescription = trim((string) ($authorMatches['exact'][0]['bio'] ?? ''));
     }
 
-    $book = bulkFindExistingBook($pdo, ['title' => $title, 'author' => $author, 'isbn' => $isbn]);
+    $book = bulkFindExistingBook($pdo, ['title' => $title, 'author' => $author, 'isbn' => $isbn, 'format' => $format]);
     if (!$book) {
         return [
             'success' => true, 'match' => null, 'author_description' => $authorDescription,
@@ -231,15 +255,29 @@ function bulkCatalogMatchResult(PDO $pdo, array $row): array
     $formatsStmt->execute([(int) $book['book_id']]);
     $availableFormats = $formatsStmt->fetchAll(PDO::FETCH_COLUMN);
     if (!in_array($format, ['paperback', 'hardbound', 'ebook'], true)) {
-        $format = count($availableFormats) === 1 ? (string) $availableFormats[0] : (in_array('paperback', $availableFormats, true) ? 'paperback' : '');
+        $format = (string) ($book['matched_format'] ?? '');
+        if ($format === '') $format = count($availableFormats) === 1 ? (string) $availableFormats[0] : (in_array('paperback', $availableFormats, true) ? 'paperback' : '');
     }
-    $editionStmt = $pdo->prepare('SELECT edition_id, format, stock_quantity, price, cover_image_path, cover_source_url, cover_license_note FROM book_editions WHERE book_id = ? AND format = ? LIMIT 1');
+    $editionStmt = $pdo->prepare('SELECT edition_id, format, isbn, stock_quantity, price, cover_image_path, cover_source_url, cover_license_note FROM book_editions WHERE book_id = ? AND format = ? LIMIT 1');
     $editionStmt->execute([(int) $book['book_id'], $format]);
     $edition = $editionStmt->fetch();
+    $editionKnownIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) (($edition['isbn'] ?? '') ?: ($book['isbn'] ?? '')))) ?? '');
+    if ($edition && $isbn !== '' && $editionKnownIsbn !== '' && $editionKnownIsbn !== $isbn) {
+        return [
+            'success' => true, 'match' => null, 'author_description' => $authorDescription,
+            'notice' => 'The title and author match, but this format is already cataloged with a different ISBN. Check whether this is another publication version before importing.',
+            'possible_matches' => bulkFindTitleCandidates($pdo, $title),
+        ];
+    }
+    $catalogRecords = bulkFindTitleCandidates($pdo, (string) $book['title']);
+    $catalogRecord = null;
+    foreach ($catalogRecords as $candidate) {
+        if ((int) $candidate['book_id'] === (int) $book['book_id']) { $catalogRecord = $candidate; break; }
+    }
     return [
         'success' => true,
         'match' => [
-            'book_id' => (int) $book['book_id'], 'title' => $book['title'], 'isbn' => $book['isbn'],
+            'book_id' => (int) $book['book_id'], 'title' => $book['title'], 'isbn' => (trim((string) ($edition['isbn'] ?? '')) ?: ($book['matched_edition_isbn'] ?? $book['isbn'])),
             'description' => (string) ($book['description'] ?? ''),
             'language' => (string) ($book['language'] ?? ''),
             'publisher' => (string) ($book['publisher'] ?? ''),
@@ -248,6 +286,7 @@ function bulkCatalogMatchResult(PDO $pdo, array $row): array
             'suggested_format' => $format,
             'available_formats' => array_values($availableFormats),
             'edition_id' => $edition ? (int) $edition['edition_id'] : null,
+            'format' => $edition ? (string) $edition['format'] : (string) ($book['matched_format'] ?? $format),
             'stock_quantity' => $edition ? (int) $edition['stock_quantity'] : 0,
             'price' => $edition ? (float) $edition['price'] : null,
             'cover_url' => $edition ? catalogCover((string) ($edition['cover_image_path'] ?? '')) : '',
@@ -255,6 +294,7 @@ function bulkCatalogMatchResult(PDO $pdo, array $row): array
             'cover_license_note' => (string) ($edition['cover_license_note'] ?? ''),
         ],
         'author_description' => $authorDescription,
+        'catalog_record' => $catalogRecord,
     ];
 }
 
@@ -337,6 +377,21 @@ function bulkValidateRow(PDO $pdo, array $row, int $index, array $genreIds, bool
     $savedCover = bulkReusableCatalogCover($pdo, $row);
     $canReuseSavedCover = !empty($row['reuse_catalog_cover']) && $savedCover !== null;
     if ((!bulkIsAllowedCover($cover) && !$hasUploadedCover && !$canReuseSavedCover) || (empty($row['cover_permission_confirmed']) && !$canReuseSavedCover)) return 'Choose a Google Books cover or upload a permitted cover file, then confirm it is allowed for this project.';
+    try {
+        $existingBook = bulkFindExistingBook($pdo, $row);
+        if ($existingBook && $isbn !== '') {
+            $editionCheck = $pdo->prepare('SELECT edition_id, isbn FROM book_editions WHERE book_id = ? AND format = ? LIMIT 1');
+            $editionCheck->execute([(int) $existingBook['book_id'], $format]);
+            $existingEdition = $editionCheck->fetch();
+            $existingEditionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($existingEdition['isbn'] ?? ''))) ?? '');
+            if ($existingEdition && $existingEditionIsbn === '') {
+                $existingEditionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($existingBook['isbn'] ?? ''))) ?? '');
+            }
+            if ($existingEditionIsbn !== '' && $existingEditionIsbn !== $isbn) return 'This format already exists with a different ISBN. Verify whether it is a distinct edition before importing; the catalog will not merge conflicting ISBNs.';
+        }
+    } catch (RuntimeException $e) {
+        return $e->getMessage();
+    }
     if ($qty === false || $qty < 1 || $qty > 9999999) return 'Quantity must be a whole number from 1 to 9,999,999.';
     if ($price === false || $price <= 0 || $price > 99999999) return 'Enter a selling price greater than zero.';
     $selected = $row['genre_ids'] ?? [];
@@ -396,18 +451,20 @@ function bulkApplyRow(PDO $pdo, array $row, int $userId): array
             ->execute([trim((string) $row['description']), trim((string) ($row['isbn'] ?? '')) !== '' ? strtoupper(preg_replace('/[\s-]+/', '', (string) $row['isbn'])) : null, trim((string) $row['language']), trim((string) ($row['publisher'] ?? '')) ?: null, trim((string) ($row['metadata_source_url'] ?? '')) ?: null, $bookId]);
     }
 
-    $editionStmt = $pdo->prepare('SELECT edition_id, stock_quantity, cover_image_path FROM book_editions WHERE book_id = ? AND format = ? FOR UPDATE');
+    $editionStmt = $pdo->prepare('SELECT edition_id, isbn, stock_quantity, cover_image_path FROM book_editions WHERE book_id = ? AND format = ? FOR UPDATE');
     $editionStmt->execute([$bookId, $format]);
     $edition = $editionStmt->fetch();
     $matched = $book !== null;
     if ($edition) {
         $editionId = (int) $edition['edition_id'];
-        $pdo->prepare('UPDATE book_editions SET stock_quantity = stock_quantity + ?, cover_image_path = IF(cover_image_path IS NULL OR cover_image_path = \'\', ?, cover_image_path), cover_source_url = IF(cover_source_url IS NULL OR cover_source_url = \'\', ?, cover_source_url), cover_license_note = IF(cover_license_note IS NULL OR cover_license_note = \'\', ?, cover_license_note) WHERE edition_id = ?')
-            ->execute([$quantity, $coverUrl, trim((string) ($row['cover_source_url'] ?? '')) ?: null, (string) ($row['cover_license_note'] ?? 'Staff confirmed cover use for the project demo.'), $editionId]);
+        $editionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($row['isbn'] ?? ''))) ?? '');
+        $pdo->prepare('UPDATE book_editions SET isbn = COALESCE(NULLIF(isbn, \'\'), ?), stock_quantity = stock_quantity + ?, cover_image_path = IF(cover_image_path IS NULL OR cover_image_path = \'\', ?, cover_image_path), cover_source_url = IF(cover_source_url IS NULL OR cover_source_url = \'\', ?, cover_source_url), cover_license_note = IF(cover_license_note IS NULL OR cover_license_note = \'\', ?, cover_license_note) WHERE edition_id = ?')
+            ->execute([$editionIsbn !== '' ? $editionIsbn : null, $quantity, $coverUrl, trim((string) ($row['cover_source_url'] ?? '')) ?: null, (string) ($row['cover_license_note'] ?? 'Staff confirmed cover use for the project demo.'), $editionId]);
         // Existing product prices are intentionally preserved; current inventory batches only restock them.
     } else {
-        $pdo->prepare('INSERT INTO book_editions (book_id, format, price, stock_quantity, low_stock_threshold, cover_image_path, cover_source_url, cover_license_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?)')
-            ->execute([$bookId, $format, number_format($price, 2, '.', ''), $quantity, getLowStockThreshold($pdo), $coverUrl, trim((string) ($row['cover_source_url'] ?? '')) ?: null, (string) ($row['cover_license_note'] ?? 'Staff confirmed cover use for the project demo.')]);
+        $editionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($row['isbn'] ?? ''))) ?? '');
+        $pdo->prepare('INSERT INTO book_editions (book_id, format, isbn, price, stock_quantity, low_stock_threshold, cover_image_path, cover_source_url, cover_license_note) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)')
+            ->execute([$bookId, $format, $editionIsbn !== '' ? $editionIsbn : null, number_format($price, 2, '.', ''), $quantity, getLowStockThreshold($pdo), $coverUrl, trim((string) ($row['cover_source_url'] ?? '')) ?: null, (string) ($row['cover_license_note'] ?? 'Staff confirmed cover use for the project demo.')]);
         $editionId = (int) $pdo->lastInsertId();
     }
     syncEditionLowStockAlert($pdo, $editionId);
@@ -451,7 +508,9 @@ if ($action === 'match') {
         $result = bulkCatalogMatchResult($pdo, $input);
         bulkApiRespond(!empty($result['success']) ? 200 : 400, $result);
     } catch (Throwable $e) {
-        bulkApiRespond(200, ['success' => true, 'match' => null, 'notice' => $e->getMessage()]);
+        $possible = [];
+        try { $possible = bulkFindTitleCandidates($pdo, trim((string) ($input['title'] ?? ''))); } catch (Throwable $ignored) {}
+        bulkApiRespond(200, ['success' => true, 'match' => null, 'notice' => $e->getMessage(), 'possible_matches' => $possible]);
     }
 }
 
@@ -464,7 +523,9 @@ if ($action === 'match_many') {
         try {
             $results[(int) $index] = bulkCatalogMatchResult($pdo, $row);
         } catch (Throwable $e) {
-            $results[(int) $index] = ['success' => true, 'match' => null, 'notice' => $e->getMessage()];
+            $possible = [];
+            try { $possible = bulkFindTitleCandidates($pdo, trim((string) ($row['title'] ?? ''))); } catch (Throwable $ignored) {}
+            $results[(int) $index] = ['success' => true, 'match' => null, 'notice' => $e->getMessage(), 'possible_matches' => $possible];
         }
     }
     bulkApiRespond(200, ['success' => true, 'results' => $results]);
