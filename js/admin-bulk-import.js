@@ -71,6 +71,7 @@
     };
     var normalized = (categories || []).map(norm).filter(Boolean);
     return state.genres.filter(function (genre) {
+      if (Number(state.fallbackGenreId) > 0 && Number(genre.id) === Number(state.fallbackGenreId)) return false;
       var choices = aliases[genre.name] || [genre.name];
       return normalized.some(function (category) {
         var categoryWords = category.split(' ');
@@ -113,6 +114,7 @@
   function rowValue(index, key, fallback) { var value = state.rows[index][key]; return value === undefined || value === null ? fallback : String(value); }
   function selectedGenres(index) { return Array.isArray(state.rows[index].genre_ids) ? state.rows[index].genre_ids.map(String) : []; }
   function hasFallbackGenre(row) { return Number(state.fallbackGenreId) > 0 && Array.isArray(row.genre_ids) && row.genre_ids.map(Number).indexOf(Number(state.fallbackGenreId)) !== -1; }
+  function isDetectedFallbackGenre(row) { return row.genre_assignment_source === 'fallback' && row.genre_lookup_complete && hasFallbackGenre(row); }
   function isSynopsisPlaceholder(value) {
     var text = String(value || '').trim().toLowerCase();
     return text === synopsisPlaceholder.toLowerCase() || text === 'synopsis to be updated.';
@@ -522,6 +524,7 @@
       readRows(); row = state.rows[index];
       if (row.cover_url || row.skip || isExisting(row)) return;
       row.cover_url = data.cover_url;
+      row.cover_permission_confirmed = true;
       row.cover_source_url = data.cover_source_url || ('https://openlibrary.org' + workKey);
       renderRowFields(index); updateCover(index); refreshSummary();
       setNotice(index, 'Open Library supplied a cover image. Review that it matches this edition and is permitted for display.', 'info');
@@ -636,15 +639,19 @@
       row.price_source = 'Google Books PHP retail reference + ' + markup + '% markup';
       row.price_source_type = 'online_reference';
     }
-    row.cover_url = coverFrom(item) || row.cover_url || '';
+    var metadataCover = coverFrom(item);
+    row.cover_url = metadataCover || row.cover_url || '';
+    if (metadataCover) row.cover_permission_confirmed = true;
     row.metadata_source_url = item.synopsisSourceUrl || item.volumeInfo && item.volumeInfo.infoLink || item.selfLink || '';
     if (row.cover_url) row.cover_source_url = row.metadata_source_url || row.cover_url;
     row.metadata_provider = item.synopsisSourceProvider || item.provider || 'Google Books';
-    if (item.provider === 'Open Library') row.open_library_checked = true;
+    if (item.provider === 'Open Library') { row.open_library_checked = true; row.genre_lookup_complete = true; }
+    if (item.synopsisSourceProvider === 'Open Library' || (item.provider === 'Open Library' && String(info.description || '').trim() && !item.synopsisSourceProvider)) row.open_library_synopsis_found = true;
+    if (item.synopsisSourceProvider === 'Google Books' || (item.provider !== 'Open Library' && String(info.description || '').trim())) row.google_synopsis_found = true;
     row.lookup_status = confidence >= 90 ? 'High-confidence match' : 'Staff-confirmed match';
     var guesses = metadataGenreIds(info.categories || []);
     if (guesses.length && (!row.genre_ids.length || row.genre_assignment_source === 'fallback' || hasFallbackGenre(row))) { row.genre_ids = guesses; row.genre_assignment_source = 'metadata'; }
-    else if (!row.genre_ids.length && Number(state.fallbackGenreId) > 0) { row.genre_ids = [Number(state.fallbackGenreId)]; row.genre_assignment_source = 'fallback'; }
+    else if (!row.genre_ids.length && row.genre_lookup_complete && Number(state.fallbackGenreId) > 0) { row.genre_ids = [Number(state.fallbackGenreId)]; row.genre_assignment_source = 'fallback'; }
     var source = container.querySelector('[data-source="' + index + '"]');
     if (source) source.textContent = (item.synopsisSourceUrl ? 'Synopsis source (' + row.metadata_provider + '): ' : 'Metadata source (' + row.metadata_provider + '): ') + row.metadata_source_url;
     renderRowFields(index);
@@ -659,12 +666,8 @@
   async function completeSynopsisFallback(index, selectedItem) {
     var row = state.rows[index];
     if (String(row.description || '').trim() && !isSynopsisPlaceholder(row.description)) return;
-    if (isSynopsisPlaceholder(row.description)) row.description = '';
-    if (selectedItem.provider !== 'Open Library' && row.open_library_lookup_failed) {
-      setNotice(index, 'Open Library could not be reached for a synopsis. Add one from a trusted source before importing.', 'warning');
-      return;
-    }
-    if (selectedItem.provider !== 'Open Library' && !row.open_library_checked) {
+    if (isSynopsisPlaceholder(row.description)) { row.description = ''; renderRowFields(index); }
+    if (row.google_books_checked && !row.open_library_checked) {
       var requestedTitle = row.title, requestedAuthor = row.author;
       var query = 'intitle:' + requestedTitle + (requestedAuthor ? '+inauthor:' + requestedAuthor.split(';')[0].trim() : '');
       setNotice(index, 'No synopsis found in Google Books. Checking Open Library…', 'info');
@@ -673,15 +676,17 @@
         readRows();
         row = state.rows[index];
         if (row.title !== requestedTitle || row.author !== requestedAuthor) return;
-        if (String(row.description || '').trim()) { refreshSummary(); return; }
+        if (String(row.description || '').trim() && !isSynopsisPlaceholder(row.description)) { refreshSummary(); return; }
         row.open_library_checked = true;
         var candidates = (Array.isArray(data.items) ? data.items : []).filter(function (candidate) {
           var match = scoreCandidate(row, candidate);
           return match.exactTitle && match.exactAuthor && String((candidate.volumeInfo || {}).description || '').trim();
         }).sort(function (a, b) { return scoreCandidate(row, b).score - scoreCandidate(row, a).score; });
         var synopsis = candidates.length ? String(candidates[0].volumeInfo.description).trim() : '';
+        row.open_library_synopsis_found = !!synopsis;
         if (synopsis) {
           row.description = synopsis;
+          row.description_source = 'open_library';
           row.metadata_source_url = candidates[0].volumeInfo.infoLink || candidates[0].selfLink || row.metadata_source_url;
           row.metadata_provider = 'Open Library synopsis';
           var source = container.querySelector('[data-source="' + index + '"]');
@@ -690,18 +695,23 @@
         }
       } catch (_) {
         state.rows[index].open_library_lookup_failed = true;
-        setNotice(index, 'Open Library could not be reached for a synopsis. Add one from a trusted source before importing.', 'warning');
+        applySynopsisPlaceholder(state.rows[index]);
+        renderRowFields(index);
+        setNotice(index, 'No synopsis was available in the selected record. A placeholder was added; replace it with a trusted description before publishing.', 'warning');
+        refreshSummary();
         return;
       }
     }
     row = state.rows[index];
     if (String(row.description || '').trim() && !isSynopsisPlaceholder(row.description)) { renderRowFields(index); refreshSummary(); return; }
-    if (!row.open_library_checked && selectedItem.provider !== 'Open Library') return;
+    applySynopsisPlaceholder(row);
+    renderRowFields(index);
+    setNotice(index, 'No synopsis was available in the selected metadata. A placeholder was added; replace it with a trusted description before publishing.', 'warning');
+    refreshSummary();
+  }
+  function applySynopsisPlaceholder(row) {
     row.description = synopsisPlaceholder;
     row.description_source = 'placeholder';
-    renderRowFields(index);
-    setNotice(index, 'Google Books and Open Library did not provide a synopsis. A temporary placeholder was added; replace it with a trusted description when available.', 'warning');
-    refreshSummary();
   }
   function showCandidates(index, items) {
     var box = container.querySelector('[data-online-candidates="' + index + '"]');
@@ -745,8 +755,17 @@
   async function lookupRow(index) {
     readRows(); var row = state.rows[index];
     if (row.skip || isExisting(row)) return;
+    if (row.genre_assignment_source === 'fallback' && hasFallbackGenre(row)) {
+      row.genre_ids = row.genre_ids.filter(function (id) { return Number(id) !== Number(state.fallbackGenreId); });
+      row.genre_assignment_source = '';
+      renderRowFields(index); refreshSummary();
+    }
     row.open_library_checked = false;
     row.open_library_lookup_failed = false;
+    row.genre_lookup_complete = false;
+    row.google_books_checked = false;
+    row.google_synopsis_found = false;
+    row.open_library_synopsis_found = false;
     if (!row.title || !row.author) { setNotice(index, 'Enter both the book title and author before searching metadata.', 'warning'); return; }
     updateRowHeading(index, 'searching', 'Searching online…');
     setNotice(index, 'Searching Google Books for metadata suggestions…', 'info');
@@ -755,45 +774,92 @@
       var data, items = [];
       try {
         data = await googleBooksFetch(query, row);
+        row.google_books_checked = data.provider !== 'Open Library';
         items = Array.isArray(data.items) ? data.items : [];
       } catch (googleError) {
         // Google quota/network errors should trigger the configured Open Library fallback.
         try {
           data = await googleBooksFetch(query, row, 'open_library');
           row.open_library_checked = true;
+          row.genre_lookup_complete = true;
           items = Array.isArray(data.items) ? data.items : [];
         } catch (_) { row.open_library_lookup_failed = true; throw googleError; }
       }
       if (data.provider === 'Open Library') row.open_library_checked = true;
+      if (data.provider === 'Open Library') row.genre_lookup_complete = true;
       items.forEach(function (item) { item.provider = item.provider || data.provider || 'Google Books'; });
+      if (data.provider === 'Open Library') {
+        row.open_library_synopsis_found = items.some(function (item) {
+          var match = scoreCandidate(row, item);
+          return match.exactTitle && match.exactAuthor && !match.titleConflict && String((item.volumeInfo || {}).description || '').trim() !== '';
+        });
+      }
       if (!items.length && row.isbn) {
         data = await googleBooksFetch('intitle:' + row.title + (row.author ? '+inauthor:' + row.author.split(';')[0].trim() : ''), row);
+        row.google_books_checked = data.provider !== 'Open Library';
         items = Array.isArray(data.items) ? data.items : [];
         items.forEach(function (item) { item.provider = item.provider || data.provider || 'Google Books'; });
       }
-      var googleSynopsisMatch = items.some(function (item) {
+      var googleSynopsisItems = items.filter(function (item) { return item.provider !== 'Open Library'; });
+      var googleSynopsisMatch = row.google_books_checked && googleSynopsisItems.some(function (item) {
         var score = scoreCandidate(row, item);
         return !score.titleConflict && score.exactTitle && score.exactAuthor && String((item.volumeInfo || {}).description || '').trim() !== '';
       });
-      if (data.provider !== 'Open Library' && !googleSynopsisMatch) {
+      row.google_synopsis_found = googleSynopsisMatch;
+      var googleSynopsisCandidate = googleSynopsisItems.find(function (item) {
+        var score = scoreCandidate(row, item);
+        return !score.titleConflict && score.exactTitle && score.exactAuthor && String((item.volumeInfo || {}).description || '').trim() !== '';
+      });
+      if (googleSynopsisCandidate) {
+        googleSynopsisItems.forEach(function (candidate) {
+          var score = scoreCandidate(row, candidate);
+          if (score.exactTitle && score.exactAuthor && !score.titleConflict && !String((candidate.volumeInfo || {}).description || '').trim()) {
+            candidate.volumeInfo.description = googleSynopsisCandidate.volumeInfo.description;
+            candidate.synopsisSourceUrl = googleSynopsisCandidate.volumeInfo.infoLink || googleSynopsisCandidate.selfLink || '';
+            candidate.synopsisSourceProvider = 'Google Books';
+          }
+        });
+      }
+      var googleGenreMatch = items.some(function (item) {
+        var score = scoreCandidate(row, item);
+        return !score.titleConflict && score.exactTitle && score.exactAuthor && metadataGenreIds((item.volumeInfo || {}).categories || []).length > 0;
+      });
+      row.genre_lookup_complete = row.genre_lookup_complete || googleGenreMatch;
+      if (data.provider !== 'Open Library' && (!googleSynopsisMatch || !googleGenreMatch)) {
         try {
           var fallback = await googleBooksFetch(query, row, 'open_library');
           row.open_library_checked = true;
+          row.genre_lookup_complete = true;
           var fallbackItems = Array.isArray(fallback.items) ? fallback.items : [];
+          row.open_library_synopsis_found = fallbackItems.some(function (item) {
+            var match = scoreCandidate(row, item);
+            return match.exactTitle && match.exactAuthor && !match.titleConflict && String((item.volumeInfo || {}).description || '').trim() !== '';
+          });
           fallbackItems.forEach(function (item) {
             item.provider = 'Open Library';
             var info = item.volumeInfo || {};
-            if (!String(info.description || '').trim()) return;
             var score = scoreCandidate(row, item);
             if (!score.exactTitle || !score.exactAuthor || score.titleConflict) return;
             var googleMatch = items.find(function (candidate) {
               var candidateScore = scoreCandidate(row, candidate);
               return candidateScore.exactTitle && candidateScore.exactAuthor && !candidateScore.titleConflict;
             });
-            if (googleMatch && !String((googleMatch.volumeInfo || {}).description || '').trim()) {
-              googleMatch.volumeInfo.description = info.description;
-              googleMatch.synopsisSourceUrl = info.infoLink || item.selfLink || '';
-              googleMatch.synopsisSourceProvider = 'Open Library';
+            if (googleMatch) {
+              var googleInfo = googleMatch.volumeInfo || {};
+              if (String(info.description || '').trim() && !String(googleInfo.description || '').trim()) {
+                googleInfo.description = info.description;
+                googleMatch.synopsisSourceUrl = info.infoLink || item.selfLink || '';
+                googleMatch.synopsisSourceProvider = 'Open Library';
+              }
+              if (!String(info.description || '').trim() && String(googleInfo.description || '').trim()) {
+                info.description = googleInfo.description;
+                item.synopsisSourceUrl = googleMatch.volumeInfo.infoLink || googleMatch.selfLink || '';
+                item.synopsisSourceProvider = 'Google Books';
+              }
+              if (!metadataGenreIds(googleInfo.categories || []).length && metadataGenreIds(info.categories || []).length) {
+                googleInfo.categories = info.categories;
+                googleMatch.genreSourceProvider = 'Open Library';
+              }
             }
           });
           items = items.concat(fallbackItems);
@@ -801,9 +867,13 @@
       }
       if (!items.length) {
         row.lookup_status = 'No result'; updateRowHeading(index, 'no-result', 'No result');
-        if (row.open_library_checked && (!String(row.description || '').trim() || isSynopsisPlaceholder(row.description))) {
-          row.description = synopsisPlaceholder; row.description_source = 'placeholder'; renderRowFields(index);
-          setNotice(index, 'No matching synopsis was found in Google Books or Open Library. A temporary placeholder was added; replace it with a trusted description when available.', 'warning');
+        if (row.genre_lookup_complete && Number(state.fallbackGenreId) > 0 && (!row.genre_ids || !row.genre_ids.length)) {
+          row.genre_ids = [Number(state.fallbackGenreId)]; row.genre_assignment_source = 'fallback';
+        }
+        renderRowFields(index);
+        if ((row.google_books_checked || row.open_library_checked) && !row.google_synopsis_found && !row.open_library_synopsis_found && (!String(row.description || '').trim() || isSynopsisPlaceholder(row.description))) {
+          applySynopsisPlaceholder(row); renderRowFields(index);
+          setNotice(index, 'No synopsis was found in the metadata checked. A placeholder was added; replace it with a trusted description before publishing.', 'warning');
         } else setNotice(index, data.fallback_notice || 'No matching records were found in Google Books or Open Library. Complete this row manually.', 'warning');
         showCandidates(index, []); refreshSummary(); return;
       }
@@ -835,13 +905,12 @@
         Array.prototype.slice.call(field.options).forEach(function (option) { option.selected = (row.genre_ids || []).map(String).indexOf(option.value) !== -1; });
         var genreHint = container.querySelector('[data-genre-hint="' + index + '"]');
         if (genreHint) {
-          var fallbackGenre = row.genre_assignment_source === 'fallback' || hasFallbackGenre(row);
+          var fallbackGenre = isDetectedFallbackGenre(row);
           genreHint.textContent = fallbackGenre ? 'Other / General is a demonstration fallback, not an identified genre. Replace it with a specific genre when known.' : row.genre_assignment_source === 'metadata' ? 'Suggested from the book’s catalog subjects. Adjust if needed.' : 'Choose one or more real genres. If sources do not identify one, select the best-supported category manually.';
           genreHint.classList.toggle('is-fallback', fallbackGenre);
         }
-        var genreLabel = field.closest('.bulk-field') && field.closest('.bulk-field').querySelector('.bulk-field-label');
-        if (genreLabel) syncFallbackBadge(genreLabel, 'genreFallbackBadge', row.genre_assignment_source === 'fallback' || hasFallbackGenre(row));
       } else if (key === 'description') {
+        if (document.activeElement !== field && row[key] !== undefined) field.value = String(row[key]);
         updateSynopsisFallbackMarker(index, field);
       } else if (field.type === 'checkbox') field.checked = !!row[key];
       else if (field.tagName === 'SELECT' || document.activeElement !== field) {
@@ -853,24 +922,18 @@
       }
     });
   }
-  function syncFallbackBadge(label, className, show) {
-    var badge = label.querySelector('.' + className);
-    if (show && !badge) { badge = el('span', 'bulk-fallback-badge', className === 'synopsisFallbackBadge' ? 'TEMPORARY TEXT' : 'DEMO FALLBACK'); badge.classList.add(className); label.appendChild(badge); }
-    else if (!show && badge) badge.remove();
-  }
   function updateSynopsisFallbackMarker(index, field) {
     field = field || container.querySelector('[data-row="' + index + '"][data-field="description"]');
     if (!field) return;
-    var isPlaceholder = isSynopsisPlaceholder(state.rows[index].description);
+    var row = state.rows[index];
+    var isPlaceholder = row.description_source === 'placeholder' && isSynopsisPlaceholder(row.description);
     var wrap = field.closest('.bulk-field');
     if (wrap) {
       wrap.classList.toggle('is-placeholder', isPlaceholder);
-      var label = wrap.querySelector('.bulk-field-label');
-      if (label) syncFallbackBadge(label, 'synopsisFallbackBadge', isPlaceholder);
     }
     var hint = container.querySelector('[data-synopsis-hint="' + index + '"]');
     if (hint) hint.textContent = isPlaceholder
-      ? 'Temporary demo text: replace this with an official or staff-written factual synopsis before real publication.'
+      ? 'Placeholder synopsis: replace it with an official or staff-written factual synopsis before publication.'
       : 'Use the publisher’s official synopsis or another trusted catalog description. If none is available, write a short factual summary; keep this row in Needs Details until it is complete.';
   }
   var catalogCheckTimers = Object.create(null);
@@ -957,7 +1020,7 @@
         var existingEdition = matched.catalog_record.editions[format];
         return format + (existingEdition.isbn ? ' · ISBN ' + existingEdition.isbn : '') + ' · stock ' + existingEdition.stock_quantity + ' · ₱' + Number(existingEdition.price).toFixed(2);
       }).join('; ') : '';
-      setNotice(index, 'This book is already in the shop catalog. It is view-only here and will not be added or changed by this new-book import.' + (editionsSummary ? ' Catalog formats: ' + editionsSummary + '.' : ''), 'success');
+      setNotice(index, (matched.format_notice ? matched.format_notice + ' ' : '') + 'This book is already in the shop catalog. It is view-only here and will not be added or changed by this new-book import.' + (editionsSummary ? ' Catalog formats: ' + editionsSummary + '.' : ''), 'success');
       if (candidateBox && matched.catalog_record) {
         var existingCard = el('article', 'bulk-candidate bulk-existing-record');
         var matchingEdition = (matched.catalog_record.editions || {})[matched.format];
@@ -1118,7 +1181,10 @@
         if (priceSource) priceSource.textContent = state.rows[index].price_source;
       }
       if (key === 'cover_url' || key === 'title') updateCover(index);
-      if (key === 'description') updateSynopsisFallbackMarker(index, target);
+      if (key === 'description') {
+        if (!isSynopsisPlaceholder(target.value)) state.rows[index].description_source = 'manual';
+        updateSynopsisFallbackMarker(index, target);
+      }
       if (['title', 'author', 'isbn'].indexOf(key) !== -1) scheduleCatalogCheck(index);
       if (key === 'author') scheduleAuthorCheck(index);
       if (key === 'title' || key === 'author' || key === 'isbn') scheduleAutomaticLookup(index);
@@ -1171,12 +1237,18 @@
   }
 
   state.rows.forEach(function (row) {
+    if (!imported) {
+      row.google_books_checked = false;
+      row.open_library_checked = false;
+      row.google_synopsis_found = false;
+      row.open_library_synopsis_found = false;
+      row.genre_lookup_complete = false;
+    }
+    if (isSynopsisPlaceholder(row.description) && !row.description_source) row.description_source = 'placeholder';
     if (String(row.language || '').trim() && !row.language_source) row.language_source = 'csv';
     if (String(row.format || '').trim() && !row.format_source) row.format_source = 'csv';
     if (!String(row.format || '').trim()) { row.format = 'paperback'; row.format_source = 'default'; }
-    if ((!Array.isArray(row.genre_ids) || !row.genre_ids.length) && Number(state.fallbackGenreId) > 0) {
-      row.genre_ids = [Number(state.fallbackGenreId)]; row.genre_assignment_source = 'fallback';
-    } else if (hasFallbackGenre(row) && !row.genre_assignment_source) row.genre_assignment_source = 'fallback';
+    if (hasFallbackGenre(row) && !row.genre_assignment_source) row.genre_assignment_source = 'fallback';
   });
   state.rows.forEach(makeRow);
   state.rows.forEach(function (_, index) { renderRowFields(index); });

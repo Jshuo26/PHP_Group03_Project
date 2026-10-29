@@ -112,9 +112,6 @@ function bulkFindExistingBook(PDO $pdo, array $row, bool $lock = false): ?array
                 if (!$sameAuthor && $existingAuthors) throw new RuntimeException('The ISBN matches a title with a different author. Verify the ISBN or author before importing.');
             }
             $inputFormat = trim((string) ($row['format'] ?? ''));
-            if (!empty($book['matched_format']) && $inputFormat !== '' && $inputFormat !== $book['matched_format']) {
-                throw new RuntimeException('This ISBN already identifies the ' . $book['matched_format'] . ' edition in the catalog. Change the selected format to match the ISBN.');
-            }
             return $book;
         }
     }
@@ -245,6 +242,14 @@ function bulkCatalogMatchResult(PDO $pdo, array $row): array
         ];
     }
 
+    $matchedIsbnFormat = (string) ($book['matched_format'] ?? '');
+    $formatMismatch = $matchedIsbnFormat !== '' && in_array($format, ['paperback', 'hardbound', 'ebook'], true) && $format !== $matchedIsbnFormat;
+    $formatLabels = ['paperback' => 'Paperback / softbound', 'hardbound' => 'Hardcover / hardbound', 'ebook' => 'Ebook'];
+    $formatNotice = $formatMismatch
+        ? 'This ISBN identifies the ' . ($formatLabels[$matchedIsbnFormat] ?? $matchedIsbnFormat) . ' edition, while this row says ' . ($formatLabels[$format] ?? $format) . '. The book is already in the shop, so this row is view-only and will be skipped; no catalog changes will be made.'
+        : '';
+    if ($formatMismatch) $format = $matchedIsbnFormat;
+
     $authorStmt = $pdo->prepare('SELECT a.full_name, a.bio FROM book_authors ba JOIN authors a ON a.author_id = ba.author_id WHERE ba.book_id = ? ORDER BY ba.author_id');
     $authorStmt->execute([(int) $book['book_id']]);
     $authors = $authorStmt->fetchAll();
@@ -262,7 +267,7 @@ function bulkCatalogMatchResult(PDO $pdo, array $row): array
     $editionStmt->execute([(int) $book['book_id'], $format]);
     $edition = $editionStmt->fetch();
     $editionKnownIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) (($edition['isbn'] ?? '') ?: ($book['isbn'] ?? '')))) ?? '');
-    if ($edition && $isbn !== '' && $editionKnownIsbn !== '' && $editionKnownIsbn !== $isbn) {
+    if (empty($book['matched_edition_id']) && $edition && $isbn !== '' && $editionKnownIsbn !== '' && $editionKnownIsbn !== $isbn) {
         return [
             'success' => true, 'match' => null, 'author_description' => $authorDescription,
             'notice' => 'The title and author match, but this format is already cataloged with a different ISBN. Check whether this is another publication version before importing.',
@@ -292,6 +297,7 @@ function bulkCatalogMatchResult(PDO $pdo, array $row): array
             'cover_url' => $edition ? catalogCover((string) ($edition['cover_image_path'] ?? '')) : '',
             'cover_source_url' => (string) ($edition['cover_source_url'] ?? ''),
             'cover_license_note' => (string) ($edition['cover_license_note'] ?? ''),
+            'format_notice' => $formatNotice,
         ],
         'author_description' => $authorDescription,
         'catalog_record' => $catalogRecord,

@@ -60,7 +60,6 @@
 .bulk-author-check.is-review { color: #854d0e; }
 .bulk-field-wide { grid-column: 1 / -1; }
 .bulk-genre-select { min-height: 110px; }
-.bulk-fallback-badge { display: inline-flex; width: fit-content; margin-left: .45rem; padding: .16rem .4rem; border: 1px solid #e8c17c; border-radius: 999px; background: #fff4d8; color: #80510e; font-size: .58rem; font-weight: 800; letter-spacing: .06em; vertical-align: middle; }
 .bulk-hint.is-fallback { padding: .4rem .5rem; border-left: 3px solid #d49332; border-radius: 4px; background: #fff8e9; color: #79520f; }
 .bulk-field.is-placeholder textarea.form-input { border-style: dashed; border-color: #d49332; background: #fffaf0; }
 .bulk-consent { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .35rem .55rem; color: #63594e; font-size: .82rem; line-height: 1.45; }
@@ -361,8 +360,8 @@
 .bulk-row-dialog .bulk-review-row { display: grid; align-items: start; gap: .85rem 1rem; min-width: 0; }
 .bulk-row-dialog .bulk-review-grid .bulk-field { display: flex; flex-direction: column; align-items: stretch; align-content: initial; gap: .38rem; min-width: 0; }
 .bulk-row-dialog .bulk-review-grid .bulk-field-label { flex: 0 0 auto; min-height: 1.25rem; line-height: 1.25rem; }
-.bulk-row-dialog .bulk-row-metadata .bulk-field { display: grid; grid-template-rows: 2.5rem auto auto; align-content: start; }
-.bulk-row-dialog .bulk-row-metadata .bulk-field-label { min-height: 2.5rem; line-height: 1.2; align-items: flex-start; }
+.bulk-row-dialog .bulk-row-metadata .bulk-field { display: flex; flex-direction: column; gap: .38rem; align-content: flex-start; }
+.bulk-row-dialog .bulk-row-metadata .bulk-field-label { min-height: 1.25rem; line-height: 1.25rem; align-items: flex-start; }
 .bulk-row-dialog .bulk-row-metadata .bulk-field > .form-input,
 .bulk-row-dialog .bulk-row-metadata .bulk-field > .bulk-genre-select { align-self: start; }
 .bulk-row-dialog .bulk-review-grid .bulk-field > .form-input { flex: 0 0 auto; height: 44px; min-height: 44px; box-sizing: border-box; }
