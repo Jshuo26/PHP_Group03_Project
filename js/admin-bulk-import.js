@@ -232,7 +232,7 @@
     if (openButton && title) openButton.setAttribute('aria-label', 'Open details for ' + (title.value || 'book row ' + (index + 1)));
     if (rowCard && title) { var dialog = rowCard.querySelector('.bulk-row-dialog'); if (dialog) dialog.setAttribute('aria-label', 'Book details: ' + (title.value || 'book row ' + (index + 1))); }
   }
-  function isExisting(row) { return !!(row.existing_catalog_selected || row.local_match || row.lookup_status === 'Existing catalog book' || row.lookup_status === 'Existing catalog record selected'); }
+  function isExisting(row) { return !!(row.existing_catalog_selected || row.server_excluded_existing || row.local_match || row.lookup_status === 'Existing catalog book' || row.lookup_status === 'Existing catalog record selected'); }
   function authorVerified(row) { return Array.isArray(row.filipino_author_checks) && row.filipino_author_checks.length > 0 && row.filipino_author_checks.every(function (check) { return check.status === 'verified'; }); }
   function isUnknownAuthor(row) { return !isExisting(row) && !row.skip && !authorVerified(row); }
   function setRowEditable(index, editable) {

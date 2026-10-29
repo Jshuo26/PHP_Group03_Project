@@ -536,8 +536,24 @@ try {
     $genreIds = array_map('intval', $pdo->query("SELECT genre_id FROM genres WHERE status = 'active'")->fetchAll(PDO::FETCH_COLUMN));
     $issues = [];
     $coverUploads = [];
+    $existingRows = [];
+    $catalogConflictRows = [];
+    // Existing catalog rows are visible for comparison, but this workflow is
+    // strictly for adding new books. Detect and exclude them server-side too.
     foreach ($rows as $index => $row) {
         if (!is_array($row) || !empty($row['skip'])) continue;
+        try {
+            if (bulkFindExistingBook($pdo, $row)) {
+                $existingRows[(int) $index] = true;
+                $rows[$index]['server_excluded_existing'] = true;
+            }
+        } catch (RuntimeException $e) {
+            $catalogConflictRows[(int) $index] = true;
+            $issues[] = ['index' => (int) $index, 'message' => $e->getMessage()];
+        }
+    }
+    foreach ($rows as $index => $row) {
+        if (!is_array($row) || !empty($row['skip']) || isset($existingRows[(int) $index]) || isset($catalogConflictRows[(int) $index])) continue;
         $fileKey = 'cover_' . (int) $index;
         if (!isset($_FILES[$fileKey]) || (int) ($_FILES[$fileKey]['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) continue;
         try {
@@ -550,7 +566,7 @@ try {
     $seenIsbns = [];
     foreach ($rows as $index => $row) {
         if (!is_array($row)) { $issues[] = ['index' => $index, 'message' => 'Invalid row data.']; continue; }
-        if (!empty($row['skip'])) continue;
+        if (!empty($row['skip']) || isset($existingRows[(int) $index]) || isset($catalogConflictRows[(int) $index])) continue;
         $isbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($row['isbn'] ?? ''))) ?? '');
         if ($isbn !== '' && isset($seenIsbns[$isbn])) {
             $issues[] = ['index' => $index, 'message' => 'This ISBN appears more than once in the batch. Keep one row and combine its quantity.'];
@@ -591,8 +607,17 @@ try {
         bulkApiRespond(200, ['success' => true, 'already_imported' => true, 'message' => 'This batch was already imported. No stock was changed again.']);
     }
     $created = $restocked = $pendingReview = $skipped = 0;
-    foreach ($rows as $row) {
+    foreach ($rows as $index => $row) {
         if (!empty($row['skip'])) { $skipped++; continue; }
+        if (isset($existingRows[(int) $index])) { $skipped++; continue; }
+        // Close the gap between preflight and the write transaction. If the
+        // catalog gained this title while staff were reviewing the batch,
+        // leave it untouched instead of silently restocking it.
+        if (bulkFindExistingBook($pdo, $row, true)) {
+            $rows[$index]['server_excluded_existing'] = true;
+            $skipped++;
+            continue;
+        }
         $result = bulkApplyRow($pdo, $row, (int) $_SESSION['user_id']);
         if ($result['matched']) $restocked++; else $created++;
         if ($result['review_status'] !== 'approved') $pendingReview++;
