@@ -61,6 +61,7 @@
 .bulk-field-wide { grid-column: 1 / -1; }
 .bulk-genre-select { min-height: 110px; }
 .bulk-hint.is-fallback { padding: .4rem .5rem; border-left: 3px solid #d49332; border-radius: 4px; background: #fff8e9; color: #79520f; }
+.bulk-field.is-language-fallback select.form-input { border-color: #d49332; background: #fffaf0; }
 .bulk-field.is-placeholder textarea.form-input { border-style: dashed; border-color: #d49332; background: #fffaf0; }
 .bulk-consent { display: flex; flex-wrap: wrap; align-items: flex-start; gap: .35rem .55rem; color: #63594e; font-size: .82rem; line-height: 1.45; }
 .bulk-consent[hidden] { display: none; }

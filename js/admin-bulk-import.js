@@ -182,7 +182,9 @@
     var fFormat = inputField(index, 'format', 'Edition / Format', { type: 'select', options: formats, required: true });
     fFormat.wrap.appendChild(el('small', 'bulk-hint', 'Ebooks are selected when identified; print books default to paperback. Confirm the binding you intend to stock.'));
     var fLanguage = inputField(index, 'language', 'Language', { type: 'select', options: languageOptions, required: true });
-    fLanguage.wrap.appendChild(el('small', 'bulk-hint', 'Automatically grouped from the metadata language.'));
+    var languageHint = el('small', 'bulk-hint', 'Automatically grouped from the metadata language.');
+    languageHint.dataset.languageHint = index;
+    fLanguage.wrap.appendChild(languageHint);
     var fCost = inputField(index, 'unit_cost', 'Unit Cost (Optional)', { type: 'number', min: '0', step: '0.01' });
     var fMarkup = inputField(index, 'markup_percent', 'Markup (%)', { type: 'number', min: '0', max: '500', step: '0.01', default: '25' });
     fMarkup.wrap.appendChild(el('small', 'bulk-hint', 'Applied to cost, online price, or fallback price basis.'));
@@ -628,8 +630,9 @@
     row.publisher = info.publisher || row.publisher || '';
     row.description = String(info.description || '').trim() || (isSynopsisPlaceholder(row.description) ? '' : row.description || '');
     if (['csv', 'manual'].indexOf(row.language_source) === -1) {
-      row.language = languageCategory(info.language || '');
-      row.language_source = row.language ? 'metadata' : '';
+      var detectedLanguage = languageCategory(info.language || '');
+      row.language = detectedLanguage || 'Other Languages';
+      row.language_source = detectedLanguage ? 'metadata' : 'fallback';
     }
     var retail = item.saleInfo && item.saleInfo.listPrice;
     if (!String(row.unit_cost || '').trim() && (!String(row.price || '').trim() || row.price_source_type === 'fallback_baseline') && retail && String(retail.currencyCode || '').toUpperCase() === 'PHP' && Number.isFinite(Number(retail.amount)) && Number(retail.amount) > 0) {
@@ -917,8 +920,16 @@
         if (row[key] !== undefined) field.value = String(row[key]);
       }
       if (key === 'language') {
-        var languageHint = field.closest('.bulk-field') && field.closest('.bulk-field').querySelector('.bulk-hint');
-        if (languageHint) languageHint.textContent = 'Automatically grouped from book metadata when available; otherwise choose the language manually.';
+        var languageWrap = field.closest('.bulk-field');
+        var languageHint = languageWrap && languageWrap.querySelector('.bulk-hint');
+        var isLanguageFallback = row.language_source === 'fallback';
+        if (languageWrap) languageWrap.classList.toggle('is-language-fallback', isLanguageFallback);
+        if (languageHint) {
+          languageHint.textContent = isLanguageFallback
+            ? 'Language was not found in the metadata. “Other Languages” is a placeholder; choose the actual language when known.'
+            : 'Automatically filled from book metadata when available. You can change it if needed.';
+          languageHint.classList.toggle('is-fallback', isLanguageFallback);
+        }
       }
     });
   }
@@ -1192,7 +1203,7 @@
     });
     container.addEventListener('change', function (event) {
       if (event.target.dataset.field === 'genre_ids') { var genreIndex = Number(event.target.dataset.row); state.rows[genreIndex].genre_assignment_source = 'manual'; renderRowFields(genreIndex); refreshSummary(); }
-      if (event.target.dataset.field === 'language') { state.rows[Number(event.target.dataset.row)].language_source = 'manual'; refreshSummary(); }
+      if (event.target.dataset.field === 'language') { var languageIndex = Number(event.target.dataset.row); state.rows[languageIndex].language_source = 'manual'; renderRowFields(languageIndex); refreshSummary(); }
       if (event.target.dataset.field === 'format') { state.rows[Number(event.target.dataset.row)].format_source = 'manual'; refreshSummary(); }
       if (event.target.type === 'checkbox') refreshSummary();
       if (event.target.dataset.field === 'format') scheduleCatalogCheck(Number(event.target.dataset.row));
@@ -1246,6 +1257,7 @@
     }
     if (isSynopsisPlaceholder(row.description) && !row.description_source) row.description_source = 'placeholder';
     if (String(row.language || '').trim() && !row.language_source) row.language_source = 'csv';
+    if (!String(row.language || '').trim() && !imported) { row.language = 'Other Languages'; row.language_source = 'fallback'; }
     if (String(row.format || '').trim() && !row.format_source) row.format_source = 'csv';
     if (!String(row.format || '').trim()) { row.format = 'paperback'; row.format_source = 'default'; }
     if (hasFallbackGenre(row) && !row.genre_assignment_source) row.genre_assignment_source = 'fallback';
