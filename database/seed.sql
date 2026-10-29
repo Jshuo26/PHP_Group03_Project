@@ -255,6 +255,14 @@ SELECT b.book_id, t.format, t.price, t.stock_quantity, t.low_stock_threshold, NU
 FROM tmp_be t
 JOIN books b ON b.title = t.title;
 
+UPDATE books b
+   SET b.status = 'active', b.review_status = 'approved'
+ WHERE EXISTS (SELECT 1 FROM book_genres bg WHERE bg.book_id = b.book_id)
+   AND NOT EXISTS (
+       SELECT 1 FROM book_authors ba JOIN authors a ON a.author_id = ba.author_id
+        WHERE ba.book_id = b.book_id AND a.verification_status <> 'verified'
+   );
+
 COMMIT;
 
 SELECT

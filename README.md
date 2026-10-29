@@ -18,6 +18,9 @@ Installation / Setup:
 Install XAMPP and start Apache and MySQL.
 Copy the project into htdocs/.
 Open phpMyAdmin, create the database, and import database/database.sql.
+For an existing database that predates bulk book import, apply database/migrations/007_bulk_book_import.sql once before using the importer.
 Copy config/config.sample.php to config/config.php and enter local DB credentials and valid Google reCAPTCHA site and secret keys. Registration requires both reCAPTCHA keys.
 Enter in terminal php -S localhost:8000
-Open http://localhost:8000 
+Open http://localhost:8000
+
+Bulk book import is available to admin and staff from Product Management. Upload a UTF-8/Excel-compatible CSV of up to 500 title rows. The importer maps common supplier heading variations; review each row, search Google Books for suggested metadata, correct required fields, confirm cover-use rights, and then import. New/unverified authors remain hidden until approved through Author Reviews. Retrying a completed batch is idempotent; matching an existing ISBN or exact title/author restocks the existing edition. Cover files uploaded by staff are saved under images/book-covers.

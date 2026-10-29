@@ -153,7 +153,7 @@ CREATE TABLE authors (
     full_name               VARCHAR(150) NOT NULL,
     bio                     TEXT NULL,
     author_image_path VARCHAR(255) NULL,
-    verification_status     ENUM('verified','unconfirmed_self_declared','pending_review','unverified')
+    verification_status     ENUM('verified','unconfirmed_self_declared','pending_review','unverified','rejected')
                              NOT NULL DEFAULT 'unverified',
     verification_confidence DECIMAL(5,2) NULL,
     verification_method     ENUM('exact','fuzzy','external','manual_staff') NULL,
@@ -166,15 +166,61 @@ CREATE TABLE authors (
     INDEX idx_authors_name (full_name)
 ) ENGINE=InnoDB;
 
+CREATE TABLE author_aliases (
+    alias_id        INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    author_id       INT UNSIGNED NOT NULL,
+    alias           VARCHAR(150) NOT NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_author_alias_author FOREIGN KEY (author_id) REFERENCES authors(author_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    UNIQUE KEY uk_author_alias (author_id, alias),
+    INDEX idx_author_alias_name (alias)
+) ENGINE=InnoDB;
+
+CREATE TABLE author_evidence (
+    evidence_id     BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    author_id       INT UNSIGNED NOT NULL,
+    source_url      VARCHAR(500) NOT NULL,
+    added_by        INT UNSIGNED NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_author_evidence_author FOREIGN KEY (author_id) REFERENCES authors(author_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_author_evidence_user FOREIGN KEY (added_by) REFERENCES users(user_id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    INDEX idx_author_evidence_created (author_id, created_at)
+) ENGINE=InnoDB;
+
 CREATE TABLE books (
     book_id         INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     title           VARCHAR(255) NOT NULL,
     description     TEXT NULL,
     isbn            VARCHAR(20) NULL,
+    language        VARCHAR(50) NOT NULL DEFAULT 'Filipino',
+    publisher       VARCHAR(150) NULL,
+    status          ENUM('active','inactive') NOT NULL DEFAULT 'active',
+    review_status   ENUM('approved','pending_review','rejected') NOT NULL DEFAULT 'pending_review',
+    metadata_source_url VARCHAR(1000) NULL,
     created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     UNIQUE KEY uk_books_isbn (isbn),
     INDEX idx_books_title (title)
+) ENGINE=InnoDB;
+
+CREATE TABLE author_reviews (
+    review_id       BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    author_id       INT UNSIGNED NOT NULL,
+    book_id         INT UNSIGNED NULL,
+    decision        ENUM('auto_verified','verified','rejected','needs_review','revoked','reopened') NOT NULL,
+    notes           VARCHAR(2000) NULL,
+    reviewer_id     INT UNSIGNED NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_author_review_author FOREIGN KEY (author_id) REFERENCES authors(author_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT fk_author_review_book FOREIGN KEY (book_id) REFERENCES books(book_id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    CONSTRAINT fk_author_review_user FOREIGN KEY (reviewer_id) REFERENCES users(user_id)
+        ON DELETE SET NULL ON UPDATE CASCADE,
+    INDEX idx_author_review_history (author_id, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE book_genres (
@@ -209,12 +255,30 @@ CREATE TABLE book_editions (
     price               DECIMAL(10,2) UNSIGNED NOT NULL,
     stock_quantity      INT UNSIGNED NOT NULL DEFAULT 0,
     low_stock_threshold INT UNSIGNED NOT NULL DEFAULT 5,
-    cover_image_path    VARCHAR(255) NULL,
+    cover_image_path    VARCHAR(1000) NULL,
+    cover_source_url    VARCHAR(1000) NULL,
+    cover_license_note  VARCHAR(500) NULL,
     CONSTRAINT fk_editions_book
         FOREIGN KEY (book_id) REFERENCES books(book_id)
         ON DELETE CASCADE ON UPDATE CASCADE,
     UNIQUE KEY uk_edition_book_format (book_id, format),
     INDEX idx_editions_stock (stock_quantity, low_stock_threshold)
+) ENGINE=InnoDB;
+
+CREATE TABLE book_import_batches (
+    batch_id        CHAR(32) NOT NULL PRIMARY KEY,
+    user_id         INT UNSIGNED NOT NULL,
+    status          ENUM('review','imported') NOT NULL DEFAULT 'review',
+    rows_json       LONGTEXT NOT NULL,
+    row_count       SMALLINT UNSIGNED NOT NULL,
+    imported_count  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+    result_json     TEXT NULL,
+    created_at      DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    imported_at     DATETIME NULL,
+    CONSTRAINT fk_book_import_user FOREIGN KEY (user_id) REFERENCES users(user_id)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    INDEX idx_book_import_user_created (user_id, created_at),
+    INDEX idx_book_import_status (status, created_at)
 ) ENGINE=InnoDB;
 
 CREATE TABLE carts (

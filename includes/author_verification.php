@@ -168,7 +168,7 @@ function findAuthorMatches(PDO $pdo, string $name): array
         return $result;
     }
 
-    $authors = $pdo->query('SELECT author_id, full_name, verification_status FROM authors')->fetchAll();
+    $authors = $pdo->query('SELECT author_id, full_name, bio, verification_status FROM authors')->fetchAll();
 
     $aliasRows = $pdo->query(
         "SELECT al.author_id, al.alias

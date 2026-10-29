@@ -3,7 +3,18 @@ require_once __DIR__ . '/audit.php';
 
 function catalogCover(?string $path): string
 {
-    $filename = basename(str_replace('\\', '/', (string) $path));
+    $path = trim((string) $path);
+    if ($path === '') return '';
+
+    if (filter_var($path, FILTER_VALIDATE_URL) !== false) {
+        $parts = parse_url($path);
+        $host = strtolower((string) ($parts['host'] ?? ''));
+        $allowedHost = $host === 'books.google.com' || $host === 'books.googleusercontent.com'
+            || str_ends_with($host, '.books.googleusercontent.com');
+        return strtolower((string) ($parts['scheme'] ?? '')) === 'https' && $allowedHost ? $path : '';
+    }
+
+    $filename = basename(str_replace('\\', '/', $path));
 
     return $filename !== '' ? '/images/book-covers/' . rawurlencode($filename) : '';
 }

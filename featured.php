@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/catalog.php';
 
 $featuredBooks = [];
 
@@ -11,11 +12,7 @@ $h = static fn ($value): string => htmlspecialchars(
 
 function featuredBookCover(?string $path): string
 {
-    $filename = basename(str_replace('\\', '/', trim((string) $path)));
-
-    return $filename !== '' && $filename !== '.'
-        ? '/images/book-covers/' . rawurlencode($filename)
-        : '';
+    return catalogCover($path);
 }
 
 try {

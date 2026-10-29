@@ -30,6 +30,7 @@ return [
 
     'RECAPTCHA_SITE_KEY' => 'your_site_key_here',
     'RECAPTCHA_SECRET_KEY' => 'your_secret_key_here',
+    'GOOGLE_BOOKS_API_KEY' => '',
 
     'SMTP_HOST'     => 'smtp.gmail.com',
     'SMTP_PORT'     => 587,

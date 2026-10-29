@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/db.php';
 require_once __DIR__ . '/../includes/author_verification.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/inventory_alerts.php';
+require_once __DIR__ . '/../includes/catalog.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -52,9 +53,8 @@ function apiCoverUrl($path): ?string
         return null;
     }
 
-    return '/images/book-covers/' . rawurlencode(
-        basename(str_replace('\\', '/', (string) $path))
-    );
+    $url = catalogCover((string) $path);
+    return $url !== '' ? $url : null;
 }
 
 function apiFormatBooks(array &$books): void

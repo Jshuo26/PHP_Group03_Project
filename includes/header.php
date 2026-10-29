@@ -8,11 +8,8 @@ $userRole = $_SESSION['role'] ?? '';
 $userAvatar = $_SESSION['profile_picture_path'] ?? '';
 $scriptPath = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '');
 $isAdminAreaRequest = strpos($scriptPath, '/admin/') !== false;
-$isStaffMfaPending = is_array($_SESSION['mfa_pending'] ?? null)
-    && ($_SESSION['mfa_pending']['audience'] ?? '') === 'staff';
 $isAdminPortal = in_array($userRole, ['admin', 'staff'], true)
-    || $isAdminAreaRequest
-    || $isStaffMfaPending;
+    || $isAdminAreaRequest;
 $brandUrl = $isAdminPortal ? '/admin/login.php' : '/index.php';
 if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)) {
     $brandUrl = '/admin/index.php';
@@ -170,10 +167,6 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
                     </div>
 
                 </div>
-
-            <?php elseif (!$isLoggedIn && !$isLoginPage && $isAdminPortal): ?>
-
-                <a class="login-button" href="/admin/login.php">Staff Login</a>
 
             <?php elseif (!$isLoggedIn && !$isLoginPage): ?>
 

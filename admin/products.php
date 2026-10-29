@@ -8,6 +8,7 @@ require_once __DIR__ . '/../includes/author_verification.php';
 require_once __DIR__ . '/../includes/upload_security.php';
 require_once __DIR__ . '/../includes/audit.php';
 require_once __DIR__ . '/../includes/inventory_alerts.php';
+require_once __DIR__ . '/../includes/catalog.php';
 
 requireRole(['admin', 'staff']);
 $errors = [];
@@ -357,6 +358,7 @@ include __DIR__ . '/../includes/header.php';
         <h1 class="card-title">Product Management</h1>
         <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
         <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
+        <p class="card-text">Adding a large group of books? <a class="btn btn-primary" href="/admin/bulk_import.php">Bulk add books</a></p>
         <h2><?= (int) $form['edition_id'] > 0 ? 'Edit book edition' : 'Add a book' ?></h2>
         <?php if (!$genres): ?>
             <p>Add an active genre before adding books.</p>
@@ -413,7 +415,7 @@ include __DIR__ . '/../includes/header.php';
     <?php if (!$products): ?><div class="card"><p class="card-text">No books have been added yet.</p></div><?php endif; ?>
     <?php foreach ($products as $product): ?>
         <article class="card admin-list-item">
-            <?php if ($product['cover_image_path']): ?><img class="admin-cover" src="/images/book-covers/<?= rawurlencode(basename(str_replace('\\', '/', $product['cover_image_path']))) ?>" alt="<?= htmlspecialchars($product['title'], ENT_QUOTES, 'UTF-8') ?> cover"><?php endif; ?>
+            <?php if ($product['cover_image_path']): ?><img class="admin-cover" src="<?= htmlspecialchars(catalogCover($product['cover_image_path']), ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars($product['title'], ENT_QUOTES, 'UTF-8') ?> cover"><?php endif; ?>
             <h3><?= htmlspecialchars($product['title'], ENT_QUOTES, 'UTF-8') ?></h3>
             <p>Author: <?= htmlspecialchars($product['authors'] ?: 'Not listed', ENT_QUOTES, 'UTF-8') ?> · Genres: <?= htmlspecialchars($product['genre_names'] ?: 'Not assigned', ENT_QUOTES, 'UTF-8') ?></p>
                         <p>Language: <?= htmlspecialchars($product['language'], ENT_QUOTES, 'UTF-8') ?><?php if ($product['publisher']): ?> · Publisher: <?= htmlspecialchars($product['publisher'], ENT_QUOTES, 'UTF-8') ?><?php endif; ?> · Status: <?= htmlspecialchars(ucfirst($product['status']), ENT_QUOTES, 'UTF-8') ?> · Author review: <?= htmlspecialchars(bookReviewLabel($product['review_status']), ENT_QUOTES, 'UTF-8') ?></p>

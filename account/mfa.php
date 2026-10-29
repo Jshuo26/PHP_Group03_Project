@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/csrf.php';
 require_once __DIR__ . '/../includes/input.php';
 require_once __DIR__ . '/../includes/crypto.php';
 require_once __DIR__ . '/../includes/totp.php';
+require_once __DIR__ . '/../includes/login_security.php';
 require_once __DIR__ . '/../includes/audit.php';
 
 $pendingMfa = $_SESSION['mfa_pending'] ?? null;
