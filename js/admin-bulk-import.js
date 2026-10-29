@@ -940,8 +940,28 @@
       try { data = JSON.parse(responseText); }
       catch (_) { throw new Error('The server returned a non-JSON page (HTTP ' + response.status + '). You may have been redirected to login or PHP reported an error; check the PHP server terminal.'); }
       if (!response.ok || !data.success) {
-        showScanStatus(data.message || 'Import did not complete.', 'error'); dismissScanStatusAfter(5000);
-        (data.issues || []).forEach(function (issue) { setNotice(issue.index, issue.message, 'warning'); updateRowHeading(issue.index, 'needs-review', 'Needs attention'); });
+        var issues = Array.isArray(data.issues) ? data.issues : [];
+        issues.forEach(function (issue) {
+          var issueIndex = Number(issue.index);
+          setNotice(issueIndex, issue.message, 'warning');
+          updateRowHeading(issueIndex, 'needs-review', 'Needs attention');
+          var card = container.querySelector('[data-row-state="' + issueIndex + '"]');
+          if (card) card.classList.add('is-needs-details');
+        });
+        if (issues.length) {
+          var firstIssueIndex = Number(issues[0].index);
+          var issueDetails = issues.slice(0, 3).map(function (issue) {
+            return 'Book ' + (Number(issue.index) + 1) + ': ' + String(issue.message || 'Review this book.');
+          });
+          if (issues.length > 3) issueDetails.push('And ' + (issues.length - 3) + ' more book' + (issues.length - 3 === 1 ? '' : 's') + ' need attention.');
+          showScanStatus(issueDetails.join(' '), 'error');
+          var firstCard = container.querySelector('[data-row-state="' + firstIssueIndex + '"]');
+          var firstDialog = firstCard && firstCard.querySelector('.bulk-row-dialog');
+          if (firstDialog && !firstDialog.open) firstDialog.showModal();
+        } else {
+          showScanStatus(data.message || 'Import did not complete. Review the book details and try again.', 'error');
+        }
+        dismissScanStatusAfter(5000);
         importButton.disabled = false; return;
       }
       imported = true;
