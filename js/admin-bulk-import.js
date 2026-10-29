@@ -5,12 +5,16 @@
   var container = document.getElementById('bulk-rows');
   var message = document.getElementById('bulk-message');
   var progress = document.getElementById('bulk-progress');
+  var scanStatus = document.getElementById('bulk-scan-status');
   var duplicateWarning = document.getElementById('bulk-duplicate-warning');
   var categoryNote = document.getElementById('bulk-category-note');
   var importButton = document.getElementById('import-ready');
   var filters = document.getElementById('bulk-filters');
   var activeFilter = 'all';
   var lookupTimers = Object.create(null);
+  var scanDismissTimer = null;
+  var scanHideTimer = null;
+  var autoMatchingInProgress = false;
   var imported = state.status === 'imported';
   var formats = [['', 'Select format'], ['paperback', 'Paperback / softbound'], ['hardbound', 'Hardcover / hardbound'], ['ebook', 'Ebook']];
   var languageNames = { en: 'English', eng: 'English', fil: 'Filipino', tl: 'Tagalog', tgl: 'Tagalog', ceb: 'Cebuano', ilo: 'Ilocano', es: 'Spanish', spa: 'Spanish', zh: 'Chinese', ja: 'Japanese' };
@@ -79,10 +83,10 @@
     var fDescription = inputField(index, 'description', 'Synopsis / description', { type: 'textarea', rows: 4, required: true, wide: true });
     var fCost = inputField(index, 'unit_cost', 'Unit cost (optional)', { type: 'number', min: '0', step: '0.01' });
     var fMarkup = inputField(index, 'markup_percent', 'Markup (%)', { type: 'number', min: '0', max: '500', step: '0.01', default: '25' });
-    fMarkup.wrap.appendChild(el('small', 'bulk-hint', 'Applied to unit cost, or to a Google Books reference price when it is listed in PHP.'));
+    fMarkup.wrap.appendChild(el('small', 'bulk-hint', 'Applied to cost, online price, or fallback price basis.'));
     var fPrice = inputField(index, 'price', 'Website selling price (₱)', { type: 'number', min: '0.01', step: '0.01', required: true });
     fPrice.input.readOnly = !!String(row.unit_cost || '').trim();
-    fPrice.wrap.appendChild(el('small', 'bulk-hint bulk-price-source', row.price_source || 'Uses catalog price, cost + markup, or a PHP online reference + markup. Without one, enter a price.'));
+    fPrice.wrap.appendChild(el('small', 'bulk-hint bulk-price-source', row.price_source || 'Uses cost + markup, an online PHP price + markup, or the fallback basis + markup.'));
     var fQuantity = inputField(index, 'quantity', 'Copies to add to stock', { type: 'number', min: '1', max: '9999999', required: true, default: '1' });
     var fCover = inputField(index, 'cover_url', 'Book cover image', { wide: true, required: true, placeholder: 'Filled from selected metadata or existing catalog record' });
     var fEvidence = inputField(index, 'filipino_evidence_url', 'Filipino identity evidence URL', { wide: true, placeholder: 'Public author statement or profile' });
@@ -183,10 +187,11 @@
     var ready = 0, skipped = 0, needs = 0, existing = 0, unknown = 0, seen = {};
     state.rows.forEach(function (row, index) {
       var card = container.querySelector('[data-row-state="' + index + '"]');
-      if (card) {
+    if (card) {
         card.classList.toggle('is-existing-book', isExisting(row));
         card.classList.toggle('is-unknown-author', isUnknownAuthor(row));
         card.classList.toggle('is-ready', !row.skip && rowReady(row, index));
+        card.classList.toggle('is-needs-details', !row.skip && !isExisting(row) && !isUnknownAuthor(row) && !rowReady(row, index));
       }
       if (row.skip) skipped++;
       else if (isExisting(row)) existing++;
@@ -273,6 +278,37 @@
     if (!box) return;
     box.className = 'bulk-row-notice' + (kind ? ' is-' + kind : ''); box.textContent = text || '';
   }
+  function recalculatePrice(row, input) {
+    var markup = Number(row.markup_percent || 0), cost = Number(row.unit_cost);
+    if (String(row.unit_cost || '').trim() && Number.isFinite(cost)) {
+      row.price = (cost * (1 + markup / 100)).toFixed(2);
+      row.price_source_type = 'unit_cost';
+      row.price_source = 'Unit cost + ' + markup + '% markup';
+    } else if (row.price_source_type === 'unit_cost') {
+      if (Number(row.reference_price) > 0) {
+        row.price_source_type = 'online_reference';
+        row.price = (Number(row.reference_price) * (1 + markup / 100)).toFixed(2);
+        row.price_source = 'Google Books PHP retail reference + ' + markup + '% markup';
+      } else if (String(row.csv_price || '').trim()) {
+        row.price_source_type = 'csv';
+        row.price = String(row.csv_price);
+        row.price_source = 'Website price provided in CSV';
+      } else {
+        row.price_source_type = 'fallback_baseline';
+        row.price = (Number(row.fallback_price_basis || 500) * (1 + markup / 100)).toFixed(2);
+        row.price_source = '₱' + Number(row.fallback_price_basis || 500).toFixed(2) + ' fallback price + ' + markup + '% markup';
+      }
+    } else if (row.price_source_type === 'online_reference' && Number(row.reference_price) > 0) {
+      row.price = (Number(row.reference_price) * (1 + markup / 100)).toFixed(2);
+      row.price_source = 'Google Books PHP retail reference + ' + markup + '% markup';
+    } else if (row.price_source_type === 'fallback_baseline') {
+      row.price = (Number(row.fallback_price_basis || 500) * (1 + markup / 100)).toFixed(2);
+      row.price_source = '₱' + Number(row.fallback_price_basis || 500).toFixed(2) + ' fallback price + ' + markup + '% markup';
+    }
+    if (input && row.price_source_type !== 'manual' && row.price_source_type !== 'csv') input.value = row.price || '';
+    var sourceLabel = input ? container.querySelector('[data-row="' + input.dataset.row + '"] .bulk-price-source') : null;
+    if (sourceLabel && row.price_source) sourceLabel.textContent = row.price_source;
+  }
 
   function isbnFrom(item) {
     var list = item.volumeInfo && item.volumeInfo.industryIdentifiers || [];
@@ -298,6 +334,24 @@
     return 'https://books.google.com/books?' + new URLSearchParams({ q: [info.title || '', (info.authors || []).join(' ')].filter(Boolean).join(' ') }).toString();
   }
   function delay(ms) { return new Promise(function (resolve) { setTimeout(resolve, ms); }); }
+  function showScanStatus(text, kind) {
+    if (!scanStatus || !message) return;
+    if (scanDismissTimer) clearTimeout(scanDismissTimer);
+    if (scanHideTimer) clearTimeout(scanHideTimer);
+    scanHideTimer = null;
+    scanStatus.hidden = false;
+    scanStatus.classList.remove('is-dismissing');
+    message.className = 'bulk-message' + (kind ? ' is-' + kind : '');
+    message.textContent = text;
+  }
+  function dismissScanStatusAfter(ms) {
+    if (!scanStatus) return;
+    if (scanDismissTimer) clearTimeout(scanDismissTimer);
+    scanDismissTimer = setTimeout(function () {
+      scanStatus.classList.add('is-dismissing');
+      scanHideTimer = setTimeout(function () { scanStatus.hidden = true; scanStatus.classList.remove('is-dismissing'); scanHideTimer = null; }, 250);
+    }, ms === undefined ? 5000 : ms);
+  }
   async function googleBooksFetch(query, row, provider) {
     for (var attempt = 0; attempt < 3; attempt++) {
       var controller = new AbortController();
@@ -361,11 +415,12 @@
     row.description = info.description || row.description || '';
     row.language = languageNames[String(info.language || '').toLowerCase()] || info.language || row.language || '';
     var retail = item.saleInfo && item.saleInfo.listPrice;
-    if (!String(row.unit_cost || '').trim() && !String(row.price || '').trim() && retail && String(retail.currencyCode || '').toUpperCase() === 'PHP' && Number.isFinite(Number(retail.amount)) && Number(retail.amount) > 0) {
+    if (!String(row.unit_cost || '').trim() && (!String(row.price || '').trim() || row.price_source_type === 'fallback_baseline') && retail && String(retail.currencyCode || '').toUpperCase() === 'PHP' && Number.isFinite(Number(retail.amount)) && Number(retail.amount) > 0) {
       row.reference_price = Number(retail.amount);
       var markup = Number(row.markup_percent || 25);
       row.price = (Number(retail.amount) * (1 + markup / 100)).toFixed(2);
       row.price_source = 'Google Books PHP retail reference + ' + markup + '% markup';
+      row.price_source_type = 'online_reference';
     }
     row.cover_url = coverFrom(item) || row.cover_url || '';
     row.cover_source_url = item.volumeInfo && item.volumeInfo.infoLink || item.selfLink || '';
@@ -382,7 +437,7 @@
     if (source) source.textContent = 'Metadata source (' + row.metadata_provider + '): ' + row.metadata_source_url;
     renderRowFields(index);
     var priceSource = container.querySelector('[data-row="' + index + '"] .bulk-price-source');
-    if (priceSource) priceSource.textContent = row.price_source || (row.reference_price ? 'Google Books reference price + configured markup.' : 'Uses existing catalog price, cost + markup, or a PHP online reference + markup. Without one, enter a price.');
+    if (priceSource) priceSource.textContent = row.price_source || 'Uses cost + markup, an online PHP price + markup, or the fallback basis + markup.';
     updateRowHeading(index, confidence >= 90 ? 'matched' : 'suggestion', row.lookup_status);
     updateCover(index); refreshSummary(); checkCatalog(index); scheduleAuthorCheck(index);
     if (!formatWasProvided && row.format) setNotice(index, 'Format preselected as ' + row.format + (row.format === 'paperback' ? ' (default for print books; verify the binding before import).' : ' from the metadata ebook signal.'), 'info');
@@ -704,13 +759,16 @@
       if (!key || !Number.isInteger(index) || !state.rows[index]) return;
       readRows();
       if (key === 'unit_cost' || key === 'markup_percent') {
-        var row = state.rows[index], cost = parseFloat(row.unit_cost), markup = parseFloat(row.markup_percent);
+        var row = state.rows[index];
         var priceInput = container.querySelector('[data-row="' + index + '"][data-field="price"]');
         if (priceInput) priceInput.readOnly = row.unit_cost !== '';
-        if (row.unit_cost !== '' && Number.isFinite(cost) && Number.isFinite(markup)) { row.price = (cost * (1 + markup / 100)).toFixed(2); if (priceInput) priceInput.value = row.price; }
-        else if (row.reference_price && Number.isFinite(markup) && row.price_source) { row.price = (row.reference_price * (1 + markup / 100)).toFixed(2); if (priceInput) priceInput.value = row.price; row.price_source = 'Google Books PHP retail reference + ' + markup + '% markup'; }
-        var sourceLabel = container.querySelector('[data-row="' + index + '"] .bulk-price-source');
-        if (sourceLabel) sourceLabel.textContent = row.price_source || 'Uses catalog price, cost + markup, or a PHP online reference + markup. Without one, enter a price.';
+        recalculatePrice(row, priceInput);
+      }
+      if (key === 'price') {
+        state.rows[index].price_source_type = 'manual';
+        state.rows[index].price_source = 'Website selling price entered by staff';
+        var priceSource = container.querySelector('[data-row="' + index + '"] .bulk-price-source');
+        if (priceSource) priceSource.textContent = state.rows[index].price_source;
       }
       if (key === 'cover_url') updateCover(index);
       if (['title', 'author', 'isbn'].indexOf(key) !== -1) scheduleCatalogCheck(index);
@@ -746,7 +804,11 @@
   }
   function scheduleAutomaticLookup(index) {
     if (lookupTimers[index]) clearTimeout(lookupTimers[index]);
-    lookupTimers[index] = setTimeout(function () { if (!state.rows[index].skip) enqueueLookup(index); }, 700);
+    lookupTimers[index] = setTimeout(function () {
+      if (state.rows[index].skip) return;
+      if (!autoMatchingInProgress) showScanStatus('Refreshing the metadata match for “' + state.rows[index].title + '”…', 'info');
+      enqueueLookup(index).then(function () { if (!autoMatchingInProgress) dismissScanStatusAfter(5000); });
+    }, 700);
   }
 
   state.rows.forEach(makeRow);
@@ -754,26 +816,28 @@
   state.rows.forEach(function (_, index) { renderPreparedAuthorCheck(index); });
   if (imported) progress.hidden = true;
   if (!imported) {
+    autoMatchingInProgress = true;
+    showScanStatus('Checking book titles and authors against the shop catalog…', 'info');
     checkCatalogBatch().then(function () {
       var pending = state.rows.map(function (row, index) { return index; }).filter(function (index) { return !state.rows[index].skip && !(state.rows[index].local_match && state.rows[index].lookup_status === 'Existing catalog book'); });
       if (pending.length) {
         progress.max = pending.length; progress.value = 0; progress.hidden = false;
-        message.className = 'bulk-message is-info'; message.textContent = 'Automatically matching book titles and authors online: 0 of ' + pending.length + ' checked…';
+        showScanStatus('Searching online metadata: 0 of ' + pending.length + ' books checked…', 'info');
         return concurrentLookup(pending.map(function (index, position) {
           var task = enqueueLookup(index);
-          task.then(function () { progress.value = position + 1; message.textContent = 'Automatically matching book titles and authors online: ' + (position + 1) + ' of ' + pending.length + ' checked…'; });
+          task.then(function () { progress.value = position + 1; message.textContent = 'Searching online metadata: ' + (position + 1) + ' of ' + pending.length + ' books checked…'; });
           return task;
-        })).then(function () { message.textContent = 'Automatic online matching is complete. Review any uncertain matches and fill remaining required details.'; });
+        })).then(function () { showScanStatus('Online matching complete: ' + pending.length + ' of ' + pending.length + ' books checked.', 'success'); });
       }
       progress.hidden = true;
-      message.textContent = 'Catalog checks are complete. Existing records are shown below; review remaining details for new books.';
-    });
+      showScanStatus('Catalog checks complete. Existing records are shown below; review remaining details for new books.', 'success');
+    }).then(function () { autoMatchingInProgress = false; dismissScanStatusAfter(5000); });
   }
-  if (imported) { message.textContent = 'This batch is already complete. Reloading it is safe and will not add stock again.'; }
+  if (imported) { showScanStatus('This batch is already complete. Reloading it is safe and will not add stock again.', 'success'); dismissScanStatusAfter(5000); }
   importButton.addEventListener('click', async function () {
     var result = refreshSummary();
-    if (!result.ready || result.duplicateCount) { message.textContent = 'Complete the required fields and resolve duplicate ISBN rows before importing.'; return; }
-    readRows(); importButton.disabled = true; message.className = 'bulk-message is-info'; message.textContent = 'Saving the batch safely…';
+    if (!result.ready || result.duplicateCount) { showScanStatus('Complete the required fields and resolve duplicate ISBN rows before importing.', 'warning'); dismissScanStatusAfter(5000); return; }
+    readRows(); importButton.disabled = true; progress.hidden = true; showScanStatus('Saving the batch safely…', 'info');
     try {
       var rowsJson = JSON.stringify(state.rows);
       var payload = new FormData(); payload.append('action', 'commit'); payload.append('batch_id', state.batchId); payload.append('rows_json', rowsJson); payload.append('csrf_token', state.csrf);
@@ -781,24 +845,25 @@
       container.querySelectorAll('input[type="file"][data-field="cover_file"]').forEach(function (fileInput) {
         if (fileInput.files && fileInput.files[0]) { coverBytes += fileInput.files[0].size; if (fileInput.files[0].size > 1500000) oversizedCover = true; payload.append('cover_' + fileInput.dataset.row, fileInput.files[0]); }
       });
-      if (oversizedCover || coverBytes + new Blob([rowsJson]).size > 6000000) { message.className = 'bulk-message is-error'; message.textContent = 'Each uploaded cover must be 1.5 MB or smaller, and all batch data must stay below 6 MB. Resize covers or split a very large batch.'; importButton.disabled = false; return; }
+      if (oversizedCover || coverBytes + new Blob([rowsJson]).size > 6000000) { showScanStatus('Each uploaded cover must be 1.5 MB or smaller, and all batch data must stay below 6 MB. Resize covers or split a very large batch.', 'error'); dismissScanStatusAfter(5000); importButton.disabled = false; return; }
       var response = await fetch('/api/book_bulk_import.php', { method: 'POST', headers: { 'Accept': 'application/json' }, body: payload });
       var responseText = await response.text();
       var data;
       try { data = JSON.parse(responseText); }
       catch (_) { throw new Error('The server returned a non-JSON page (HTTP ' + response.status + '). You may have been redirected to login or PHP reported an error; check the PHP server terminal.'); }
       if (!response.ok || !data.success) {
-        message.className = 'bulk-message is-error'; message.textContent = data.message || 'Import did not complete.';
+        showScanStatus(data.message || 'Import did not complete.', 'error'); dismissScanStatusAfter(5000);
         (data.issues || []).forEach(function (issue) { setNotice(issue.index, issue.message, 'warning'); updateRowHeading(issue.index, 'needs-review', 'Needs attention'); });
         importButton.disabled = false; return;
       }
-      imported = true; message.className = 'bulk-message is-success';
+      imported = true;
       var s = data.summary || {};
-      message.textContent = data.already_imported ? data.message : 'Done: ' + (s.created || 0) + ' new books added, ' + (s.skipped || 0) + ' skipped. Existing books and unverified authors were excluded. Reloading this batch will not apply it twice.';
+      showScanStatus(data.already_imported ? data.message : 'Done: ' + (s.created || 0) + ' new books added, ' + (s.skipped || 0) + ' skipped. Existing books and unverified authors were excluded. Reloading this batch will not apply it twice.', 'success');
+      dismissScanStatusAfter(5000);
       importButton.textContent = 'Batch Imported';
       container.querySelectorAll('input,select,textarea,button').forEach(function (field) { field.disabled = true; });
     } catch (error) {
-      message.className = 'bulk-message is-error'; message.textContent = 'Import request failed: ' + (error.message || 'network error') + ' The batch is safe to retry after resolving the issue.'; importButton.disabled = false;
+      showScanStatus('Import request failed: ' + (error.message || 'network error') + ' The batch is safe to retry after resolving the issue.', 'error'); dismissScanStatusAfter(5000); importButton.disabled = false;
     }
   });
 })();

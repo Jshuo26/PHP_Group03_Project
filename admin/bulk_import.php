@@ -24,7 +24,7 @@ function bulkImportHeader(string $value): string
     return $value;
 }
 
-function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $defaultMarkup): array
+function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $defaultMarkup, float $fallbackPrice): array
 {
     if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file((string) ($file['tmp_name'] ?? ''))) {
         throw new RuntimeException('Choose a CSV file to upload.');
@@ -109,8 +109,19 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
                 default => '',
             };
             $cost = $costRaw === '' ? '' : number_format((float) $costRaw, 2, '.', '');
-            $price = $cost !== '' ? number_format((float) $cost * (1 + $defaultMarkup / 100), 2, '.', '')
-                : ($priceRaw !== '' ? number_format((float) $priceRaw, 2, '.', '') : '');
+            if ($cost !== '') {
+                $price = number_format((float) $cost * (1 + $defaultMarkup / 100), 2, '.', '');
+                $priceSourceType = 'unit_cost';
+                $priceSource = 'Unit cost + ' . number_format($defaultMarkup, 2) . '% markup';
+            } elseif ($priceRaw !== '') {
+                $price = number_format((float) $priceRaw, 2, '.', '');
+                $priceSourceType = 'csv';
+                $priceSource = 'Website price provided in CSV';
+            } else {
+                $price = number_format($fallbackPrice * (1 + $defaultMarkup / 100), 2, '.', '');
+                $priceSourceType = 'fallback_baseline';
+                $priceSource = '₱' . number_format($fallbackPrice, 2) . ' fallback price + ' . number_format($defaultMarkup, 2) . '% markup';
+            }
             $rows[] = [
                 'row' => $line,
                 'title' => mb_substr($value('title'), 0, 255),
@@ -125,6 +136,10 @@ function bulkImportRowsFromCsv(array $file, int $defaultQuantity, float $default
                 'unit_cost' => $cost,
                 'markup_percent' => number_format($defaultMarkup, 2, '.', ''),
                 'price' => $price,
+                'fallback_price_basis' => number_format($fallbackPrice, 2, '.', ''),
+                'csv_price' => $priceRaw === '' ? '' : number_format((float) $priceRaw, 2, '.', ''),
+                'price_source_type' => $priceSourceType,
+                'price_source' => $priceSource,
                 'cover_url' => '',
                 'cover_source_url' => '',
                 'metadata_source_url' => '',
@@ -214,15 +229,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
     $defaultQuantity = filter_var($_POST['default_quantity'] ?? '1', FILTER_VALIDATE_INT);
     $defaultMarkup = filter_var($_POST['default_markup'] ?? '25', FILTER_VALIDATE_FLOAT);
+    $fallbackPrice = filter_var($_POST['fallback_price'] ?? '500', FILTER_VALIDATE_FLOAT);
     if ($defaultQuantity === false || $defaultQuantity < 1 || $defaultQuantity > 9999999) {
         $errors[] = 'Default quantity must be a whole number from 1 to 9,999,999.';
     }
     if ($defaultMarkup === false || $defaultMarkup < 0 || $defaultMarkup > 500) {
         $errors[] = 'Default markup must be between 0% and 500%.';
     }
+    if ($fallbackPrice === false || $fallbackPrice < 0.01 || $fallbackPrice > 99999999) {
+        $errors[] = 'Fallback price must be between ₱0.01 and ₱99,999,999.';
+    }
     if (!$errors) {
         try {
-            $rows = bulkImportRowsFromCsv($_FILES['csv_file'] ?? [], (int) $defaultQuantity, (float) $defaultMarkup);
+            $rows = bulkImportRowsFromCsv($_FILES['csv_file'] ?? [], (int) $defaultQuantity, (float) $defaultMarkup, (float) $fallbackPrice);
             bulkImportCheckAuthors($pdo, $rows);
             $batchId = bin2hex(random_bytes(16));
             $insert = $pdo->prepare("INSERT INTO book_import_batches (batch_id, user_id, status, rows_json, row_count) VALUES (?, ?, 'review', ?, ?)");
@@ -274,10 +293,9 @@ include __DIR__ . '/../includes/header.php';
                 <button class="btn btn-primary bulk-button" type="button" id="import-ready" <?= $batch['status'] === 'imported' ? 'disabled' : '' ?>>Import Ready Books</button>
             </div>
         </section>
-        <section class="bulk-processing" aria-label="Automatic matching progress">
-            <div class="bulk-processing-icon" aria-hidden="true">↻</div>
-            <div class="bulk-processing-copy"><strong>Automatic checks</strong><div class="bulk-message" id="bulk-message" role="status" aria-live="polite">Preparing rows…</div></div>
-            <progress id="bulk-progress" value="0" max="1" aria-label="Books checked"></progress>
+        <section class="bulk-scan-status" id="bulk-scan-status" aria-label="Automatic matching progress" hidden>
+            <div class="bulk-message" id="bulk-message" role="status" aria-live="polite"></div>
+            <progress id="bulk-progress" value="0" max="1" aria-label="Books checked" hidden></progress>
         </section>
         <nav class="bulk-filters" id="bulk-filters" aria-label="Filter book rows"></nav>
         <p class="bulk-category-note" id="bulk-category-note" aria-live="polite"></p>
@@ -302,8 +320,9 @@ include __DIR__ . '/../includes/header.php';
                     <label class="bulk-file-drop" for="csv_file"><span class="bulk-file-icon" aria-hidden="true">↑</span><strong>Choose a CSV file</strong><small>Up to 500 rows · 2 MB max · UTF-8 or Excel CSV</small><input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv" required></label>
                     <?php if ($errors): ?><div class="bulk-upload-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= bulkImportEscape($error) ?></p><?php endforeach; ?></div><?php endif; ?>
                     <div class="bulk-defaults">
-                        <label>Default quantity per book<input class="form-input" type="number" name="default_quantity" min="1" max="9999999" value="1" required><small>Used only when the CSV has no quantity value.</small></label>
-                        <label>Default markup (%)<input class="form-input" type="number" name="default_markup" min="0" max="500" step="0.01" value="25" required><small>Applied to unit cost, or to a Google Books retail reference when it is listed in PHP.</small></label>
+                        <label><span class="bulk-default-label">Default quantity per book</span><input class="form-input" type="number" name="default_quantity" min="1" max="9999999" value="1" required><small>Used when a CSV row has no quantity.</small></label>
+                        <label><span class="bulk-default-label">Markup (%)</span><input class="form-input" type="number" name="default_markup" min="0" max="500" step="0.01" value="25" required><small>Applied to cost, reference price, or fallback price.</small></label>
+                        <label><span class="bulk-default-label">Fallback price basis (₱)</span><input class="form-input" type="number" name="fallback_price" min="0.01" max="99999999" step="0.01" value="500" required><small>Used when no cost, CSV price, or PHP online price is available.</small></label>
                     </div>
                     <div class="bulk-upload-actions"><button class="btn btn-primary bulk-button" type="submit">Prepare Batch</button><a class="btn btn-secondary bulk-button" href="/admin/bulk_import.php?template=1">Download CSV Template</a></div>
                 </form>
