@@ -3,8 +3,10 @@
   var state = window.bulkImportState;
   if (!state || !Array.isArray(state.rows)) return;
   var container = document.getElementById('bulk-rows');
-  var summary = document.getElementById('bulk-summary');
   var message = document.getElementById('bulk-message');
+  var progress = document.getElementById('bulk-progress');
+  var duplicateWarning = document.getElementById('bulk-duplicate-warning');
+  var categoryNote = document.getElementById('bulk-category-note');
   var importButton = document.getElementById('import-ready');
   var filters = document.getElementById('bulk-filters');
   var activeFilter = 'all';
@@ -23,8 +25,10 @@
   function authorNorm(value) { return norm(value).split(';')[0]; }
   function inputField(rowIndex, key, label, opts) {
     opts = opts || {};
-    var wrap = el('label', 'bulk-field' + (opts.wide ? ' bulk-field-wide' : ''));
-    wrap.appendChild(el('span', '', label + (opts.required ? ' *' : '')));
+    var wrap = el('label', 'bulk-field' + (opts.wide ? ' bulk-field-wide' : '') + (opts.required ? ' is-required' : ''));
+    var caption = el('span', 'bulk-field-label', label);
+    if (opts.required) caption.appendChild(el('span', 'bulk-asterisk', '*'));
+    wrap.appendChild(caption);
     var input;
     if (opts.type === 'textarea') {
       input = el('textarea', 'form-input'); input.rows = opts.rows || 3;
@@ -51,15 +55,14 @@
   function selectedGenres(index) { return Array.isArray(state.rows[index].genre_ids) ? state.rows[index].genre_ids.map(String) : []; }
   function makeRow(row, index) {
     var details = el('details', 'bulk-row');
-    details.open = index === 0 && !imported;
+    details.dataset.rowState = index;
+    details.open = false;
     var head = el('summary', 'bulk-row-summary');
     head.appendChild(el('span', 'bulk-row-number', String(index + 1).padStart(2, '0')));
     var titleSummary = el('span', 'bulk-row-title');
     titleSummary.appendChild(el('strong', '', row.title || 'Untitled row'));
-    titleSummary.appendChild(el('small', 'bulk-row-byline', (row.author || 'Author unknown') + ' · ' + (row.format || 'Paperback')));
+    titleSummary.appendChild(el('small', 'bulk-row-byline', row.author || 'Author unknown'));
     head.appendChild(titleSummary);
-    var badge = el('span', 'bulk-status', row.lookup_status || 'Not searched'); badge.dataset.status = index;
-    head.appendChild(badge);
     details.appendChild(head);
     var body = el('div', 'bulk-row-body');
     var grid = el('div', 'bulk-field-grid');
@@ -81,8 +84,9 @@
     fPrice.input.readOnly = !!String(row.unit_cost || '').trim();
     fPrice.wrap.appendChild(el('small', 'bulk-hint bulk-price-source', row.price_source || 'Uses catalog price, cost + markup, or a PHP online reference + markup. Without one, enter a price.'));
     var fQuantity = inputField(index, 'quantity', 'Copies to add to stock', { type: 'number', min: '1', max: '9999999', required: true, default: '1' });
-    var fCover = inputField(index, 'cover_url', 'Cover image URL', { wide: true, placeholder: 'Filled from selected metadata or existing catalog record' });
-    var fEvidence = inputField(index, 'filipino_evidence_url', 'Author self-identification source URL', { wide: true, placeholder: 'Public author statement or profile; needed for unverified authors' });
+    var fCover = inputField(index, 'cover_url', 'Book cover image', { wide: true, required: true, placeholder: 'Filled from selected metadata or existing catalog record' });
+    var fEvidence = inputField(index, 'filipino_evidence_url', 'Filipino identity evidence URL', { wide: true, placeholder: 'Public author statement or profile' });
+    fEvidence.wrap.appendChild(el('small', 'bulk-hint', 'Unknown authors remain excluded until staff verify them in author review.'));
     [fTitle, fAuthor, fAuthorBio, fIsbn, fPublisher, fFormat, fLanguage, fDescription, fCost, fMarkup, fPrice, fQuantity, fCover, fEvidence].forEach(function (field) { grid.appendChild(field.wrap); });
     var localCoverWrap = el('label', 'bulk-field bulk-field-wide'); localCoverWrap.appendChild(el('span', '', 'Or upload an authorized cover file'));
     var localCover = el('input', 'form-input'); localCover.type = 'file'; localCover.accept = 'image/jpeg,image/png,image/webp'; localCover.dataset.row = index; localCover.dataset.field = 'cover_file'; localCover.disabled = imported;
@@ -90,7 +94,7 @@
     grid.appendChild(localCoverWrap);
 
     var genreWrap = el('label', 'bulk-field bulk-field-wide');
-    genreWrap.appendChild(el('span', '', 'Store genres *'));
+    var genreLabel = el('span', 'bulk-field-label', 'Store genres'); genreLabel.appendChild(el('span', 'bulk-asterisk', '*')); genreWrap.className += ' is-required'; genreWrap.appendChild(genreLabel);
     var genreSelect = el('select', 'form-input bulk-genre-select'); genreSelect.multiple = true; genreSelect.size = 4; genreSelect.dataset.row = index; genreSelect.dataset.field = 'genre_ids'; genreSelect.required = true; genreSelect.disabled = imported;
     state.genres.forEach(function (genre) {
       var option = el('option', '', genre.name); option.value = String(genre.id); option.selected = selectedGenres(index).indexOf(String(genre.id)) !== -1; genreSelect.appendChild(option);
@@ -149,15 +153,26 @@
     var note = preview.querySelector('small'); if (note) note.textContent = 'Cover source: ' + (row.cover_source_url || 'not selected yet');
   }
   function updateRowHeading(index, status, text) {
-    var badge = container.querySelector('[data-status="' + index + '"]');
-    if (badge) { badge.textContent = text || status; badge.dataset.status = status; }
+    var rowCard = container.querySelector('[data-row-state="' + index + '"]');
+    if (rowCard) rowCard.dataset.status = status;
     var title = container.querySelector('[data-row="' + index + '"][data-field="title"]');
     var author = container.querySelector('[data-row="' + index + '"][data-field="author"]');
     var byline = container.querySelectorAll('.bulk-row-byline')[index];
-    if (byline && title && author) byline.textContent = (author.value || 'Author unknown') + ' · ' + (state.rows[index].format || 'Paperback');
+    var heading = container.querySelectorAll('.bulk-row-title strong')[index];
+    if (heading && title) heading.textContent = title.value || 'Untitled row';
+    if (byline && author) byline.textContent = author.value || 'Author unknown';
+  }
+  function isExisting(row) { return !!(row.existing_catalog_selected || row.local_match || row.lookup_status === 'Existing catalog book' || row.lookup_status === 'Existing catalog record selected'); }
+  function authorVerified(row) { return Array.isArray(row.filipino_author_checks) && row.filipino_author_checks.length > 0 && row.filipino_author_checks.every(function (check) { return check.status === 'verified'; }); }
+  function isUnknownAuthor(row) { return !isExisting(row) && !row.skip && !authorVerified(row); }
+  function setRowEditable(index, editable) {
+    var card = container.querySelector('[data-row-state="' + index + '"]');
+    if (!card) return;
+    card.classList.toggle('is-readonly', !editable);
+    card.querySelectorAll('[data-row="' + index + '"]').forEach(function (field) { field.disabled = !editable || imported; });
   }
   function rowReady(row, index) {
-    if (row.skip) return false;
+    if (row.skip || isExisting(row) || !authorVerified(row)) return false;
     var chosen = Array.isArray(row.genre_ids) ? row.genre_ids.length > 0 : false;
     var required = ['title', 'author', 'description', 'language', 'format', 'price', 'quantity'];
     return required.filter(function (key) { return key !== 'cover_url'; }).every(function (key) { return String(row[key] || '').trim() !== ''; })
@@ -165,33 +180,38 @@
   }
   function refreshSummary() {
     readRows();
-    var ready = 0, skipped = 0, needs = 0, seen = {};
+    var ready = 0, skipped = 0, needs = 0, existing = 0, unknown = 0, seen = {};
     state.rows.forEach(function (row, index) {
+      var card = container.querySelector('[data-row-state="' + index + '"]');
+      if (card) {
+        card.classList.toggle('is-existing-book', isExisting(row));
+        card.classList.toggle('is-unknown-author', isUnknownAuthor(row));
+        card.classList.toggle('is-ready', !row.skip && rowReady(row, index));
+      }
       if (row.skip) skipped++;
+      else if (isExisting(row)) existing++;
+      else if (isUnknownAuthor(row)) unknown++;
       else if (rowReady(row, index)) ready++;
       else needs++;
+      markMissingFields(row, index);
       var isbn = String(row.isbn || '').replace(/[\s-]+/g, '').toUpperCase();
       if (isbn) seen[isbn] = (seen[isbn] || 0) + 1;
     });
     var duplicateCount = Object.keys(seen).filter(function (isbn) { return seen[isbn] > 1; }).length;
-    summary.textContent = '';
-    [[ready, 'Ready for Import', 'is-ready'], [needs, 'Needs Details', 'is-needs'], [skipped, 'Skipped', 'is-skipped']].forEach(function (item) {
-      var chip = el('span', 'bulk-summary-chip ' + item[2]); chip.appendChild(el('strong', '', item[0])); chip.appendChild(el('small', '', item[1])); summary.appendChild(chip);
-    });
-    renderFilters(ready, needs, skipped);
-    if (duplicateCount) { var dup = el('span', 'bulk-duplicate-warning', duplicateCount + ' ISBN duplicate group(s): combine rows before import.'); summary.appendChild(dup); }
+    renderFilters(ready, needs, skipped, existing, unknown);
+    if (duplicateWarning) { duplicateWarning.hidden = !duplicateCount; duplicateWarning.textContent = duplicateCount ? duplicateCount + ' ISBN duplicate group(s): combine rows before import.' : ''; }
     if (importButton) importButton.disabled = imported || ready === 0 || duplicateCount > 0;
-    return { ready: ready, skipped: skipped, duplicateCount: duplicateCount };
+    return { ready: ready, skipped: skipped, duplicateCount: duplicateCount, existing: existing, unknown: unknown };
   }
-  function renderFilters(ready, needs, skipped) {
+  function renderFilters(ready, needs, skipped, existing, unknown) {
     if (!filters) return;
-    var counts = { all: state.rows.length, ready: ready, needs: needs, skipped: skipped };
-    var labels = [['all', 'All'], ['ready', 'Ready for Import'], ['needs', 'Needs Details'], ['skipped', 'Skipped']];
+    var counts = { all: state.rows.length, ready: ready, needs: needs, skipped: skipped, existing: existing, unknown: unknown };
+    var labels = [['all', 'All'], ['ready', 'Ready for Import'], ['needs', 'Needs Details'], ['skipped', 'Skipped'], ['existing', 'Existing Book'], ['unknown', 'Unknown Author']];
     filters.textContent = '';
     labels.forEach(function (entry) {
-      var button = el('button', 'bulk-filter' + (activeFilter === entry[0] ? ' is-active' : ''), entry[1] + ' (' + counts[entry[0]] + ')');
+      var button = el('button', 'bulk-filter bulk-filter-' + entry[0] + (activeFilter === entry[0] ? ' is-active' : ''), entry[1] + ' · ' + counts[entry[0]]);
       button.type = 'button'; button.setAttribute('aria-pressed', activeFilter === entry[0] ? 'true' : 'false');
-      button.addEventListener('click', function () { activeFilter = entry[0]; applyFilter(); renderFilters(ready, needs, skipped); });
+      button.addEventListener('click', function () { activeFilter = entry[0]; applyFilter(); renderFilters(ready, needs, skipped, existing, unknown); });
       filters.appendChild(button);
     });
     applyFilter();
@@ -201,9 +221,37 @@
       var card = container.children[index];
       if (!card) return;
       var isReady = !row.skip && rowReady(row, index);
-      var show = activeFilter === 'all' || (activeFilter === 'ready' && isReady) || (activeFilter === 'needs' && !row.skip && !isReady) || (activeFilter === 'skipped' && !!row.skip);
+      var show = activeFilter === 'all' || (activeFilter === 'ready' && isReady) || (activeFilter === 'needs' && !row.skip && !isExisting(row) && !isUnknownAuthor(row) && !isReady) || (activeFilter === 'skipped' && !!row.skip) || (activeFilter === 'existing' && isExisting(row)) || (activeFilter === 'unknown' && isUnknownAuthor(row));
       card.hidden = !show;
     });
+    if (categoryNote) {
+      var copy = {
+        all: 'Only new books with verified Filipino authors and complete required details can be imported.',
+        ready: 'These new books have a verified Filipino author and all required listing details.',
+        needs: 'Complete the highlighted required fields for these books before importing.',
+        skipped: 'Skipped rows are excluded from this batch.',
+        existing: 'These books already exist in the shop catalog. They are read-only here and will not be added or changed by this import.',
+        unknown: 'These authors are not verified in the Filipino-author database. Their books stay out of import until staff verify the author.'
+      };
+      categoryNote.textContent = copy[activeFilter] || copy.all;
+      categoryNote.dataset.filter = activeFilter;
+    }
+  }
+  function markMissingFields(row, index) {
+    var fields = ['title', 'author', 'description', 'language', 'format', 'price', 'quantity'];
+    fields.forEach(function (key) {
+      var field = container.querySelector('[data-row="' + index + '"][data-field="' + key + '"]');
+      if (!field) return;
+      var missing = !String(row[key] || '').trim() || (key === 'author' && !authorVerified(row));
+      var wrap = field.closest('.bulk-field');
+      if (wrap) wrap.classList.toggle('is-missing', missing && !isExisting(row));
+    });
+    var genre = container.querySelector('[data-row="' + index + '"][data-field="genre_ids"]');
+    if (genre && genre.closest('.bulk-field')) genre.closest('.bulk-field').classList.toggle('is-missing', (!row.genre_ids || !row.genre_ids.length) && !isExisting(row));
+    var coverField = container.querySelector('[data-row="' + index + '"][data-field="cover_url"]');
+    if (coverField && coverField.closest('.bulk-field')) coverField.closest('.bulk-field').classList.toggle('is-missing', !row.cover_url && !row.cover_file_present && !row.reuse_catalog_cover && !isExisting(row));
+    var consent = container.querySelector('[data-row="' + index + '"][data-field="cover_permission_confirmed"]');
+    if (consent) consent.closest('.bulk-consent').classList.toggle('is-missing', !consent.checked && !isExisting(row));
   }
   function renderPreparedAuthorCheck(index) {
     var note = container.querySelector('[data-author-check="' + index + '"]');
@@ -216,7 +264,8 @@
       if (check.status === 'verified') return check.name + ': matched verified Filipino author ' + (check.matched_name || '') + '.';
       if (check.status === 'possible_match') return check.name + ': possible name variation of ' + (check.matched_name || 'a verified author') + '; review identity.';
       if (check.status === 'ambiguous') return check.name + ': multiple local author matches; resolve identity.';
-      return check.name + ': no verified local match. This is unknown, not proof the author is non-Filipino; add identity evidence for review.';
+      if (check.status === 'rejected') return check.name + ': identity was rejected in author review. Admin/staff review is required.';
+      return check.name + ': no verified local match. This is unknown, not proof the author is non-Filipino; verify identity before import.';
     }).join(' ');
   }
   function setNotice(index, text, kind) {
@@ -369,6 +418,7 @@
   }
   async function lookupRow(index) {
     readRows(); var row = state.rows[index];
+    if (row.skip || isExisting(row)) return;
     if (!row.title || !row.author) { setNotice(index, 'Enter both the book title and author before searching metadata.', 'warning'); return; }
     updateRowHeading(index, 'searching', 'Searching online…');
     setNotice(index, 'Searching Google Books for metadata suggestions…', 'info');
@@ -435,6 +485,9 @@
     var names = String(state.rows[index].author || '').split(';').map(function (name) { return name.trim(); }).filter(Boolean);
     var note = container.querySelector('[data-author-check="' + index + '"]');
     if (!names.length) { if (note) { note.className = 'bulk-author-check'; note.textContent = 'Add an author to check against the verified Filipino-author catalog.'; } return; }
+    state.rows[index].filipino_author_checks = [];
+    renderPreparedAuthorCheck(index);
+    refreshSummary();
     authorCheckPending[index] = names;
     if (note) { note.className = 'bulk-author-check is-checking'; note.textContent = 'Checking author against the verified Filipino-author catalog…'; }
     if (authorCheckTimer) clearTimeout(authorCheckTimer);
@@ -451,6 +504,9 @@
         var note = container.querySelector('[data-author-check="' + index + '"]');
         if (!note) return;
         var checks = data.results[index] || [];
+        state.rows[index].filipino_author_checks = checks.map(function (check) {
+          return { name: check.name, status: check.status === 'not_found' ? 'needs_evidence' : check.status, matched_name: check.matched_name || (check.matches || [])[0] || '' };
+        });
         var allVerified = checks.length > 0 && checks.every(function (check) { return check.status === 'verified'; });
         note.className = 'bulk-author-check ' + (allVerified ? 'is-verified' : 'is-review');
         note.textContent = checks.map(function (check) {
@@ -461,6 +517,7 @@
           return check.name + ': catalog record is ' + check.status.replace(/_/g, ' ') + '; admin review is required.';
         }).join(' ');
       });
+      refreshSummary();
     } catch (error) {
       Object.keys(pending).forEach(function (index) {
         var note = container.querySelector('[data-author-check="' + index + '"]');
@@ -495,14 +552,15 @@
       if (matched.edition_id && !String(row.price || '').trim() && matched.price) row.price = String(matched.price);
       renderRowFields(index); updateCover(index);
       row.lookup_status = 'Existing catalog book';
+      row.existing_catalog_selected = true;
       updateRowHeading(index, 'existing', 'Existing book');
       renderRowFields(index);
-      scheduleAuthorCheck(index);
+      setRowEditable(index, false);
       var editionsSummary = matched.catalog_record ? Object.keys(matched.catalog_record.editions || {}).map(function (format) {
         var existingEdition = matched.catalog_record.editions[format];
         return format + (existingEdition.isbn ? ' · ISBN ' + existingEdition.isbn : '') + ' · stock ' + existingEdition.stock_quantity + ' · ₱' + Number(existingEdition.price).toFixed(2);
       }).join('; ') : '';
-      setNotice(index, 'Already in the catalog: ' + matched.title + ' — ' + (matched.author || 'author not listed') + (matched.isbn ? ' · ISBN ' + matched.isbn : '') + '. ' + (matched.edition_id ? 'The ' + matched.format + ' edition currently has ' + matched.stock_quantity + ' in stock; importing adds quantity to this record and will not create a duplicate.' : 'This new format will be added under the existing title, not as a duplicate book.') + (editionsSummary ? ' Catalog formats: ' + editionsSummary + '.' : ''), 'success');
+      setNotice(index, 'This book is already in the shop catalog. It is view-only here and will not be added or changed by this new-book import.' + (editionsSummary ? ' Catalog formats: ' + editionsSummary + '.' : ''), 'success');
       if (candidateBox && matched.catalog_record) {
         var existingCard = el('article', 'bulk-candidate bulk-existing-record');
         var matchingEdition = (matched.catalog_record.editions || {})[matched.format];
@@ -580,10 +638,12 @@
       if (edition.price && !row.unit_cost) row.price = String(edition.price);
     }
     row.lookup_status = 'Existing catalog record selected';
+    row.local_match = book;
+    row.existing_catalog_selected = true;
     renderRowFields(index); updateCover(index); updateRowHeading(index, 'existing', 'Catalog record selected');
-    scheduleAuthorCheck(index);
+    setRowEditable(index, false);
     var box = container.querySelector('[data-catalog-candidates="' + index + '"]'); if (box) box.textContent = '';
-    setNotice(index, 'Catalog details filled. Confirm the author and edition, then use the quantity field for copies being added. Existing edition price and reviewed catalog details will be preserved during restocking.', 'success');
+    setNotice(index, 'This title is already in the shop catalog. It is view-only and excluded from this new-book import.', 'success');
     refreshSummary(); checkCatalog(index);
   }
   function scheduleCatalogCheck(index) {
@@ -692,18 +752,21 @@
   state.rows.forEach(makeRow);
   attachInputListeners(); refreshSummary();
   state.rows.forEach(function (_, index) { renderPreparedAuthorCheck(index); });
+  if (imported) progress.hidden = true;
   if (!imported) {
     checkCatalogBatch().then(function () {
       var pending = state.rows.map(function (row, index) { return index; }).filter(function (index) { return !state.rows[index].skip && !(state.rows[index].local_match && state.rows[index].lookup_status === 'Existing catalog book'); });
       if (pending.length) {
+        progress.max = pending.length; progress.value = 0; progress.hidden = false;
         message.className = 'bulk-message is-info'; message.textContent = 'Automatically matching book titles and authors online: 0 of ' + pending.length + ' checked…';
         return concurrentLookup(pending.map(function (index, position) {
           var task = enqueueLookup(index);
-          task.then(function () { message.textContent = 'Automatically matching book titles and authors online: ' + (position + 1) + ' of ' + pending.length + ' checked…'; });
+          task.then(function () { progress.value = position + 1; message.textContent = 'Automatically matching book titles and authors online: ' + (position + 1) + ' of ' + pending.length + ' checked…'; });
           return task;
         })).then(function () { message.textContent = 'Automatic online matching is complete. Review any uncertain matches and fill remaining required details.'; });
       }
-      message.textContent = 'Catalog checks are complete. Existing records are shown below; review and complete any remaining details.';
+      progress.hidden = true;
+      message.textContent = 'Catalog checks are complete. Existing records are shown below; review remaining details for new books.';
     });
   }
   if (imported) { message.textContent = 'This batch is already complete. Reloading it is safe and will not add stock again.'; }
@@ -731,8 +794,8 @@
       }
       imported = true; message.className = 'bulk-message is-success';
       var s = data.summary || {};
-      message.textContent = data.already_imported ? data.message : 'Done: ' + (s.created || 0) + ' new products, ' + (s.restocked || 0) + ' existing products restocked, ' + (s.pending_review || 0) + ' books awaiting author approval, ' + (s.skipped || 0) + ' skipped. Reloading this batch will not apply it twice.';
-      importButton.textContent = 'Batch imported';
+      message.textContent = data.already_imported ? data.message : 'Done: ' + (s.created || 0) + ' new books added, ' + (s.skipped || 0) + ' skipped. Existing books and unverified authors were excluded. Reloading this batch will not apply it twice.';
+      importButton.textContent = 'Batch Imported';
       container.querySelectorAll('input,select,textarea,button').forEach(function (field) { field.disabled = true; });
     } catch (error) {
       message.className = 'bulk-message is-error'; message.textContent = 'Import request failed: ' + (error.message || 'network error') + ' The batch is safe to retry after resolving the issue.'; importButton.disabled = false;

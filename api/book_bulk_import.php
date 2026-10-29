@@ -379,16 +379,7 @@ function bulkValidateRow(PDO $pdo, array $row, int $index, array $genreIds, bool
     if ((!bulkIsAllowedCover($cover) && !$hasUploadedCover && !$canReuseSavedCover) || (empty($row['cover_permission_confirmed']) && !$canReuseSavedCover)) return 'Choose a Google Books cover or upload a permitted cover file, then confirm it is allowed for this project.';
     try {
         $existingBook = bulkFindExistingBook($pdo, $row);
-        if ($existingBook && $isbn !== '') {
-            $editionCheck = $pdo->prepare('SELECT edition_id, isbn FROM book_editions WHERE book_id = ? AND format = ? LIMIT 1');
-            $editionCheck->execute([(int) $existingBook['book_id'], $format]);
-            $existingEdition = $editionCheck->fetch();
-            $existingEditionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($existingEdition['isbn'] ?? ''))) ?? '');
-            if ($existingEdition && $existingEditionIsbn === '') {
-                $existingEditionIsbn = strtoupper(preg_replace('/[\s-]+/', '', trim((string) ($existingBook['isbn'] ?? ''))) ?? '');
-            }
-            if ($existingEditionIsbn !== '' && $existingEditionIsbn !== $isbn) return 'This format already exists with a different ISBN. Verify whether it is a distinct edition before importing; the catalog will not merge conflicting ISBNs.';
-        }
+        if ($existingBook) return 'This book already exists in the shop catalog and is excluded from the new-book import.';
     } catch (RuntimeException $e) {
         return $e->getMessage();
     }
@@ -405,12 +396,7 @@ function bulkValidateRow(PDO $pdo, array $row, int $index, array $genreIds, bool
         $authorMatches[] = ['name' => $name, 'verified' => count($matches['exact']) === 1];
     }
     $unknown = array_filter($authorMatches, static fn($a) => !$a['verified']);
-    if ($unknown) {
-        $evidence = trim((string) ($row['filipino_evidence_url'] ?? ''));
-        if (filter_var($evidence, FILTER_VALIDATE_URL) === false || !in_array(strtolower((string) parse_url($evidence, PHP_URL_SCHEME)), ['http', 'https'], true) || strlen($evidence) > 500) {
-            return 'Add a public source where the author self-identifies as Filipino. New/unverified authors stay hidden until approved.';
-        }
-    }
+    if ($unknown) return 'This author is not verified in the Filipino-author database. Verify the author before importing the book.';
     return null;
 }
 

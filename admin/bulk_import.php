@@ -261,24 +261,28 @@ include __DIR__ . '/../includes/header.php';
 <link rel="stylesheet" href="/css/admin-bulk-import.css?v=<?= (int) filemtime(__DIR__ . '/../css/admin-bulk-import.css') ?>">
 <section class="container bulk-import-page">
     <div class="bulk-hero">
-        <div><p class="bulk-eyebrow">Product management</p><h1>Bulk add books</h1><p>Start with the titles you know. Look up metadata in one batch, resolve exceptions, then add approved books together.</p></div>
+        <div><p class="bulk-eyebrow">Product management</p><h1>Bulk add books</h1><p>Upload book titles and authors, review automatic matches, and import approved new books together.</p></div>
         <a class="btn btn-secondary" href="/admin/products.php">← Product management</a>
     </div>
-    <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= bulkImportEscape($error) ?></p><?php endforeach; ?></div><?php endif; ?>
     <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= bulkImportEscape($success) ?></p></div><?php endif; ?>
 
     <?php if ($batch): ?>
-        <div class="bulk-stepbar"><span class="is-current">1 · Upload</span><span class="is-current">2 · Enrich &amp; review</span><span class="<?= $batch['status'] === 'imported' ? 'is-current' : '' ?>">3 · Import</span></div>
+        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-complete"><span class="bulk-step-number">01</span><span>Upload</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-complete' : 'is-current' ?>"><span class="bulk-step-number">02</span><span>Enrich &amp; review</span></li><li class="<?= $batch['status'] === 'imported' ? 'is-current' : '' ?>"><span class="bulk-step-number">03</span><span>Import</span></li></ol>
         <section class="bulk-controls card">
-        <div><p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?></p><h2><?= (int) $batch['row_count'] ?> book rows</h2><p><?= $batch['status'] === 'imported' ? 'This batch has already been applied; retrying it will not change stock again.' : 'Author checks run during preparation. Catalog and online metadata matching now starts automatically.' ?></p></div>
+            <div><p class="bulk-eyebrow">Batch <?= bulkImportEscape(substr($batchId, 0, 8)) ?></p><h2><?= (int) $batch['row_count'] ?> book rows</h2><p><?= $batch['status'] === 'imported' ? 'This batch has already been applied; retrying it will not change stock again.' : 'Author checks run during preparation. Catalog and online metadata matching now starts automatically.' ?></p></div>
             <div class="bulk-actions">
-                <button class="btn btn-primary" type="button" id="import-ready" <?= $batch['status'] === 'imported' ? 'disabled' : '' ?>>Import ready books</button>
+                <button class="btn btn-primary bulk-button" type="button" id="import-ready" <?= $batch['status'] === 'imported' ? 'disabled' : '' ?>>Import Ready Books</button>
             </div>
         </section>
-        <div class="bulk-summary" id="bulk-summary" aria-live="polite"><span>Preparing rows…</span></div>
+        <section class="bulk-processing" aria-label="Automatic matching progress">
+            <div class="bulk-processing-icon" aria-hidden="true">↻</div>
+            <div class="bulk-processing-copy"><strong>Automatic checks</strong><div class="bulk-message" id="bulk-message" role="status" aria-live="polite">Preparing rows…</div></div>
+            <progress id="bulk-progress" value="0" max="1" aria-label="Books checked"></progress>
+        </section>
         <nav class="bulk-filters" id="bulk-filters" aria-label="Filter book rows"></nav>
+        <p class="bulk-category-note" id="bulk-category-note" aria-live="polite"></p>
+        <p class="bulk-inline-warning" id="bulk-duplicate-warning" role="alert" hidden></p>
         <div id="bulk-rows" class="bulk-rows"></div>
-        <div id="bulk-message" class="bulk-message" role="status" aria-live="polite"></div>
         <form id="bulk-import-form" method="post" action="/api/book_bulk_import.php" hidden>
             <input type="hidden" name="csrf_token" value="<?= bulkImportEscape(generateCsrfToken()) ?>">
             <input type="hidden" name="action" value="commit">
@@ -288,7 +292,7 @@ include __DIR__ . '/../includes/header.php';
         <script>window.bulkImportState = <?= json_encode(['batchId' => $batchId, 'status' => $batch['status'], 'rows' => $rows, 'genres' => array_map(static fn($g) => ['id' => (int) $g['genre_id'], 'name' => $g['genre_name']], $genres), 'csrf' => generateCsrfToken()], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_UNESCAPED_UNICODE | JSON_INVALID_UTF8_SUBSTITUTE) ?>;</script>
         <script src="/js/admin-bulk-import.js?v=<?= (int) filemtime(__DIR__ . '/../js/admin-bulk-import.js') ?>" defer></script>
     <?php else: ?>
-        <div class="bulk-stepbar"><span class="is-current">1 · Upload</span><span>2 · Enrich &amp; review</span><span>3 · Import</span></div>
+        <ol class="bulk-stepper" aria-label="Bulk import progress"><li class="is-current"><span class="bulk-step-number">01</span><span>Upload</span></li><li><span class="bulk-step-number">02</span><span>Enrich &amp; review</span></li><li><span class="bulk-step-number">03</span><span>Import</span></li></ol>
         <div class="bulk-layout">
             <section class="card bulk-upload-card">
                 <p class="bulk-eyebrow">Create a catalog batch</p><h2>Start with a simple list</h2>
@@ -296,21 +300,32 @@ include __DIR__ . '/../includes/header.php';
                 <form method="post" enctype="multipart/form-data" class="bulk-upload-form">
                     <input type="hidden" name="csrf_token" value="<?= bulkImportEscape(generateCsrfToken()) ?>">
                     <label class="bulk-file-drop" for="csv_file"><span class="bulk-file-icon" aria-hidden="true">↑</span><strong>Choose a CSV file</strong><small>Up to 500 rows · 2 MB max · UTF-8 or Excel CSV</small><input type="file" id="csv_file" name="csv_file" accept=".csv,text/csv" required></label>
+                    <?php if ($errors): ?><div class="bulk-upload-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= bulkImportEscape($error) ?></p><?php endforeach; ?></div><?php endif; ?>
                     <div class="bulk-defaults">
                         <label>Default quantity per book<input class="form-input" type="number" name="default_quantity" min="1" max="9999999" value="1" required><small>Used only when the CSV has no quantity value.</small></label>
                         <label>Default markup (%)<input class="form-input" type="number" name="default_markup" min="0" max="500" step="0.01" value="25" required><small>Applied to unit cost, or to a Google Books retail reference when it is listed in PHP.</small></label>
                     </div>
-                    <button class="btn btn-primary" type="submit">Prepare batch</button>
-                    <a class="btn btn-secondary" href="/admin/bulk_import.php?template=1">Download CSV template</a>
+                    <div class="bulk-upload-actions"><button class="btn btn-primary bulk-button" type="submit">Prepare Batch</button><a class="btn btn-secondary bulk-button" href="/admin/bulk_import.php?template=1">Download CSV Template</a></div>
                 </form>
             </section>
-            <aside class="card bulk-guide">
-                <p class="bulk-eyebrow">Automated catalog workflow</p><h2>Match carefully. Import once.</h2>
-                <ol><li><strong>Identify:</strong> provide both title and author in every CSV row; ISBN is helpful but optional.</li><li><strong>Enrich automatically:</strong> after preparation, Google Books is searched and Open Library is used when Google has no strong match or is unavailable. High-confidence records fill details; uncertain matches wait for staff selection.</li><li><strong>Prevent duplicates:</strong> exact ISBN or title-and-author matches show the existing catalog record and restock its matching format. Similar names and conflicting ISBNs are flagged for review.</li><li><strong>Check author identity:</strong> verified Filipino-author matches are checked during preparation. A name missing from that list is unknown, not automatically foreign; add evidence and let staff review it.</li><li><strong>Import:</strong> only rows with required listing details and a selected format are added; unresolved rows stay out.</li></ol>
-                <p class="bulk-note">Online results are suggestions, not proof of the correct book or Filipino identity. Compare edition ISBNs and covers before importing. Open Library is a no-key fallback; configure an application contact email for its API User-Agent if available.</p>
-            </aside>
+            <div class="bulk-help-panels">
+                <button class="bulk-help-card" type="button" data-dialog-open="workflow-dialog"><span class="bulk-help-icon" aria-hidden="true">↗</span><span><small>How it works</small><strong>Automatic catalog workflow</strong><em>See the full preparation, matching, and import steps</em></span><span class="bulk-help-arrow" aria-hidden="true">→</span></button>
+                <button class="bulk-help-card" type="button" data-dialog-open="columns-dialog"><span class="bulk-help-icon bulk-help-icon-alt" aria-hidden="true">▤</span><span><small>CSV guide</small><strong>Columns we recognize</strong><em>Required fields and supported alternate headings</em></span><span class="bulk-help-arrow" aria-hidden="true">→</span></button>
+            </div>
         </div>
-        <section class="card bulk-field-help"><h2>CSV columns we recognize</h2><p><strong>Required for every row:</strong> title and author. <strong>Optional:</strong> author description, ISBN, format, quantity, cost, price, publisher, description, and language. Column names such as <code>Book Title</code>, <code>Author Name</code>, <code>Copies</code>, <code>Unit Cost</code>, and <code>Binding</code> are also accepted.</p><p>Spreadsheet exports from suppliers vary. The importer maps common alternative headings and ignores unrelated columns, but each row must contain both a title and author to reduce false matches.</p></section>
+        <dialog class="bulk-dialog" id="workflow-dialog" aria-labelledby="workflow-dialog-title"><form method="dialog" class="bulk-dialog-close-wrap"><button class="bulk-dialog-close" aria-label="Close dialog">×</button></form><p class="bulk-eyebrow">From CSV to catalog</p><h2 id="workflow-dialog-title">Automatic catalog workflow</h2><ol class="bulk-dialog-steps"><li><strong>Upload and identify.</strong> Every row needs a book title and author. ISBN helps distinguish editions but is optional.</li><li><strong>Check Filipino author identities.</strong> During preparation, author names are matched with verified authors and known aliases. Possible name variations and unknown names are flagged for review; no match does not mean the author is foreign.</li><li><strong>Check for existing titles.</strong> The system compares ISBN, title, and author against the shop catalog. Existing books are shown as read-only and excluded from this new-book import.</li><li><strong>Find metadata automatically.</strong> Google Books is searched first, with Open Library as fallback. Strong matches fill available details; uncertain results wait for staff to choose the right book and edition.</li><li><strong>Complete and import.</strong> Only new books by verified Filipino authors with all required listing details can be imported. Existing catalog books and unknown authors remain outside the import until addressed.</li></ol><p class="bulk-note">Online metadata is a suggestion, not proof of Filipino identity, edition accuracy, or image-display permission. Review covers and bibliographic details before import.</p><div class="bulk-dialog-footer"><button class="btn btn-primary bulk-button" type="button" data-dialog-close>Got It</button></div></dialog>
+        <dialog class="bulk-dialog" id="columns-dialog" aria-labelledby="columns-dialog-title"><form method="dialog" class="bulk-dialog-close-wrap"><button class="bulk-dialog-close" aria-label="Close dialog">×</button></form><p class="bulk-eyebrow">CSV reference</p><h2 id="columns-dialog-title">Columns we recognize</h2><p><strong class="bulk-required-copy">Required for every row:</strong> <code>title</code> and <code>author</code>.</p><p><strong>Optional:</strong> author description, ISBN, format, quantity, cost, price, publisher, description, and language. Common alternate headings include <code>Book Title</code>, <code>Author Name</code>, <code>Copies</code>, <code>Unit Cost</code>, and <code>Binding</code>.</p><p>Supplier spreadsheets use different layouts. The importer maps common alternate headings, ignores unrelated columns, and stops with a row-specific message if the title or author is missing.</p><div class="bulk-dialog-footer"><button class="btn btn-primary bulk-button" type="button" data-dialog-close>Got It</button></div></dialog>
     <?php endif; ?>
 </section>
+<script>
+document.querySelectorAll('[data-dialog-open]').forEach(function (trigger) {
+    trigger.addEventListener('click', function () { var dialog = document.getElementById(trigger.dataset.dialogOpen); if (dialog && dialog.showModal) dialog.showModal(); });
+});
+document.querySelectorAll('.bulk-dialog').forEach(function (dialog) {
+    dialog.addEventListener('click', function (event) { if (event.target === dialog) dialog.close(); });
+});
+document.querySelectorAll('[data-dialog-close]').forEach(function (button) {
+    button.addEventListener('click', function () { var dialog = button.closest('dialog'); if (dialog) dialog.close(); });
+});
+</script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
