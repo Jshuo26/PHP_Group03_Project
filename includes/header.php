@@ -36,8 +36,12 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/header.css">
 
-    <?php if (($_SERVER['SCRIPT_NAME'] ?? '') === '/admin/index.php' && ($_SESSION['role'] ?? '') === 'admin'): ?>
+    <?php if (($_SERVER['SCRIPT_NAME'] ?? '') === '/admin/index.php' && in_array(($_SESSION['role'] ?? ''), ['admin', 'staff'], true)): ?>
         <link rel="stylesheet" href="/css/admin-dashboard.css">
+    <?php endif; ?>
+
+    <?php if (in_array(basename($_SERVER['PHP_SELF']), ['products.php', 'catalog_review.php'], true) && $isAdminPortal): ?>
+        <link rel="stylesheet" href="/css/admin-products.css">
     <?php endif; ?>
 
     <?php if (basename($_SERVER['PHP_SELF']) === 'featured.php'): ?>
@@ -70,12 +74,13 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
             <?php if ($isAdminPortal): ?>
                 <?php if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
                     <a class="nav-link" href="/admin/index.php">Dashboard</a>
-                    <a class="nav-link" href="/admin/products.php">Books</a>
+                    <a class="nav-link" href="/admin/products.php">Products</a>
+                    <a class="nav-link" href="/admin/author_reviews.php">Authors</a>
                     <a class="nav-link" href="/admin/orders.php">Orders</a>
-                    <a class="nav-link" href="/admin/author_reviews.php">Author Reviews</a>
                     <?php if ($userRole === 'admin'): ?>
                         <a class="nav-link" href="/admin/users.php">Staff &amp; Roles</a>
-                        <a class="nav-link" href="/admin/audit_logs.php">Activity</a>
+                        <a class="nav-link" href="/admin/security.php">Security</a>
+                        <a class="nav-link" href="/admin/audit_logs.php">Activities</a>
                     <?php endif; ?>
                 <?php endif; ?>
             <?php else: ?>

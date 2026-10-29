@@ -1,18 +1,29 @@
 <?php
 ?>
-<div class="card" style="margin:20px 0;">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
+<section class="admin-low-stock-panel" aria-labelledby="low-stock-title">
+    <div class="admin-low-stock-heading">
         <div>
-            <h2 class="card-title">Low-stock alerts<?php if ($lowStockReady): ?> <span style="font-size:.85em;">(<?= number_format($activeLowStockCount) ?> active)</span><?php endif; ?></h2>
-            <p class="card-text"><?php if (!$lowStockReady): ?>Apply the low-stock alerts migration to enable inventory notifications.<?php elseif ($activeLowStockCount === 0): ?>All editions are above the configured threshold.<?php else: ?>Review editions that need replenishment.<?php endif; ?></p>
+            <p class="admin-eyebrow">Inventory pulse</p>
+            <h2 id="low-stock-title">Low-stock watch</h2>
         </div>
-        <a class="btn btn-secondary" href="/admin/low_stock.php">View inventory alerts</a>
+        <?php if ($lowStockReady): ?><span class="admin-alert-count <?= $activeLowStockCount > 0 ? 'has-alerts' : '' ?>"><?= number_format($activeLowStockCount) ?> active</span><?php endif; ?>
     </div>
+    <p class="admin-low-stock-copy"><?php if (!$lowStockReady): ?>Apply the low-stock alerts migration to enable inventory notifications.<?php elseif ($activeLowStockCount === 0): ?>All editions are above their restock thresholds.<?php else: ?>Editions below their restock threshold are listed here.<?php endif; ?></p>
     <?php if ($lowStockReady && $activeLowStockItems): ?>
-        <ul style="margin:16px 0 0;padding-left:22px;">
+        <ul class="admin-low-stock-list">
             <?php foreach ($activeLowStockItems as $lowItem): ?>
-                <li style="margin:8px 0;"><strong><?= htmlspecialchars((string) $lowItem['book_title'], ENT_QUOTES, 'UTF-8') ?></strong> · <?= htmlspecialchars(ucfirst((string) $lowItem['edition_format']), ENT_QUOTES, 'UTF-8') ?> · <?= (int) $lowItem['current_stock'] ?> left (threshold <?= (int) $lowItem['threshold_at_detection'] ?>) · <a href="/admin/products.php?edit=<?= (int) $lowItem['edition_id'] ?>">Restock</a></li>
+                <li>
+                    <div class="admin-low-stock-book">
+                        <strong><?= htmlspecialchars((string) $lowItem['book_title'], ENT_QUOTES, 'UTF-8') ?></strong>
+                        <small><?= htmlspecialchars(ucfirst((string) $lowItem['edition_format']), ENT_QUOTES, 'UTF-8') ?> · threshold <?= (int) $lowItem['threshold_at_detection'] ?></small>
+                    </div>
+                    <span class="admin-stock-count <?= (int) $lowItem['current_stock'] === 0 ? 'is-empty' : '' ?>"><?= (int) $lowItem['current_stock'] ?> left</span>
+                    <a href="/admin/products.php?edit=<?= (int) $lowItem['edition_id'] ?>">Restock</a>
+                </li>
             <?php endforeach; ?>
         </ul>
+    <?php elseif ($lowStockReady): ?>
+        <div class="admin-stock-clear"><span aria-hidden="true">✓</span><p>No editions need restocking right now.</p></div>
     <?php endif; ?>
-</div>
+    <a class="admin-low-stock-link" href="/admin/low_stock.php">View all inventory alerts <span aria-hidden="true">→</span></a>
+</section>

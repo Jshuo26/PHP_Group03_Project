@@ -43,48 +43,52 @@ if (!auditSchemaMissingColumns($pdo)) {
 include __DIR__ . '/../includes/header.php';
 ?>
 <section class="container <?= $isAdmin ? 'admin-dashboard' : 'staff-dashboard' ?>">
-    <?php include __DIR__ . '/../includes/low_stock_widget.php'; ?>
     <?php if ($isAdmin): ?>
         <header class="admin-dashboard-hero">
             <div>
-                <p class="admin-eyebrow">Store control center</p>
+                <p class="admin-eyebrow">Administrator dashboard</p>
                 <h1>Good day, <?= htmlspecialchars((string) $_SESSION['full_name'], ENT_QUOTES, 'UTF-8') ?></h1>
-                <p>Oversee store performance, keep operations moving, and manage access from one place.</p>
+                <p>Your bookstore at a glance. Review what needs attention and jump straight into daily operations.</p>
             </div>
-            <a class="admin-hero-action" href="/admin/audit_logs.php">Review activity <span aria-hidden="true">→</span></a>
+            <div class="admin-hero-actions">
+                <a class="admin-hero-action" href="/admin/audit_logs.php">Review activity <span aria-hidden="true">→</span></a>
+                <span class="admin-secure-badge"><span aria-hidden="true">●</span> Secure admin workspace</span>
+            </div>
         </header>
 
         <section class="admin-overview" aria-labelledby="admin-overview-title">
             <div class="admin-section-heading">
                 <div><p class="admin-eyebrow">At a glance</p><h2 id="admin-overview-title">Store overview</h2></div>
-                <span class="admin-role-pill">Administrator</span>
+                <span class="admin-role-pill"><span aria-hidden="true">●</span> Administrator</span>
             </div>
             <div class="admin-metric-grid">
-                <article class="admin-metric admin-metric-highlight"><span>Total orders</span><strong><?= number_format($counts['orders']) ?></strong><small>All customer orders</small></article>
-                <article class="admin-metric"><span>Needs attention</span><strong><?= number_format($counts['pending']) ?></strong><small>Pending orders</small></article>
-                <article class="admin-metric"><span>In progress</span><strong><?= number_format($counts['processing']) ?></strong><small>Processing or shipped</small></article>
-                <article class="admin-metric"><span>Books in catalog</span><strong><?= number_format($counts['products']) ?></strong><small><?= number_format($counts['inventory']) ?> total stock units</small></article>
-                <article class="admin-metric"><span>Customers</span><strong><?= number_format($counts['customers']) ?></strong><small>Registered accounts</small></article>
+                <article class="admin-metric admin-metric-orders"><span>Total orders</span><strong><?= number_format($counts['orders']) ?></strong><small>All customer orders</small></article>
+                <article class="admin-metric admin-metric-attention"><span>Needs attention</span><strong><?= number_format($counts['pending']) ?></strong><small>Pending orders</small></article>
+                <article class="admin-metric admin-metric-progress"><span>In progress</span><strong><?= number_format($counts['processing']) ?></strong><small>Processing or shipped</small></article>
+                <article class="admin-metric admin-metric-books"><span>Books in catalog</span><strong><?= number_format($counts['products']) ?></strong><small><?= number_format($counts['inventory']) ?> total stock units</small></article>
+                <article class="admin-metric admin-metric-customers"><span>Customers</span><strong><?= number_format($counts['customers']) ?></strong><small>Registered accounts</small></article>
                 <?php if ($paidSales !== null): ?><article class="admin-metric admin-metric-sales"><span>Confirmed sales</span><strong>₱<?= number_format($paidSales, 2) ?></strong><small>Payments marked paid</small></article><?php endif; ?>
             </div>
         </section>
 
+        <div class="admin-dashboard-workspace">
         <section class="admin-management" aria-labelledby="admin-management-title">
             <div class="admin-section-heading">
-                <div><p class="admin-eyebrow">Administration</p><h2 id="admin-management-title">Manage the bookstore</h2></div>
-                <p>Operational tools and owner controls</p>
+                <div><p class="admin-eyebrow">Daily operations</p><h2 id="admin-management-title">Manage the bookstore</h2></div>
+                <p>Choose a workspace to continue</p>
             </div>
             <div class="admin-tool-grid">
-                <a class="admin-tool-card" href="/admin/products.php"><span class="admin-tool-icon">B</span><span><strong>Books &amp; inventory</strong><small>Catalog, pricing, stock, and availability</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/genres.php"><span class="admin-tool-icon">C</span><span><strong>Categories</strong><small>Organize the book catalog</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/customers.php"><span class="admin-tool-icon">U</span><span><strong>Customers</strong><small>Accounts and order history</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/orders.php"><span class="admin-tool-icon">O</span><span><strong>Orders</strong><small>Review payments and fulfillment</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/author_reviews.php"><span class="admin-tool-icon">A</span><span><strong>Author reviews</strong><small>Review author evidence and book eligibility</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/low_stock.php"><span class="admin-tool-icon">!</span><span><strong>Inventory alerts</strong><small><?= $lowStockReady ? number_format($activeLowStockCount) . ' active low-stock alert(s)' : 'Configure low-stock monitoring' ?></small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/users.php"><span class="admin-tool-icon">S</span><span><strong>Staff &amp; roles</strong><small>Create accounts and manage access</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/security.php"><span class="admin-tool-icon">S</span><span><strong>Security settings</strong><small>Manage account protection settings</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/products.php"><span class="admin-tool-icon" aria-hidden="true">B</span><span><strong>Books &amp; inventory</strong><small>Catalog, pricing, stock, and availability</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/orders.php"><span class="admin-tool-icon" aria-hidden="true">O</span><span><strong>Orders</strong><small>Payments and fulfillment</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/author_reviews.php"><span class="admin-tool-icon" aria-hidden="true">A</span><span><strong>Author reviews</strong><small>Evidence and Filipino-author eligibility</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/low_stock.php"><span class="admin-tool-icon" aria-hidden="true">!</span><span><strong>Inventory alerts</strong><small><?= $lowStockReady ? number_format($activeLowStockCount) . ' active low-stock alert(s)' : 'Low-stock monitoring setup' ?></small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/customers.php"><span class="admin-tool-icon" aria-hidden="true">U</span><span><strong>Customers</strong><small>Accounts and order history</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/genres.php"><span class="admin-tool-icon" aria-hidden="true">C</span><span><strong>Categories</strong><small>Organize the book catalog</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/users.php"><span class="admin-tool-icon" aria-hidden="true">S</span><span><strong>Staff &amp; roles</strong><small>Manage staff accounts and access</small></span><b aria-hidden="true">→</b></a>
             </div>
         </section>
+        <?php include __DIR__ . '/../includes/low_stock_widget.php'; ?>
+        </div>
 
         <section class="admin-activity-panel" aria-labelledby="admin-activity-title">
             <div class="admin-section-heading">
@@ -110,6 +114,7 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </section>
     <?php else: ?>
+        <?php include __DIR__ . '/../includes/low_stock_widget.php'; ?>
         <div class="card">
             <h1 class="card-title">Staff Dashboard</h1>
             <p class="card-text">Welcome, <?= htmlspecialchars((string) $_SESSION['full_name'], ENT_QUOTES, 'UTF-8') ?>. Your role: <strong>Staff</strong>.</p>
