@@ -338,3 +338,31 @@
   .low-stock-selection-toolbar { align-items:stretch; }
   .low-stock-select-all { width:100%; }
 }
+
+/* Low-stock layout refinements: right-aligned compact threshold and clear action spacing. */
+.low-stock-settings {
+  grid-column:2;
+  justify-self:end;
+  width:min(100%, 680px);
+  box-sizing:border-box;
+  grid-template-columns:minmax(0, 1fr) auto;
+  gap:.75rem;
+}
+.low-stock-settings-copy { text-align:right; }
+.low-stock-settings-copy h2 { margin-top:.2rem; }
+.low-stock-settings-copy p { max-width:34ch; margin-left:auto; }
+.low-stock-threshold-form { min-width:220px; }
+.low-stock-threshold-form > label { text-align:right; }
+.low-stock-threshold-controls { justify-content:flex-end; }
+.low-stock-selection-actions { display:flex; align-items:center; justify-content:flex-end; gap:.7rem; flex:0 0 auto; }
+.low-stock-selection-actions .btn { margin:0; }
+.low-stock-table th:last-child { text-align:left; }
+.low-stock-table td.low-stock-copies-cell { min-width:150px; }
+.low-stock-table .low-stock-quantity-input { display:block; width:112px; max-width:100%; margin:0; }
+@media(max-width:850px) {
+  .low-stock-settings { grid-column:1; justify-self:stretch; width:100%; }
+  .low-stock-settings-copy { text-align:left; }
+  .low-stock-settings-copy p { margin-left:0; }
+  .low-stock-threshold-form > label { text-align:left; }
+  .low-stock-threshold-controls { justify-content:flex-start; }
+}

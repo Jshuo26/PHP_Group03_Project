@@ -130,3 +130,51 @@ function sendActivationEmail(
         return false;
     }
 }
+
+function sendPasswordResetEmail(
+    array $config,
+    string $toEmail,
+    string $toName,
+    string $resetUrl
+): bool {
+    foreach (['SMTP_HOST', 'SMTP_USER', 'SMTP_PASS', 'SMTP_FROM'] as $key) {
+        $value = (string) ($config[$key] ?? '');
+        if ($value === '' || str_contains($value, 'your_')) {
+            error_log("Mailer: missing config {$key}.");
+            return false;
+        }
+    }
+
+    $mail = new PHPMailer(true);
+    try {
+        $mail->isSMTP();
+        $mail->Host       = $config['SMTP_HOST'];
+        $mail->SMTPAuth   = true;
+        $mail->Username   = $config['SMTP_USER'];
+        $mail->Password   = $config['SMTP_PASS'];
+        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS;
+        $mail->Port       = (int) ($config['SMTP_PORT'] ?? 587);
+        $mail->Timeout    = 15;
+        $mail->CharSet    = 'UTF-8';
+        $mail->setFrom($config['SMTP_FROM'], 'aklAAAt!');
+        $mail->addAddress($toEmail, $toName);
+
+        $safeName = htmlspecialchars($toName, ENT_QUOTES, 'UTF-8');
+        $safeUrl = htmlspecialchars($resetUrl, ENT_QUOTES, 'UTF-8');
+        $mail->isHTML(true);
+        $mail->Subject = 'Reset your aklAAAt! password';
+        $mail->Body = "
+            <div style='font-family:Arial,sans-serif;color:#3f3a37;line-height:1.6'>
+                <p>Hi {$safeName},</p>
+                <p>We received a request to reset your password. Use the secure link below within 30 minutes:</p>
+                <p><a href='{$safeUrl}' style='display:inline-block;background:#ae5c0f;color:#fff;padding:12px 20px;border-radius:9px;text-decoration:none;font-weight:bold'>Reset my password</a></p>
+                <p>If you did not request this, you can safely ignore this email. Your password will not change.</p>
+            </div>";
+        $mail->AltBody = "Hi {$toName},\n\nReset your aklAAAt! password within 30 minutes using this link:\n{$resetUrl}\n\nIf you did not request this, ignore this email.";
+        $mail->send();
+        return true;
+    } catch (MailException $e) {
+        error_log('Password reset email failed: ' . $e->getMessage());
+        return false;
+    }
+}

@@ -272,7 +272,7 @@ include __DIR__ . '/../includes/header.php';
     <section class="low-stock-overview-panel" aria-label="Low-stock overview and settings">
         <div class="low-stock-overview-copy"><span class="operations-eyebrow">CURRENT INVENTORY PULSE</span><h2><?= number_format($activeCount) ?> Active Alert<?= $activeCount === 1 ? '' : 's' ?></h2><p><?= $ready ? 'Editions at or below the shared restock threshold appear in the alert list.' : 'Apply the low-stock migration to enable monitoring.' ?></p><div class="low-stock-threshold-pill">Current Threshold <strong><?= number_format($threshold) ?> Units</strong></div></div>
         <div class="low-stock-settings">
-            <div><span class="operations-eyebrow">ALERT SETTINGS</span><h2>Shared Stock Threshold</h2><p><?php if ($isAdmin): ?>Changing this value updates every edition and reevaluates open alerts.<?php else: ?>Only an administrator can change the shared threshold.<?php endif; ?></p></div>
+            <div class="low-stock-settings-copy"><span class="operations-eyebrow">ALERT SETTINGS</span><h2>Shared Stock Threshold</h2><p><?php if ($isAdmin): ?>Changing this value updates every edition and reevaluates open alerts.<?php else: ?>Only an administrator can change the shared threshold.<?php endif; ?></p></div>
             <?php if ($isAdmin): ?>
                 <form method="post" action="/admin/low_stock.php" class="low-stock-threshold-form">
                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="save_threshold">
@@ -301,7 +301,7 @@ include __DIR__ . '/../includes/header.php';
         <?php else: ?>
             <?php if ($statusFilter === 'active' || $statusFilter === 'all'): ?><form method="post" action="/admin/low_stock.php" class="low-stock-selection-form" id="low-stock-selection-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
-                <div class="low-stock-selection-toolbar"><label class="low-stock-select-all"><input type="checkbox" id="low-stock-select-all" <?= $activeCount < 1 ? 'disabled' : '' ?>> <span>Select All Listed</span></label><p>Select active editions, set copies to add, then restock or export an order list.</p><div class="low-stock-selection-actions"><button class="btn btn-secondary" type="submit" name="action" value="export_selected_restock_csv" <?= !$ready || $activeCount < 1 ? 'disabled' : '' ?>>Generate CSV</button><button class="btn btn-primary" type="submit" name="action" value="demo_restock_selected" <?= !$ready || $activeCount < 1 ? 'disabled' : '' ?>>Restock Selected <span aria-hidden="true">→</span></button></div></div>
+                <div class="low-stock-selection-toolbar"><label class="low-stock-select-all"><input type="checkbox" id="low-stock-select-all" <?= $activeCount < 1 ? 'disabled' : '' ?>> <span>Select All Listed</span></label><p>Select active editions, set copies to add, then restock or export an order list.</p><div class="low-stock-selection-actions"><button class="btn btn-secondary" type="submit" name="action" value="export_selected_restock_csv" <?= !$ready || $activeCount < 1 ? 'disabled' : '' ?>>Generate CSV</button><button class="btn btn-primary" type="submit" name="action" value="demo_restock_selected" <?= !$ready || $activeCount < 1 ? 'disabled' : '' ?>>Restock Selected</button></div></div>
             <?php endif; ?>
             <div class="low-stock-table-wrap"><table class="table low-stock-table <?= ($statusFilter === 'active' || $statusFilter === 'all') ? 'low-stock-selectable-table' : '' ?>">
                 <thead><tr><?php if ($statusFilter === 'active' || $statusFilter === 'all'): ?><th scope="col">Select</th><?php endif; ?><th>Book / edition</th><th>Stock</th><th>Threshold</th><th>Detected</th><th>Status</th><th>Resolved</th><th><?= $statusFilter === 'resolved' ? 'Manage' : ($statusFilter === 'all' ? 'Copies to Add / Manage' : 'Copies to Add') ?></th></tr></thead>
@@ -314,7 +314,7 @@ include __DIR__ . '/../includes/header.php';
                         <td><?= htmlspecialchars((string) $alert['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
                         <td><?= htmlspecialchars(ucfirst((string) $alert['status']), ENT_QUOTES, 'UTF-8') ?></td>
                         <td><?= htmlspecialchars((string) ($alert['resolved_at'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td class="low-stock-row-actions">
+                        <td class="low-stock-row-actions low-stock-copies-cell">
                             <?php if ($alert['status'] === 'active'): ?>
                                 <label class="sr-only" for="restock-quantity-<?= (int) $alert['edition_id'] ?>">Copies to Add</label><input class="form-input low-stock-quantity-input" type="number" id="restock-quantity-<?= (int) $alert['edition_id'] ?>" name="quantities[<?= (int) $alert['edition_id'] ?>]" min="1" max="5000" value="<?= (int) ($restockQuantities[(int) $alert['edition_id']] ?? 10) ?>" required form="low-stock-selection-form">
                             <?php else: ?><a class="btn btn-secondary" href="/admin/products.php?edit=<?= (int) $alert['edition_id'] ?>">Manage Stock</a><?php endif; ?>

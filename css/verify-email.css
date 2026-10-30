@@ -99,6 +99,39 @@
     font-weight: 600;
 }
 
+.verify-email-text-input {
+    display: block;
+    width: 100%;
+    min-height: 50px;
+    padding: 0.8rem 0.95rem;
+    border: 1.5px solid #d8c7b2;
+    border-radius: 10px;
+    outline: none;
+    background: #fffdf9;
+    color: #422b1c;
+    font: inherit;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.verify-email-text-input:focus {
+    border-color: #ae5c0f;
+    box-shadow: 0 0 0 3px rgba(174, 92, 15, 0.13);
+}
+
+.verify-email-back-link {
+    display: inline-flex;
+    margin-top: 1.15rem;
+    color: #8d4711;
+    font-size: 0.9rem;
+    font-weight: 650;
+    text-decoration: none;
+}
+
+.verify-email-back-link:hover,
+.verify-email-back-link:focus-visible {
+    text-decoration: underline;
+}
+
 .verify-email-otp-input {
     display: block;
     width: 100%;
