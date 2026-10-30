@@ -17,7 +17,7 @@ if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)) {
 
 $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
-$adminAssetVersion = '20261031-live-admin-3';
+$adminAssetVersion = '20261031-live-admin-4';
 
 ?>
 <!DOCTYPE html>

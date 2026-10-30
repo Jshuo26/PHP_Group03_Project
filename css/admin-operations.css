@@ -310,24 +310,31 @@
 .staff-account-grid { display:flex !important; min-height:320px; max-height:650px; flex:1 1 auto; flex-direction:column !important; flex-wrap:nowrap !important; overflow-x:hidden; overflow-y:auto; }
 .staff-account-card { width:100%; flex:0 0 auto; }
 .low-stock-queue-actions { display:flex; min-width:0; align-items:flex-end; justify-content:flex-end; flex-wrap:wrap; gap:.65rem; }
-.low-stock-restock-all-form { display:grid; grid-template-columns:auto 78px auto; align-items:end; gap:.4rem; padding:.55rem; border:1px solid #efd9bd; border-radius:12px; background:#fff8ef; }
-.low-stock-restock-all-form label { grid-column:1/-1; color:#70563f; font-size:.7rem; font-weight:800; }
-.low-stock-restock-all-form .form-input { width:78px; min-height:38px; margin:0; border:1px solid #dfd0c0; border-radius:8px; }
-.low-stock-restock-all-form .btn { min-height:38px; padding:.5rem .7rem; white-space:nowrap; }
 .low-stock-filter-tabs { justify-content:flex-end; }
 .low-stock-alerts-heading { align-items:flex-end; }
 .low-stock-table { width:100%; }
 .low-stock-table td:first-child { min-width:220px; }
 .low-stock-table td:first-child small { display:inline-block; margin-top:.22rem; color:#806d5c; }
-.low-stock-table .low-stock-restock-form { justify-content:flex-start; }
+.low-stock-selection-form { display:grid; gap:.75rem; }
+.low-stock-selection-toolbar { display:flex; align-items:center; flex-wrap:wrap; gap:.8rem 1rem; padding:.85rem 1rem; border:1px solid #efd9bd; border-radius:14px; background:linear-gradient(110deg,#fff8ef,#fff); }
+.low-stock-select-all { display:inline-flex; align-items:center; gap:.55rem; color:#71300c; font-weight:800; white-space:nowrap; cursor:pointer; }
+.low-stock-select-all input,
+.low-stock-select-edition { width:18px; height:18px; accent-color:#b45b08; cursor:pointer; }
+.low-stock-selection-toolbar p { flex:1 1 220px; margin:0; color:#806d5c; font-size:.88rem; }
+.low-stock-selection-toolbar .btn { margin-left:auto; white-space:nowrap; }
+.low-stock-table .low-stock-select-edition { display:block; margin:0 auto; }
+.low-stock-table .low-stock-quantity-input { width:112px; min-height:40px; }
+.low-stock-selectable-table th:first-child,
+.low-stock-selectable-table td:first-child { width:62px; min-width:62px; text-align:center; }
+.low-stock-table td.low-stock-row-actions { min-width:150px; }
 
 @media(max-width:760px) {
   .low-stock-queue-actions { width:100%; align-items:stretch; justify-content:flex-start; }
-  .low-stock-restock-all-form { flex:1 1 100%; }
   .low-stock-filter-tabs { justify-content:flex-start; }
   .staff-account-grid { min-height:220px; max-height:460px; }
+  .low-stock-selection-toolbar .btn { width:100%; margin-left:0; }
 }
 @media(max-width:520px) {
-  .low-stock-restock-all-form { grid-template-columns:minmax(0,1fr) 78px; }
-  .low-stock-restock-all-form .btn { grid-column:1/-1; width:100%; }
+  .low-stock-selection-toolbar { align-items:stretch; }
+  .low-stock-select-all { width:100%; }
 }

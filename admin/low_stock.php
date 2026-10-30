@@ -14,6 +14,8 @@ $success = (string) ($_SESSION['admin_flash'] ?? '');
 unset($_SESSION['admin_flash']);
 $ready = lowStockAlertsReady($pdo);
 $threshold = $ready ? getLowStockThreshold($pdo) : 5;
+$selectedRestockIds = [];
+$restockQuantities = [];
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
@@ -59,36 +61,126 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to restock this edition. Please try again.';
             }
         }
-    } elseif ($action === 'demo_restock_all') {
-        $quantity = filter_var(requestString($_POST, 'quantity'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 5000]]);
-        if ($quantity === false) {
-            $errors[] = 'Choose a restock quantity per edition from 1 to 5,000.';
+    } elseif ($action === 'export_selected_restock_csv' || $action === 'demo_restock_selected') {
+        $rawEditionIds = $_POST['edition_ids'] ?? [];
+        $rawQuantities = $_POST['quantities'] ?? [];
+        $rawEditionIds = is_array($rawEditionIds) ? $rawEditionIds : [];
+        $rawQuantities = is_array($rawQuantities) ? $rawQuantities : [];
+        foreach ($rawEditionIds as $rawId) {
+            $editionId = filter_var($rawId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            if ($editionId !== false && !in_array((int) $editionId, $selectedRestockIds, true)) $selectedRestockIds[] = (int) $editionId;
+        }
+        foreach ($rawQuantities as $rawId => $rawQuantity) {
+            $editionId = filter_var($rawId, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+            $quantity = filter_var($rawQuantity, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 5000]]);
+            if ($editionId !== false && $quantity !== false) $restockQuantities[(int) $editionId] = (int) $quantity;
+        }
+        if (!$selectedRestockIds) {
+            $errors[] = 'Select at least one active edition to restock.';
+        } elseif (count($selectedRestockIds) > 200) {
+            $errors[] = 'Select no more than 200 editions at a time.';
         } elseif (!$ready) {
             $errors[] = 'Apply the low-stock migration before restocking alerts.';
+        } elseif ($action === 'export_selected_restock_csv') {
+            try {
+                $placeholders = implode(',', array_fill(0, count($selectedRestockIds), '?'));
+                $stmt = $pdo->prepare("SELECT e.edition_id, b.title,
+                        COALESCE(NULLIF(e.isbn, ''), NULLIF(b.isbn, ''), '') AS isbn,
+                        e.format, b.publisher, b.description, b.language,
+                        GROUP_CONCAT(DISTINCT a.full_name ORDER BY a.full_name SEPARATOR '; ') AS authors,
+                        GROUP_CONCAT(DISTINCT NULLIF(a.bio, '') ORDER BY a.bio SEPARATOR '; ') AS author_description
+                    FROM low_stock_alerts la
+                    JOIN book_editions e ON e.edition_id = la.edition_id
+                    JOIN books b ON b.book_id = e.book_id
+                    LEFT JOIN book_authors ba ON ba.book_id = b.book_id
+                    LEFT JOIN authors a ON a.author_id = ba.author_id
+                    WHERE la.status = 'active' AND e.edition_id IN ($placeholders)
+                    GROUP BY e.edition_id, b.title, b.isbn, e.isbn, e.format, b.publisher, b.description, b.language
+                    ORDER BY b.title, e.format");
+                $stmt->execute($selectedRestockIds);
+                $books = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                if (count($books) !== count($selectedRestockIds)) {
+                    throw new RuntimeException('One or more selected alerts are no longer active. Refresh the list and try again.');
+                }
+                foreach ($selectedRestockIds as $editionId) {
+                    if (!isset($restockQuantities[$editionId])) throw new RuntimeException('Enter a valid “Copies to Add” amount for every selected edition.');
+                }
+                auditLog(
+                    $pdo,
+                    'create',
+                    'Generated a low-stock purchase CSV for ' . count($books) . ' selected edition(s). Inventory was not changed.',
+                    'products',
+                    (int) $_SESSION['user_id'],
+                    'restock_order',
+                    null,
+                    'success',
+                    (string) $_SESSION['role']
+                );
+                $output = fopen('php://temp', 'w+b');
+                if ($output === false) throw new RuntimeException('The CSV export could not be prepared.');
+                fwrite($output, "\xEF\xBB\xBF");
+                fputcsv($output, ['title', 'author', 'author_description', 'isbn', 'format', 'quantity', 'cost', 'price', 'publisher', 'description', 'language']);
+                $safeCsvValue = static function ($value): string {
+                    $value = (string) $value;
+                    return preg_match('/^\s*[=+@-]/u', $value) ? "'" . $value : $value;
+                };
+                foreach ($books as $book) {
+                    $editionId = (int) $book['edition_id'];
+                    fputcsv($output, [
+                        $safeCsvValue($book['title']),
+                        $safeCsvValue($book['authors'] ?: 'Author unknown'),
+                        $safeCsvValue($book['author_description'] ?? ''),
+                        $safeCsvValue($book['isbn'] ?? ''),
+                        $safeCsvValue($book['format']),
+                        $restockQuantities[$editionId],
+                        '',
+                        '',
+                        $safeCsvValue($book['publisher'] ?? ''),
+                        $safeCsvValue($book['description'] ?? ''),
+                        $safeCsvValue($book['language'] ?? ''),
+                    ]);
+                }
+                rewind($output);
+                header('Content-Type: text/csv; charset=utf-8');
+                header('Content-Disposition: attachment; filename="aklaaat-low-stock-order-' . date('Y-m-d-His') . '.csv"');
+                header('Cache-Control: no-store, no-cache, must-revalidate');
+                fpassthru($output);
+                fclose($output);
+                exit;
+            } catch (Throwable $e) {
+                error_log('Low-stock CSV export failed: ' . $e->getMessage());
+                $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to generate the selected restock CSV. Please try again.';
+            }
         } else {
             try {
                 $pdo->beginTransaction();
-                $editionIds = $pdo->query("SELECT edition_id FROM low_stock_alerts WHERE status = 'active' ORDER BY edition_id FOR UPDATE")->fetchAll(PDO::FETCH_COLUMN);
-                if (!$editionIds) throw new RuntimeException('There are no active alerts to restock.');
+                $placeholders = implode(',', array_fill(0, count($selectedRestockIds), '?'));
+                $alertStmt = $pdo->prepare("SELECT edition_id FROM low_stock_alerts WHERE status = 'active' AND edition_id IN ($placeholders) ORDER BY edition_id FOR UPDATE");
+                $alertStmt->execute($selectedRestockIds);
+                $editionIds = array_map('intval', $alertStmt->fetchAll(PDO::FETCH_COLUMN));
+                if (count($editionIds) !== count($selectedRestockIds)) {
+                    throw new RuntimeException('One or more selected alerts are no longer active. Refresh the list and try again.');
+                }
                 $stockStmt = $pdo->prepare('SELECT stock_quantity FROM book_editions WHERE edition_id = ? FOR UPDATE');
                 $updateStmt = $pdo->prepare('UPDATE book_editions SET stock_quantity = stock_quantity + ? WHERE edition_id = ?');
                 $restocked = 0;
                 foreach ($editionIds as $editionId) {
-                    $editionId = (int) $editionId;
+                    if (!isset($restockQuantities[$editionId])) throw new RuntimeException('Enter a valid “Copies to Add” amount for every selected edition.');
+                    $quantity = $restockQuantities[$editionId];
                     $stockStmt->execute([$editionId]);
                     $stock = $stockStmt->fetchColumn();
-                    if ($stock === false) continue;
-                    if ((int) $stock + (int) $quantity > 4294967295) {
+                    if ($stock === false) throw new RuntimeException('A selected edition could not be found. No editions were changed.');
+                    if ((int) $stock + $quantity > 4294967295) {
                         throw new RuntimeException('Edition #' . $editionId . ' would exceed the database stock limit. No editions were changed.');
                     }
-                    $updateStmt->execute([(int) $quantity, $editionId]);
+                    $updateStmt->execute([$quantity, $editionId]);
                     syncEditionLowStockAlert($pdo, $editionId);
                     $restocked++;
                 }
                 auditLogRequired(
                     $pdo,
                     'update',
-                    'Demo restock added ' . (int) $quantity . ' copies to each of ' . $restocked . ' active low-stock editions.',
+                    'Demo restock added copies to ' . $restocked . ' selected active low-stock edition(s).',
                     'products',
                     (int) $_SESSION['user_id'],
                     'inventory_alerts',
@@ -97,13 +189,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     (string) $_SESSION['role']
                 );
                 $pdo->commit();
-                $_SESSION['admin_flash'] = 'Restocked ' . $restocked . ' edition(s) by ' . (int) $quantity . ' copies each. Inventory alerts were refreshed.';
+                $_SESSION['admin_flash'] = 'Restocked ' . $restocked . ' selected edition(s). Inventory alerts were refreshed.';
                 header('Location: /admin/low_stock.php?status=active');
                 exit;
             } catch (Throwable $e) {
                 if ($pdo->inTransaction()) $pdo->rollBack();
-                error_log('Demo restock-all failed: ' . $e->getMessage());
-                $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to restock all active alerts. Please try again.';
+                error_log('Demo selected restock failed: ' . $e->getMessage());
+                $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to restock the selected editions. Please try again.';
             }
         }
     } elseif ($action === 'save_threshold') {
@@ -195,7 +287,6 @@ include __DIR__ . '/../includes/header.php';
         <div class="low-stock-alerts-heading">
             <div><span class="operations-eyebrow">RESTOCK QUEUE</span><h2 id="inventory-alerts-title">Inventory Alerts</h2><p>Review current and resolved stock alerts, then open an edition to update its inventory.</p></div>
             <div class="low-stock-queue-actions">
-                <?php if ($statusFilter === 'active' && $activeCount > 0): ?><form method="post" action="/admin/low_stock.php" class="low-stock-restock-all-form"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="demo_restock_all"><label for="restock-all-quantity">Copies per edition</label><input class="form-input" type="number" id="restock-all-quantity" name="quantity" min="1" max="5000" value="10" required><button class="btn btn-primary" type="submit" <?= !$ready ? 'disabled' : '' ?>>Restock All <span>(<?= number_format($activeCount) ?>)</span></button></form><?php endif; ?>
                 <nav class="low-stock-filter-tabs" aria-label="Filter alert status">
                     <a class="btn <?= $statusFilter === 'active' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=active">Active</a>
                     <a class="btn <?= $statusFilter === 'resolved' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=resolved">Resolved</a>
@@ -208,10 +299,15 @@ include __DIR__ . '/../includes/header.php';
         <?php elseif (!$alerts): ?>
             <div class="operations-empty"><h2>No <?= htmlspecialchars(ucfirst($statusFilter), ENT_QUOTES, 'UTF-8') ?> Alerts</h2><p>There are no <?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?> low-stock alerts to show.</p></div>
         <?php else: ?>
-            <div class="low-stock-table-wrap"><table class="table low-stock-table">
-                <thead><tr><th>Book / edition</th><th>Stock</th><th>Threshold</th><th>Detected</th><th>Status</th><th>Resolved</th><th>Manage</th></tr></thead>
+            <?php if ($statusFilter === 'active' || $statusFilter === 'all'): ?><form method="post" action="/admin/low_stock.php" class="low-stock-selection-form" id="low-stock-selection-form">
+                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                <div class="low-stock-selection-toolbar"><label class="low-stock-select-all"><input type="checkbox" id="low-stock-select-all" <?= $activeCount < 1 ? 'disabled' : '' ?>> <span>Select All Listed</span></label><p>Select active editions, set copies to add, then restock or export an order list.</p><div class="low-stock-selection-actions"><button class="btn btn-secondary" type="submit" name="action" value="export_selected_restock_csv" <?= !$ready || $activeCount < 1 ? 'disabled' : '' ?>>Generate CSV</button><button class="btn btn-primary" type="submit" name="action" value="demo_restock_selected" <?= !$ready || $activeCount < 1 ? 'disabled' : '' ?>>Restock Selected <span aria-hidden="true">→</span></button></div></div>
+            <?php endif; ?>
+            <div class="low-stock-table-wrap"><table class="table low-stock-table <?= ($statusFilter === 'active' || $statusFilter === 'all') ? 'low-stock-selectable-table' : '' ?>">
+                <thead><tr><?php if ($statusFilter === 'active' || $statusFilter === 'all'): ?><th scope="col">Select</th><?php endif; ?><th>Book / edition</th><th>Stock</th><th>Threshold</th><th>Detected</th><th>Status</th><th>Resolved</th><th><?= $statusFilter === 'resolved' ? 'Manage' : ($statusFilter === 'all' ? 'Copies to Add / Manage' : 'Copies to Add') ?></th></tr></thead>
                 <tbody><?php foreach ($alerts as $alert): ?>
                     <tr>
+                        <?php if ($statusFilter === 'active' || $statusFilter === 'all'): ?><td><?php if ($alert['status'] === 'active'): ?><input type="checkbox" name="edition_ids[]" value="<?= (int) $alert['edition_id'] ?>" class="low-stock-select-edition" aria-label="Select <?= htmlspecialchars((string) $alert['book_title'], ENT_QUOTES, 'UTF-8') ?> for restock"><?php else: ?><span aria-label="Resolved alert">—</span><?php endif; ?></td><?php endif; ?>
                         <td><?= htmlspecialchars((string) $alert['book_title'], ENT_QUOTES, 'UTF-8') ?><br><small><?= htmlspecialchars(ucfirst((string) $alert['edition_format']), ENT_QUOTES, 'UTF-8') ?> · Edition #<?= (int) $alert['edition_id'] ?></small></td>
                         <td><strong><?= number_format((int) $alert['current_stock']) ?></strong> units</td>
                         <td><?= number_format((int) $alert['threshold_at_detection']) ?> units</td>
@@ -220,17 +316,30 @@ include __DIR__ . '/../includes/header.php';
                         <td><?= htmlspecialchars((string) ($alert['resolved_at'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
                         <td class="low-stock-row-actions">
                             <?php if ($alert['status'] === 'active'): ?>
-                                <form method="post" action="/admin/low_stock.php" class="low-stock-restock-form">
-                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="demo_restock"><input type="hidden" name="edition_id" value="<?= (int) $alert['edition_id'] ?>"><input type="hidden" name="status" value="<?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?>">
-                                    <label class="sr-only" for="restock-quantity-<?= (int) $alert['edition_id'] ?>">Copies to add for <?= htmlspecialchars((string) $alert['book_title'], ENT_QUOTES, 'UTF-8') ?></label><input class="form-input" type="number" id="restock-quantity-<?= (int) $alert['edition_id'] ?>" name="quantity" min="1" max="5000" value="10" required>
-                                    <button class="btn btn-primary" type="submit">Restock</button>
-                                </form>
+                                <label class="sr-only" for="restock-quantity-<?= (int) $alert['edition_id'] ?>">Copies to Add</label><input class="form-input low-stock-quantity-input" type="number" id="restock-quantity-<?= (int) $alert['edition_id'] ?>" name="quantities[<?= (int) $alert['edition_id'] ?>]" min="1" max="5000" value="<?= (int) ($restockQuantities[(int) $alert['edition_id']] ?? 10) ?>" required form="low-stock-selection-form">
                             <?php else: ?><a class="btn btn-secondary" href="/admin/products.php?edit=<?= (int) $alert['edition_id'] ?>">Manage Stock</a><?php endif; ?>
                         </td>
                     </tr>
                 <?php endforeach; ?></tbody>
             </table></div>
+            <?php if ($statusFilter === 'active' || $statusFilter === 'all'): ?></form><?php endif; ?>
         <?php endif; ?>
     </section>
 </main>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var selectAll = document.getElementById('low-stock-select-all');
+    if (!selectAll) return;
+    var boxes = Array.prototype.slice.call(document.querySelectorAll('.low-stock-select-edition'));
+    selectAll.addEventListener('change', function () {
+        boxes.forEach(function (box) { box.checked = selectAll.checked; });
+    });
+    boxes.forEach(function (box) {
+        box.addEventListener('change', function () {
+            selectAll.checked = boxes.length > 0 && boxes.every(function (item) { return item.checked; });
+            selectAll.indeterminate = boxes.some(function (item) { return item.checked; }) && !selectAll.checked;
+        });
+    });
+});
+</script>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

@@ -135,6 +135,8 @@
 .restock-panel { position:sticky; top:1rem; display:flex; flex-direction:column; gap:.75rem; min-width:0; padding:1rem; margin:0; border:1px solid #ead7c2; border-radius:16px; background:#fff; box-shadow:0 8px 22px rgba(67,38,16,.07); }
 .restock-panel h2 { font-family:Georgia,"Times New Roman",serif; font-size:1.4rem; letter-spacing:-.02em; }
 .restock-panel p:not(.products-eyebrow) { font-size:.78rem; line-height:1.4; }
+.restock-management-link { display:flex; min-height:42px; align-items:center; justify-content:center; gap:.55rem; width:100%; white-space:nowrap; }
+.restock-management-link span { font-size:1.15em; line-height:1; }
 .restock-form { display:grid; grid-template-columns:minmax(0,1fr) 82px; align-items:end; gap:.45rem; padding-bottom:.75rem; border-bottom:1px solid #f0e5d9; }
 .restock-form label { grid-column:1/-1; font-size:.76rem; }
 .restock-form .form-input { min-height:40px; font-size:.82rem; }
