@@ -301,3 +301,33 @@
   .security-password-card .pp-grid { grid-template-columns:1fr; }
   .security-password-card .pp-grid > .form-group:first-child { grid-column:1; }
 }
+
+/* Live admin refresh: stable empty states, stacked team directory, and restock controls. */
+.orders-filter-empty[hidden] { display:none !important; }
+.orders-filter-panel { align-items:end; }
+.orders-filter-panel > .btn { justify-self:end; }
+.staff-directory { min-height:0; }
+.staff-account-grid { display:flex !important; min-height:320px; max-height:650px; flex:1 1 auto; flex-direction:column !important; flex-wrap:nowrap !important; overflow-x:hidden; overflow-y:auto; }
+.staff-account-card { width:100%; flex:0 0 auto; }
+.low-stock-queue-actions { display:flex; min-width:0; align-items:flex-end; justify-content:flex-end; flex-wrap:wrap; gap:.65rem; }
+.low-stock-restock-all-form { display:grid; grid-template-columns:auto 78px auto; align-items:end; gap:.4rem; padding:.55rem; border:1px solid #efd9bd; border-radius:12px; background:#fff8ef; }
+.low-stock-restock-all-form label { grid-column:1/-1; color:#70563f; font-size:.7rem; font-weight:800; }
+.low-stock-restock-all-form .form-input { width:78px; min-height:38px; margin:0; border:1px solid #dfd0c0; border-radius:8px; }
+.low-stock-restock-all-form .btn { min-height:38px; padding:.5rem .7rem; white-space:nowrap; }
+.low-stock-filter-tabs { justify-content:flex-end; }
+.low-stock-alerts-heading { align-items:flex-end; }
+.low-stock-table { width:100%; }
+.low-stock-table td:first-child { min-width:220px; }
+.low-stock-table td:first-child small { display:inline-block; margin-top:.22rem; color:#806d5c; }
+.low-stock-table .low-stock-restock-form { justify-content:flex-start; }
+
+@media(max-width:760px) {
+  .low-stock-queue-actions { width:100%; align-items:stretch; justify-content:flex-start; }
+  .low-stock-restock-all-form { flex:1 1 100%; }
+  .low-stock-filter-tabs { justify-content:flex-start; }
+  .staff-account-grid { min-height:220px; max-height:460px; }
+}
+@media(max-width:520px) {
+  .low-stock-restock-all-form { grid-template-columns:minmax(0,1fr) 78px; }
+  .low-stock-restock-all-form .btn { grid-column:1/-1; width:100%; }
+}

@@ -188,3 +188,20 @@
   .security-staff-action { grid-column: 2; grid-row: 1 / 3; }
   .security-staff-row .lk-email { overflow-wrap: anywhere; }
 }
+
+/* Compact, aligned security workspace for deployment browsers with a clean cache. */
+.security-page .security-main-panel { padding:1.15rem; border-radius:20px; }
+.security-page .security-policy-form { gap:1rem; }
+.security-page .security-policy-form > .security-settings-card { min-height:100%; }
+.security-page .security-policy-form > .security-lockout-card,
+.security-page .security-policy-form > .security-timeout-card { justify-content:flex-start; }
+.security-page .security-password-card .pp-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.security-page .security-form-footer { align-items:center; padding:.9rem .2rem .1rem; }
+.security-page .security-account-panels { gap:1rem; }
+.security-page .security-account-panels > .security-settings-card { min-height:410px; }
+.security-page .security-locked-card .lk-wrap,
+.security-page .security-staff-card .security-staff-list { max-height:310px; }
+@media(max-width:760px) {
+  .security-page .security-account-panels > .security-settings-card { min-height:350px; }
+  .security-page .security-form-footer { align-items:stretch; }
+}

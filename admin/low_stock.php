@@ -59,6 +59,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to restock this edition. Please try again.';
             }
         }
+    } elseif ($action === 'demo_restock_all') {
+        $quantity = filter_var(requestString($_POST, 'quantity'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 5000]]);
+        if ($quantity === false) {
+            $errors[] = 'Choose a restock quantity per edition from 1 to 5,000.';
+        } elseif (!$ready) {
+            $errors[] = 'Apply the low-stock migration before restocking alerts.';
+        } else {
+            try {
+                $pdo->beginTransaction();
+                $editionIds = $pdo->query("SELECT edition_id FROM low_stock_alerts WHERE status = 'active' ORDER BY edition_id FOR UPDATE")->fetchAll(PDO::FETCH_COLUMN);
+                if (!$editionIds) throw new RuntimeException('There are no active alerts to restock.');
+                $stockStmt = $pdo->prepare('SELECT stock_quantity FROM book_editions WHERE edition_id = ? FOR UPDATE');
+                $updateStmt = $pdo->prepare('UPDATE book_editions SET stock_quantity = stock_quantity + ? WHERE edition_id = ?');
+                $restocked = 0;
+                foreach ($editionIds as $editionId) {
+                    $editionId = (int) $editionId;
+                    $stockStmt->execute([$editionId]);
+                    $stock = $stockStmt->fetchColumn();
+                    if ($stock === false) continue;
+                    if ((int) $stock + (int) $quantity > 4294967295) {
+                        throw new RuntimeException('Edition #' . $editionId . ' would exceed the database stock limit. No editions were changed.');
+                    }
+                    $updateStmt->execute([(int) $quantity, $editionId]);
+                    syncEditionLowStockAlert($pdo, $editionId);
+                    $restocked++;
+                }
+                auditLogRequired(
+                    $pdo,
+                    'update',
+                    'Demo restock added ' . (int) $quantity . ' copies to each of ' . $restocked . ' active low-stock editions.',
+                    'products',
+                    (int) $_SESSION['user_id'],
+                    'inventory_alerts',
+                    null,
+                    'success',
+                    (string) $_SESSION['role']
+                );
+                $pdo->commit();
+                $_SESSION['admin_flash'] = 'Restocked ' . $restocked . ' edition(s) by ' . (int) $quantity . ' copies each. Inventory alerts were refreshed.';
+                header('Location: /admin/low_stock.php?status=active');
+                exit;
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('Demo restock-all failed: ' . $e->getMessage());
+                $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to restock all active alerts. Please try again.';
+            }
+        }
     } elseif ($action === 'save_threshold') {
         if (!$isAdmin) {
             http_response_code(403);
@@ -147,11 +194,14 @@ include __DIR__ . '/../includes/header.php';
     <section class="low-stock-alerts-panel" aria-labelledby="inventory-alerts-title">
         <div class="low-stock-alerts-heading">
             <div><span class="operations-eyebrow">RESTOCK QUEUE</span><h2 id="inventory-alerts-title">Inventory Alerts</h2><p>Review current and resolved stock alerts, then open an edition to update its inventory.</p></div>
-            <nav class="low-stock-filter-tabs" aria-label="Filter alert status">
-                <a class="btn <?= $statusFilter === 'active' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=active">Active</a>
-                <a class="btn <?= $statusFilter === 'resolved' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=resolved">Resolved</a>
-                <a class="btn <?= $statusFilter === 'all' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=all">All</a>
-            </nav>
+            <div class="low-stock-queue-actions">
+                <?php if ($statusFilter === 'active' && $activeCount > 0): ?><form method="post" action="/admin/low_stock.php" class="low-stock-restock-all-form"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="demo_restock_all"><label for="restock-all-quantity">Copies per edition</label><input class="form-input" type="number" id="restock-all-quantity" name="quantity" min="1" max="5000" value="10" required><button class="btn btn-primary" type="submit" <?= !$ready ? 'disabled' : '' ?>>Restock All <span>(<?= number_format($activeCount) ?>)</span></button></form><?php endif; ?>
+                <nav class="low-stock-filter-tabs" aria-label="Filter alert status">
+                    <a class="btn <?= $statusFilter === 'active' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=active">Active</a>
+                    <a class="btn <?= $statusFilter === 'resolved' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=resolved">Resolved</a>
+                    <a class="btn <?= $statusFilter === 'all' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=all">All</a>
+                </nav>
+            </div>
         </div>
         <?php if (!$ready): ?>
             <p class="card-text">Alerts will appear here once the migration is applied.</p>
