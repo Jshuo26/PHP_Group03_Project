@@ -274,9 +274,11 @@ CREATE TABLE book_editions (
 ) ENGINE=InnoDB;
 
 CREATE TABLE featured_books (
-    book_id         INT UNSIGNED NOT NULL PRIMARY KEY,
+    shelf_key       VARCHAR(30) NOT NULL DEFAULT 'staff_picks',
+    book_id         INT UNSIGNED NOT NULL,
     display_order   INT UNSIGNED NOT NULL DEFAULT 0,
     added_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (shelf_key, book_id),
     CONSTRAINT fk_featured_books_book
         FOREIGN KEY (book_id) REFERENCES books(book_id)
         ON DELETE CASCADE ON UPDATE CASCADE,

@@ -173,6 +173,13 @@
 .admin-activity-table tbody tr:last-child td { border-bottom: 0; }
 .admin-activity-table tbody tr:hover { background: #fffaf3; }
 .admin-action-tag { display: inline-block; padding: .22rem .5rem; border-radius: 999px; color: #87440d; background: #fff0d9; font-size: .7rem; font-weight: 700; text-transform: capitalize; white-space: nowrap; }
+.audit-action-badge { display:inline-flex; align-items:center; padding:.28rem .58rem; border-radius:999px; font-size:.72rem; font-weight:800; text-transform:capitalize; white-space:nowrap; }
+.audit-action-create,.audit-action-approve,.audit-action-unlock { color:#17653a!important; background:#e7f5eb!important; }
+.audit-action-update,.audit-action-review { color:#275c94!important; background:#e9f1ff!important; }
+.audit-action-delete,.audit-action-reject,.audit-action-login_failed { color:#a12d2a!important; background:#fff0ef!important; }
+.audit-action-login,.audit-action-verify { color:#176b68!important; background:#e5f6f3!important; }
+.audit-action-logout,.audit-action-read { color:#5d566f!important; background:#f0edf7!important; }
+.audit-action-restock,.audit-action-export { color:#805300!important; background:#fff2d6!important; }
 .admin-empty-state { margin: 0; padding: 1.1rem; border-radius: 10px; color: var(--muted-text); background: #fcf8f0; }
 .staff-dashboard > .admin-low-stock-panel { margin: 1.25rem 0; }
 @media (max-width: 1250px) {

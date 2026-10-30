@@ -102,7 +102,7 @@ include __DIR__ . '/../includes/header.php';
                             <td><?= htmlspecialchars((string) $activity['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= htmlspecialchars((string) ($activity['actor_name'] ?: 'System / unknown'), ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= htmlspecialchars(ucfirst((string) ($activity['actor_role'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td>
-                            <td><span class="admin-action-tag"><?= htmlspecialchars(str_replace('_', ' ', (string) $activity['action']), ENT_QUOTES, 'UTF-8') ?></span></td>
+                            <td><span class="admin-action-tag audit-action-<?= htmlspecialchars(strtolower((string) $activity['action']), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(str_replace('_', ' ', (string) $activity['action']), ENT_QUOTES, 'UTF-8') ?></span></td>
                             <td><?= htmlspecialchars(ucfirst((string) ($activity['module'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td>
                             <td><?= htmlspecialchars((string) $activity['description'], ENT_QUOTES, 'UTF-8') ?></td>
                         </tr>
@@ -139,7 +139,7 @@ include __DIR__ . '/../includes/header.php';
             <h2 class="card-title">Recent Bookstore Activity</h2>
             <?php if (!$recentActivity): ?><p class="card-text">No recent activity is available.</p>
             <?php else: ?><div style="overflow-x:auto;"><table class="table"><thead><tr><th>Date and time</th><th>User</th><th>Role</th><th>Action</th><th>Module</th><th>Activity</th></tr></thead><tbody>
-                <?php foreach ($recentActivity as $activity): ?><tr><td><?= htmlspecialchars((string) $activity['created_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($activity['actor_name'] ?: 'System / unknown'), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars(ucfirst((string) ($activity['actor_role'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars(str_replace('_', ' ', (string) $activity['action']), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars(ucfirst((string) ($activity['module'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) $activity['description'], ENT_QUOTES, 'UTF-8') ?></td></tr><?php endforeach; ?>
+                <?php foreach ($recentActivity as $activity): ?><tr><td><?= htmlspecialchars((string) $activity['created_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($activity['actor_name'] ?: 'System / unknown'), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars(ucfirst((string) ($activity['actor_role'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td><td><span class="admin-action-tag audit-action-<?= htmlspecialchars(strtolower((string) $activity['action']), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(str_replace('_', ' ', (string) $activity['action']), ENT_QUOTES, 'UTF-8') ?></span></td><td><?= htmlspecialchars(ucfirst((string) ($activity['module'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) $activity['description'], ENT_QUOTES, 'UTF-8') ?></td></tr><?php endforeach; ?>
             </tbody></table></div><?php endif; ?>
         </div>
     <?php endif; ?>

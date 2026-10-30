@@ -109,7 +109,7 @@ if ($filters['from'] !== null && $filters['to'] !== null && $filters['from'] > $
 }
 
 $page = filter_var($_GET['page'] ?? 1, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]) ?: 1;
-$pageSize = 50;
+$pageSize = 30;
 $rows = [];
 $users = [];
 $totalRows = 0;
@@ -299,7 +299,7 @@ include __DIR__ . '/../includes/header.php';
                             <td><?= auditPageEscape($row['created_at']) ?></td>
                             <td><?= auditPageEscape($row['actor_name']) ?></td>
                             <td><?= auditPageEscape(ucfirst((string) ($row['actor_role'] ?? 'unknown'))) ?></td>
-                            <td><?= auditPageEscape(auditPageActionLabel((string) $row['action'])) ?></td>
+                            <td><span class="audit-action-badge audit-action-<?= auditPageEscape(strtolower((string) $row['action'])) ?>"><?= auditPageEscape(auditPageActionLabel((string) $row['action'])) ?></span></td>
                             <td><?= auditPageEscape(auditPageModuleLabel(isset($row['module']) ? (string) $row['module'] : null)) ?></td>
                             <td><?= auditPageEscape($row['record_type'] ? $row['record_type'] . ' #' . ($row['record_id'] ?? '') : '') ?></td>
                             <td><?= auditPageEscape($row['result'] ?? 'Unknown / legacy') ?></td>
@@ -311,10 +311,34 @@ include __DIR__ . '/../includes/header.php';
                 </table>
             </div>
             <?php if ($totalPages > 1): ?>
-                <nav aria-label="Audit trail pages" style="display:flex;gap:12px;align-items:center;margin-top:16px;">
-                    <?php if ($page > 1): ?><a class="btn btn-secondary" href="<?= auditPageEscape(auditPageUrl($filters, $page - 1)) ?>">Newer</a><?php endif; ?>
-                    <span>Page <?= $page ?> of <?= $totalPages ?></span>
-                    <?php if ($page < $totalPages): ?><a class="btn btn-secondary" href="<?= auditPageEscape(auditPageUrl($filters, $page + 1)) ?>">Older</a><?php endif; ?>
+                <?php
+                $visiblePages = [1, $totalPages];
+                for ($pageNumber = max(1, $page - 1); $pageNumber <= min($totalPages, $page + 1); $pageNumber++) {
+                    $visiblePages[] = $pageNumber;
+                }
+                $visiblePages = array_values(array_unique($visiblePages));
+                sort($visiblePages);
+                ?>
+                <nav class="admin-audit-pagination" aria-label="Audit trail pages">
+                    <?php if ($page > 1): ?>
+                        <a class="audit-page-link" href="<?= auditPageEscape(auditPageUrl($filters, $page - 1)) ?>" rel="prev">Previous</a>
+                    <?php else: ?>
+                        <span class="audit-page-link is-disabled" aria-disabled="true">Previous</span>
+                    <?php endif; ?>
+                    <?php $lastVisiblePage = 0; foreach ($visiblePages as $pageNumber): ?>
+                        <?php if ($pageNumber > $lastVisiblePage + 1): ?><span class="audit-page-ellipsis" aria-hidden="true">…</span><?php endif; ?>
+                        <?php if ($pageNumber === $page): ?>
+                            <span class="audit-page-link is-current" aria-current="page"><?= $pageNumber ?></span>
+                        <?php else: ?>
+                            <a class="audit-page-link" href="<?= auditPageEscape(auditPageUrl($filters, $pageNumber)) ?>"><?= $pageNumber ?></a>
+                        <?php endif; ?>
+                        <?php $lastVisiblePage = $pageNumber; ?>
+                    <?php endforeach; ?>
+                    <?php if ($page < $totalPages): ?>
+                        <a class="audit-page-link" href="<?= auditPageEscape(auditPageUrl($filters, $page + 1)) ?>" rel="next">Next</a>
+                    <?php else: ?>
+                        <span class="audit-page-link is-disabled" aria-disabled="true">Next</span>
+                    <?php endif; ?>
                 </nav>
             <?php endif; ?>
         <?php endif; ?>

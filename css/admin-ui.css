@@ -2,6 +2,13 @@
 .admin-page-hero { display:flex; align-items:center; justify-content:space-between; gap:1.5rem; min-height:150px; padding:1.7rem 2rem; margin:0 0 1.25rem; border:1px solid rgba(255,255,255,.16); border-radius:20px; color:#fff; background:linear-gradient(112deg,#78310c 0%,#a94c0b 48%,#d77a19 100%); box-shadow:0 12px 28px rgba(92,48,14,.12); }
 .admin-page-hero > div { position:relative; z-index:1; }
 .admin-page-hero .admin-hero-eyebrow { display:block; margin:0 0 .4rem; color:#ffe0b5; font-size:.7rem; font-weight:850; letter-spacing:.15em; text-transform:uppercase; }
+.audit-action-badge { display:inline-flex; align-items:center; padding:.28rem .58rem; border-radius:999px; color:#6b4b30; background:#f4eee7; font-size:.72rem; font-weight:800; text-transform:capitalize; white-space:nowrap; }
+.audit-action-create,.audit-action-approve,.audit-action-unlock { color:#17653a!important; background:#e7f5eb!important; }
+.audit-action-update,.audit-action-review { color:#275c94!important; background:#e9f1ff!important; }
+.audit-action-delete,.audit-action-reject,.audit-action-login_failed { color:#a12d2a!important; background:#fff0ef!important; }
+.audit-action-login,.audit-action-verify { color:#176b68!important; background:#e5f6f3!important; }
+.audit-action-logout,.audit-action-read { color:#5d566f!important; background:#f0edf7!important; }
+.audit-action-restock,.audit-action-export { color:#805300!important; background:#fff2d6!important; }
 .admin-page-hero h1 { margin:0 0 .45rem; color:#fff; font-family:Georgia,"Times New Roman",serif; font-size:clamp(2rem,3.6vw,3rem); letter-spacing:-.035em; line-height:1.1; }
 .admin-page-hero p { max-width:720px; margin:0; color:rgba(255,255,255,.86); font-size:.96rem; line-height:1.5; }
 .admin-page-hero .hero-meta { display:flex; align-items:center; gap:.65rem; flex-wrap:wrap; justify-content:flex-end; }
@@ -23,13 +30,19 @@
 .admin-audit-filters { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; padding:1rem; border:1px solid #ecdfd1; border-radius:13px; background:#fffaf5; }
 .admin-audit-filters label { display:flex; min-width:0; flex-direction:column; gap:.3rem; color:#584637; font-size:.76rem; font-weight:750; }
 .admin-audit-filters .form-input { width:100%; min-width:0; min-height:40px; margin:0; font-size:.8rem; }
-.admin-audit-filters .audit-filter-actions { display:flex; align-items:end; gap:.45rem; }
+.admin-audit-filters .audit-filter-actions { grid-column:1/-1; display:flex; align-items:center; justify-content:flex-end; gap:.45rem; margin-right:.25rem; }
 .admin-audit-table-wrap { overflow:auto; margin-top:.55rem; border:1px solid #eee3d8; border-radius:12px; }
 .admin-audit-table { min-width:980px; margin:0; border-collapse:collapse; }
 .admin-audit-table th { position:sticky; top:0; padding:.7rem .75rem; color:#71563f; background:#fbf5ed; font-size:.68rem; letter-spacing:.06em; text-align:left; text-transform:uppercase; }
 .admin-audit-table td { padding:.72rem .75rem; border-top:1px solid #f0e7de; color:#514237; font-size:.78rem; line-height:1.45; vertical-align:top; }
 .admin-audit-table tr:hover td { background:#fffaf4; }
 .admin-audit-count { margin:.6rem 0; color:#796858; font-size:.82rem; }
+.admin-audit-pagination { display:flex; align-items:center; justify-content:center; gap:.35rem; margin:1rem auto .25rem; }
+.audit-page-link { display:inline-flex; min-width:2.25rem; min-height:2.25rem; align-items:center; justify-content:center; padding:.4rem .65rem; border:1px solid #eadbc9; border-radius:8px; color:#71300c; background:#fff; font-size:.8rem; font-weight:750; text-decoration:none; }
+.audit-page-link:hover:not(.is-disabled):not(.is-current) { border-color:#a9510c; background:#fff5e8; }
+.audit-page-link.is-current { border-color:#a9510c; color:#fff; background:#a9510c; }
+.audit-page-link.is-disabled { color:#a89a8d; background:#f7f3ef; cursor:default; }
+.audit-page-ellipsis { padding:0 .2rem; color:#796858; }
 .catalog-section-heading { align-items:center; }
 .catalog-section-heading .products-eyebrow { display:flex; align-items:center; gap:.65rem; }
 .catalog-section-heading .catalog-count { color:#796858; font-size:.78rem; font-weight:650; letter-spacing:0; text-transform:none; }
@@ -49,7 +62,7 @@
 .admin-book-dialog-info dt { margin-bottom:.2rem; color:#8b6746; font-size:.68rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .admin-book-dialog-info dd { margin:0; color:#49382d; font-size:.84rem; line-height:1.45; overflow-wrap:anywhere; white-space:pre-wrap; }
 @media(max-width:900px) { .admin-audit-filters { grid-template-columns:repeat(3,minmax(0,1fr)); } .admin-users-workspace { grid-template-columns:1fr; } }
-@media(max-width:650px) { .admin-page-hero { align-items:flex-start; flex-direction:column; min-height:0; padding:1.3rem; } .admin-page-hero .hero-meta { justify-content:flex-start; } .admin-audit-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .admin-audit-filters .audit-filter-actions { grid-column:1/-1; } .catalog-section-heading { align-items:flex-start; flex-direction:column; } .admin-book-dialog-body { grid-template-columns:100px minmax(0,1fr); gap:.8rem; padding:.8rem; } .admin-book-dialog-info { grid-template-columns:1fr; } .admin-book-dialog-info .wide { grid-column:auto; } }
+@media(max-width:650px) { .admin-page-hero { align-items:flex-start; flex-direction:column; min-height:0; padding:1.3rem; } .admin-page-hero .hero-meta { justify-content:flex-start; } .admin-audit-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .admin-audit-filters .audit-filter-actions { grid-column:1/-1; } .admin-audit-pagination { flex-wrap:wrap; } .catalog-section-heading { align-items:flex-start; flex-direction:column; } .admin-book-dialog-body { grid-template-columns:100px minmax(0,1fr); gap:.8rem; padding:.8rem; } .admin-book-dialog-info { grid-template-columns:1fr; } .admin-book-dialog-info .wide { grid-column:auto; } }
 .lookup-dialog { width:min(900px,calc(100vw - 2rem)); }
 .lookup-dialog > .admin-book-dialog-head p { margin:.3rem 0 0; color:#796858; font-size:.8rem; }
 .lookup-dialog .lookup-results { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; max-height:62vh; overflow:auto; padding:1rem; }

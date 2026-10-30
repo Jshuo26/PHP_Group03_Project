@@ -3,6 +3,8 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/catalog.php';
 
 $featuredBooks = [];
+$featuredSections = ['staff_picks' => [], 'local_gems' => []];
+$featuredSectionTitles = ['staff_picks' => 'Staff Picks', 'local_gems' => 'Local Gems'];
 
 $h = static fn ($value): string => htmlspecialchars(
     (string) $value,
@@ -18,6 +20,7 @@ function featuredBookCover(?string $path): string
 try {
     $featuredQuery = $pdo->query("
         SELECT
+            fb.shelf_key,
             b.book_id,
             b.title,
             be.price,
@@ -48,6 +51,7 @@ try {
           )
         GROUP BY
             b.book_id,
+            fb.shelf_key,
             b.title,
             fb.display_order,
             fb.added_at,
@@ -67,7 +71,7 @@ try {
     $featuredBooks = array_values(array_filter(
         $featuredBooks,
         static function (array $book) use (&$seenBooks): bool {
-            $id = (int) $book['book_id'];
+            $id = (string) $book['shelf_key'] . ':' . (int) $book['book_id'];
 
             if (isset($seenBooks[$id])) {
                 return false;
@@ -77,6 +81,9 @@ try {
             return true;
         }
     ));
+    foreach ($featuredBooks as $book) {
+        if (isset($featuredSections[$book['shelf_key']])) $featuredSections[$book['shelf_key']][] = $book;
+    }
 } catch (PDOException $e) {
     error_log('Featured books query failed: ' . $e->getMessage());
 }
@@ -108,11 +115,12 @@ include __DIR__ . '/includes/header.php';
     </div>
 
     <div class="featured-content">
+      <?php foreach ($featuredSections as $shelfKey => $sectionBooks): ?>
         <div class="featured-section-heading">
             <div>
-                <span class="featured-eyebrow">SELECTED WITH CARE</span>
-                <h2>Staff Picks</h2>
-                <p>Books selected by our team for your next reading adventure.</p>
+                <span class="featured-eyebrow"><?= $shelfKey === 'staff_picks' ? 'SELECTED WITH CARE' : 'HIDDEN TREASURES' ?></span>
+                <h2><?= $h($featuredSectionTitles[$shelfKey]) ?></h2>
+                <p><?= $shelfKey === 'staff_picks' ? 'Books selected by our team for your next reading adventure.' : 'Local stories worth discovering, chosen to bring fresh voices to your shelf.' ?></p>
             </div>
 
             <a href="/books.php" class="featured-view-all">
@@ -120,9 +128,9 @@ include __DIR__ . '/includes/header.php';
             </a>
         </div>
 
-        <?php if ($featuredBooks): ?>
+        <?php if ($sectionBooks): ?>
             <div class="featured-book-grid">
-                <?php foreach ($featuredBooks as $book): ?>
+                <?php foreach ($sectionBooks as $book): ?>
                     <?php
                     $bookId = (int) $book['book_id'];
                     $title = (string) $book['title'];
@@ -179,7 +187,7 @@ include __DIR__ . '/includes/header.php';
                 <span class="featured-empty-icon" aria-hidden="true">✦</span>
                 <h3>Something special is coming to your shelf.</h3>
                 <p>
-                    Our featured collection is being prepared.
+                    This shelf is being curated.
                     In the meantime, explore the full bookstore and discover
                     your next favorite read.
                 </p>
@@ -188,6 +196,7 @@ include __DIR__ . '/includes/header.php';
                 </a>
             </div>
         <?php endif; ?>
+      <?php endforeach; ?>
     </div>
 
     <section class="featured-bottom-banner">

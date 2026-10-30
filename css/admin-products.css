@@ -6,6 +6,8 @@
 .products-hero .products-eyebrow { color:#ffdfb4; }
 .products-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.65rem; }
 .products-actions .btn { display:inline-flex; align-items:center; justify-content:center; gap:.7rem; min-height:46px; text-decoration:none; white-space:nowrap; }
+.admin-book-dialog-head .dialog-close { display:grid; flex:0 0 42px; width:42px; min-width:42px; height:42px; min-height:42px; padding:0; place-items:center; align-self:center; border:0; border-radius:50%; color:#614b39; background:#f5eee7; line-height:1; }
+.admin-book-dialog-head .dialog-close svg { display:block; width:21px; height:21px; flex:0 0 21px; }
 .products-actions .btn-secondary { border-color:rgba(255,255,255,.65); color:#71300c; background:#fff; }
 .review-count { display:inline-grid; place-items:center; min-width:1.5rem; height:1.5rem; border-radius:999px; color:#fff; background:#a64f0b; font-size:.78rem; }
 .restock-panel { display:grid; grid-template-columns:minmax(0,1fr) minmax(330px,.85fr); align-items:center; gap:1.5rem; padding:1.15rem 1.35rem; margin:0 0 1.25rem; border:1px solid #eed4a5; border-radius:16px; background:linear-gradient(110deg,#fff8e9,#fffdf9); }
