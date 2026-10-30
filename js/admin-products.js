@@ -14,7 +14,8 @@
     quantity: document.getElementById('stock_quantity'), authorBio: document.getElementById('author_description'),
     cover: document.getElementById('cover_url'), coverSource: document.getElementById('cover_source_url'),
     metadataSource: document.getElementById('metadata_source_url'), coverWrap: document.getElementById('cover-preview-wrap'),
-    coverPreview: document.getElementById('cover-preview'), coverConsent: document.getElementById('cover_permission_confirmed')
+    coverPreview: document.getElementById('cover-preview'), coverConsent: document.getElementById('cover_permission_confirmed'),
+    coverDisplay: document.getElementById('cover_url_display')
   };
   var genreSelect = document.getElementById('genre_ids');
   var genres = Array.prototype.map.call(genreSelect.options, function (o) { return { id: o.value, name: o.textContent }; });
@@ -69,8 +70,8 @@
   }
   function fill(item, scan, authorBio) {
     var v = item.volumeInfo || {};
-    fields.title.value = titleOf(item) || document.getElementById('lookup-title').value.trim();
-    fields.author.value = authorsOf(item) || document.getElementById('lookup-author').value.trim();
+    fields.title.value = titleOf(item) || fields.title.value.trim();
+    fields.author.value = authorsOf(item) || fields.author.value.trim();
     fields.description.value = String(v.description || '').trim() || 'A full synopsis will be added soon.';
     var ids = Array.isArray(v.industryIdentifiers) ? v.industryIdentifiers : [];
     var isbn = ids.find(function (i) { return /ISBN_13|ISBN_10/.test(i.type || ''); });
@@ -87,6 +88,7 @@
     fields.authorBio.value = authorBio || '';
     fields.metadataSource.value = String(v.infoLink || '');
     fields.cover.value = coverOf(item);
+    fields.coverDisplay.value = fields.cover.value;
     fields.coverSource.value = String(v.infoLink || '');
     if (fields.cover.value) {
       fields.coverWrap.hidden = false;
@@ -126,12 +128,10 @@
     });
   }
   button.addEventListener('click', function () {
-    var title = document.getElementById('lookup-title').value.trim();
-    var author = document.getElementById('lookup-author').value.trim();
+    var title = fields.title.value.trim();
+    var author = fields.author.value.trim();
     results.textContent = ''; document.getElementById('author-scan-results').textContent = '';
     if (!title || !author) { setStatus('Enter both a book title and author to search.', 'error'); return; }
-    fields.title.value = title;
-    fields.author.value = author;
     button.disabled = true; button.textContent = 'Checking author and catalogs…';
     setStatus('Checking author identity and current catalog…');
     scanAuthor(author).then(function (scan) {
@@ -157,9 +157,20 @@
   });
 
   var filter = document.getElementById('catalog-filter');
-  if (filter) filter.addEventListener('input', function () {
-    var query = normalize(filter.value), shown = 0;
-    document.querySelectorAll('.catalog-card').forEach(function (card) { var visible = card.getAttribute('data-search').indexOf(query) >= 0; card.hidden = !visible; if (visible) shown++; });
+  var formatFilter = document.getElementById('catalog-format-filter');
+  var reviewFilter = document.getElementById('catalog-review-filter');
+  var stockFilter = document.getElementById('catalog-stock-filter');
+  function applyCatalogFilters() {
+    var query = normalize(filter ? filter.value : ''), format = formatFilter ? formatFilter.value : 'all';
+    var review = reviewFilter ? reviewFilter.value : 'all', stock = stockFilter ? stockFilter.value : 'all', shown = 0;
+    document.querySelectorAll('.catalog-card').forEach(function (card) {
+      var visible = card.getAttribute('data-search').indexOf(query) >= 0
+        && (format === 'all' || card.dataset.format === format)
+        && (review === 'all' || card.dataset.review === review)
+        && (stock === 'all' || (stock === 'risk' && card.dataset.risk === '1') || (stock === 'out' && card.dataset.out === '1'));
+      card.hidden = !visible; if (visible) shown++;
+    });
     var empty = document.getElementById('catalog-empty'); if (empty) empty.hidden = shown !== 0;
-  });
+  }
+  [filter, formatFilter, reviewFilter, stockFilter].forEach(function (control) { if (control) control.addEventListener('input', applyCatalogFilters); });
 })();
