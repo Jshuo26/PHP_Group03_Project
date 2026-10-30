@@ -131,7 +131,7 @@ include __DIR__ . '/../includes/header.php';
 ?>
 <main class="container admin-operations admin-featured-page">
     <header class="admin-page-hero">
-        <div><span class="admin-hero-eyebrow">CUSTOMER DISCOVERY</span><h1>Featured Books</h1><p>Curate two customer shelves: Staff Picks and Local Gems. Each shelf can show up to <?= $limit ?> books.</p></div>
+        <div><span class="admin-hero-eyebrow">CUSTOMER DISCOVERY</span><h1>Featured Books</h1><p>Curate two shelves on the customer Featured page: Staff Picks highlights popular reads, while Local Gems spotlights newer, less-discovered titles. Each shelf holds up to <?= $limit ?> books.</p></div>
         <div class="hero-meta"><span class="featured-pick-count"><strong><?= array_sum(array_map('count', $selected)) ?></strong> / <?= $limit * count($shelves) ?> selected</span></div>
     </header>
     <?php if ($errors): ?><div class="operations-alert error" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
