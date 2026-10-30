@@ -50,10 +50,6 @@ include __DIR__ . '/../includes/header.php';
                 <h1>Good day, <?= htmlspecialchars((string) $_SESSION['full_name'], ENT_QUOTES, 'UTF-8') ?></h1>
                 <p>Your bookstore at a glance. Review what needs attention and jump straight into daily operations.</p>
             </div>
-            <div class="admin-hero-actions">
-                <a class="admin-hero-action" href="/admin/audit_logs.php">Review activity <span aria-hidden="true">→</span></a>
-                <span class="admin-secure-badge"><span aria-hidden="true">●</span> Secure admin workspace</span>
-            </div>
         </header>
 
         <section class="admin-overview" aria-labelledby="admin-overview-title">
