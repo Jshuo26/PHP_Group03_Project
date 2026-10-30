@@ -202,6 +202,16 @@
   display: none;
 }
 
+.password-toggle:not(.is-visible):hover .icon-open,
+.password-toggle:not(.is-visible):focus-visible .icon-open {
+  display: block;
+}
+
+.password-toggle:not(.is-visible):hover .icon-closed,
+.password-toggle:not(.is-visible):focus-visible .icon-closed {
+  display: none;
+}
+
 .password-toggle.is-visible .icon-open {
   display: block;
 }

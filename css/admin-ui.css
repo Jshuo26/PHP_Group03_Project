@@ -19,8 +19,9 @@
 .admin-toast.is-error .admin-toast-icon { background:#b34339; }
 @keyframes admin-toast-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 .admin-page-heading { margin-bottom:1.15rem; }
-.admin-users-workspace { display:grid; grid-template-columns:minmax(440px,1.15fr) minmax(380px,.95fr); align-items:start; gap:1rem; }
+.admin-users-workspace { display:grid; grid-template-columns:minmax(440px,1.15fr) minmax(380px,.95fr); align-items:stretch; gap:1rem; }
 .admin-users-workspace .staff-account-editor,.admin-users-workspace .staff-directory { min-width:0; margin:0; }
+.admin-users-workspace .staff-account-editor,.admin-users-workspace .staff-directory { height:100%; }
 .staff-filter-tabs { display:flex; flex-wrap:wrap; gap:.45rem; margin:0 0 .8rem; }
 .staff-filter-tabs button { min-height:35px; padding:.4rem .75rem; border:1px solid #ead7c2; border-radius:999px; color:#70411d; background:#fff; font:inherit; font-size:.76rem; font-weight:750; cursor:pointer; }
 .staff-filter-tabs button[aria-pressed="true"] { border-color:#a9510c; color:white; background:#a9510c; }
@@ -30,7 +31,8 @@
 .admin-audit-filters { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.75rem; padding:1rem; border:1px solid #ecdfd1; border-radius:13px; background:#fffaf5; }
 .admin-audit-filters label { display:flex; min-width:0; flex-direction:column; gap:.3rem; color:#584637; font-size:.76rem; font-weight:750; }
 .admin-audit-filters .form-input { width:100%; min-width:0; min-height:40px; margin:0; font-size:.8rem; }
-.admin-audit-filters .audit-filter-actions { grid-column:1/-1; display:flex; align-items:center; justify-content:flex-end; gap:.45rem; margin-right:.25rem; }
+.admin-audit-filters .audit-filter-bottom { display:grid; grid-column:1/-1; grid-template-columns:minmax(0,1fr) minmax(0,1fr) minmax(180px,1.35fr) auto auto; align-items:end; gap:.75rem; }
+.admin-audit-filters .audit-filter-actions { display:flex; align-items:center; justify-content:flex-end; gap:.45rem; }
 .admin-audit-table-wrap { overflow:auto; margin-top:.55rem; border:1px solid #eee3d8; border-radius:12px; }
 .admin-audit-table { min-width:980px; margin:0; border-collapse:collapse; }
 .admin-audit-table th { position:sticky; top:0; padding:.7rem .75rem; color:#71563f; background:#fbf5ed; font-size:.68rem; letter-spacing:.06em; text-align:left; text-transform:uppercase; }
@@ -61,8 +63,8 @@
 .admin-book-dialog-info .wide { grid-column:1/-1; }
 .admin-book-dialog-info dt { margin-bottom:.2rem; color:#8b6746; font-size:.68rem; font-weight:800; letter-spacing:.06em; text-transform:uppercase; }
 .admin-book-dialog-info dd { margin:0; color:#49382d; font-size:.84rem; line-height:1.45; overflow-wrap:anywhere; white-space:pre-wrap; }
-@media(max-width:900px) { .admin-audit-filters { grid-template-columns:repeat(3,minmax(0,1fr)); } .admin-users-workspace { grid-template-columns:1fr; } }
-@media(max-width:650px) { .admin-page-hero { align-items:flex-start; flex-direction:column; min-height:0; padding:1.3rem; } .admin-page-hero .hero-meta { justify-content:flex-start; } .admin-audit-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .admin-audit-filters .audit-filter-actions { grid-column:1/-1; } .admin-audit-pagination { flex-wrap:wrap; } .catalog-section-heading { align-items:flex-start; flex-direction:column; } .admin-book-dialog-body { grid-template-columns:100px minmax(0,1fr); gap:.8rem; padding:.8rem; } .admin-book-dialog-info { grid-template-columns:1fr; } .admin-book-dialog-info .wide { grid-column:auto; } }
+@media(max-width:900px) { .admin-audit-filters { grid-template-columns:repeat(3,minmax(0,1fr)); } .admin-audit-filters .audit-filter-bottom { grid-template-columns:repeat(3,minmax(0,1fr)) auto auto; } .admin-users-workspace { grid-template-columns:1fr; } .admin-users-workspace .staff-account-editor,.admin-users-workspace .staff-directory { height:auto; } }
+@media(max-width:650px) { .admin-page-hero { align-items:flex-start; flex-direction:column; min-height:0; padding:1.3rem; } .admin-page-hero .hero-meta { justify-content:flex-start; } .admin-audit-filters { grid-template-columns:repeat(2,minmax(0,1fr)); } .admin-audit-filters .audit-filter-bottom { grid-template-columns:repeat(2,minmax(0,1fr)); } .admin-audit-filters .audit-filter-bottom > label:nth-child(3) { grid-column:1/-1; } .admin-audit-filters .audit-filter-actions { grid-column:1/-1; justify-content:flex-end; } .admin-audit-pagination { flex-wrap:wrap; } .catalog-section-heading { align-items:flex-start; flex-direction:column; } .admin-book-dialog-body { grid-template-columns:100px minmax(0,1fr); gap:.8rem; padding:.8rem; } .admin-book-dialog-info { grid-template-columns:1fr; } .admin-book-dialog-info .wide { grid-column:auto; } }
 .lookup-dialog { width:min(900px,calc(100vw - 2rem)); }
 .lookup-dialog > .admin-book-dialog-head p { margin:.3rem 0 0; color:#796858; font-size:.8rem; }
 .lookup-dialog .lookup-results { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.7rem; max-height:62vh; overflow:auto; padding:1rem; }

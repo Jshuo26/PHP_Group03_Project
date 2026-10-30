@@ -164,6 +164,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
 
 
+    } elseif (in_array($action, ['suspend_staff', 'restore_staff'], true)) {
+        $targetId = filter_var(requestString($_POST, 'user_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $staffFilter = requestString($_POST, 'staff_status');
+        if (!in_array($staffFilter, ['all', 'active', 'suspended'], true)) $staffFilter = 'all';
+
+        if ($targetId === false) {
+            $_SESSION['flash_error'] = 'Choose a valid staff account.';
+        } else {
+            $targetStatus = $action === 'suspend_staff' ? 'suspended' : 'active';
+            $expectedStatus = $action === 'suspend_staff' ? 'active' : 'suspended';
+            $stmt = $pdo->prepare("UPDATE users SET account_status = ? WHERE user_id = ? AND role = 'staff' AND account_status = ?");
+            $stmt->execute([$targetStatus, (int) $targetId, $expectedStatus]);
+            if ($stmt->rowCount() > 0) {
+                $description = $action === 'suspend_staff'
+                    ? 'Administrator suspended a staff account.'
+                    : 'Administrator restored a suspended staff account.';
+                auditLog($pdo, 'update', $description, 'security', (int) $_SESSION['user_id'], 'user', (int) $targetId, 'success', 'admin');
+                $_SESSION['flash_ok'] = $action === 'suspend_staff'
+                    ? 'Staff access suspended.'
+                    : 'Staff access restored.';
+            } else {
+                $_SESSION['flash_error'] = 'That staff account is missing or already has that access status.';
+            }
+        }
+        header('Location: /admin/security.php?staff_status=' . rawurlencode($staffFilter) . '#staff-access');
+        exit;
     } elseif ($action === 'unlock') {
 
         $targetId = filter_var(requestString($_POST, 'user_id'), FILTER_VALIDATE_INT);
@@ -226,6 +252,17 @@ foreach ($lockedAccounts as &$lockedAccount) {
     $lockedAccount = decryptUserPersonalFields($lockedAccount);
 }
 unset($lockedAccount);
+
+$staffStatusFilter = requestString($_GET, 'staff_status');
+if (!in_array($staffStatusFilter, ['all', 'active', 'suspended'], true)) $staffStatusFilter = 'all';
+$staffAccountsStmt = $pdo->query("SELECT user_id, full_name, email, account_status, created_at FROM users WHERE role = 'staff' ORDER BY CASE WHEN account_status = 'suspended' THEN 0 ELSE 1 END, full_name");
+$staffAccounts = $staffAccountsStmt->fetchAll();
+foreach ($staffAccounts as &$staffAccount) $staffAccount = decryptUserPersonalFields($staffAccount);
+unset($staffAccount);
+$staffCounts = ['all' => count($staffAccounts), 'active' => 0, 'suspended' => 0];
+foreach ($staffAccounts as $staffAccount) {
+    if (isset($staffCounts[$staffAccount['account_status']])) $staffCounts[$staffAccount['account_status']]++;
+}
 
 $csrf = generateCsrfToken();
 
@@ -305,6 +342,28 @@ include __DIR__ . '/../includes/header.php';
       </tbody></table></div><?php endif; ?>
     </section>
   </section>
+  <section class="card security-settings-card security-staff-card" id="staff-access" aria-labelledby="staff-access-title">
+    <div class="lk-head"><div><h2 id="staff-access-title">Staff Access</h2><p class="lk-note">Suspend staff access when needed, then restore it from the Suspended filter.</p></div><span class="lk-count"><?php echo (int) $staffCounts['all']; ?> staff</span></div>
+    <nav class="staff-filter-tabs security-staff-filters" aria-label="Filter staff by access status">
+      <?php foreach (['all' => 'All', 'active' => 'Active', 'suspended' => 'Suspended'] as $filterKey => $filterLabel): ?>
+        <button type="button" data-security-staff-filter="<?php echo e($filterKey); ?>" aria-pressed="<?php echo $staffStatusFilter === $filterKey ? 'true' : 'false'; ?>"><?php echo e($filterLabel); ?> <span><?php echo (int) $staffCounts[$filterKey]; ?></span></button>
+      <?php endforeach; ?>
+    </nav>
+    <?php if (!$staffAccounts): ?><div class="lk-empty"><strong>No staff accounts</strong>Create staff accounts from Staff &amp; Roles.</div><?php else: ?>
+      <div class="security-staff-list">
+        <?php foreach ($staffAccounts as $staffAccount): ?>
+          <article class="security-staff-row" data-status="<?php echo e($staffAccount['account_status']); ?>">
+            <div class="lk-user"><span class="lk-avatar" aria-hidden="true"><?php echo e(initials($staffAccount['full_name'])); ?></span><div><div class="lk-name"><?php echo e($staffAccount['full_name']); ?></div><div class="lk-email"><?php echo e($staffAccount['email']); ?></div></div></div>
+            <span class="staff-state-badge state-<?php echo e($staffAccount['account_status']); ?>"><?php echo e(ucfirst($staffAccount['account_status'])); ?></span>
+            <form method="POST" action="/admin/security.php" class="security-staff-action" data-name="<?php echo e($staffAccount['full_name']); ?>">
+              <input type="hidden" name="csrf_token" value="<?php echo e($csrf); ?>"><input type="hidden" name="user_id" value="<?php echo (int) $staffAccount['user_id']; ?>"><input type="hidden" name="staff_status" value="<?php echo e($staffStatusFilter); ?>">
+              <?php if ($staffAccount['account_status'] === 'suspended'): ?><input type="hidden" name="action" value="restore_staff"><button type="submit" class="lk-unlock">Unlock</button><?php else: ?><input type="hidden" name="action" value="suspend_staff"><button type="submit" class="security-staff-suspend">Suspend</button><?php endif; ?>
+            </form>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+  </section>
 </main>
 
 <script>
@@ -314,6 +373,14 @@ document.querySelectorAll('.lk-unlock-form').forEach(function (form) {
     if (!window.confirm('Unlock ' + name + '? They will be able to log in again.')) {
       event.preventDefault();
     }
+  });
+});
+document.querySelectorAll('.security-staff-action').forEach(function (form) {
+  form.addEventListener('submit', function (event) {
+    var button = form.querySelector('button');
+    var name = form.getAttribute('data-name') || 'this staff member';
+    var action = button && button.textContent.trim() === 'Suspend' ? 'Suspend access for ' : 'Restore access for ';
+    if (!window.confirm(action + name + '?')) event.preventDefault();
   });
 });
 </script>

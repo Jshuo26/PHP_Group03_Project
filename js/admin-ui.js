@@ -22,6 +22,24 @@
     });
   }
 
+  var securityStaffFilters = document.querySelectorAll('[data-security-staff-filter]');
+  if (securityStaffFilters.length) {
+    var applySecurityStaffFilter = function (status) {
+      document.querySelectorAll('.security-staff-row[data-status]').forEach(function (row) {
+        row.hidden = status !== 'all' && row.dataset.status !== status;
+      });
+    };
+    securityStaffFilters.forEach(function (button) {
+      button.addEventListener('click', function () {
+        var status = button.dataset.securityStaffFilter;
+        securityStaffFilters.forEach(function (item) { item.setAttribute('aria-pressed', item === button ? 'true' : 'false'); });
+        applySecurityStaffFilter(status);
+      });
+    });
+    var selectedSecurityFilter = Array.prototype.find.call(securityStaffFilters, function (button) { return button.getAttribute('aria-pressed') === 'true'; });
+    if (selectedSecurityFilter) applySecurityStaffFilter(selectedSecurityFilter.dataset.securityStaffFilter);
+  }
+
   var authorsClientFilter = document.querySelector('[data-authors-client-filter]');
   if (authorsClientFilter) authorsClientFilter.addEventListener('click', function () {
     var active = authorsClientFilter.getAttribute('aria-pressed') !== 'true';

@@ -280,12 +280,14 @@ include __DIR__ . '/../includes/header.php';
                         <?php endforeach; ?>
                     </select>
                 </label>
-                <label>From<input class="form-input" type="date" name="from" value="<?= auditPageEscape((string) $filters['from']) ?>"></label>
-                <label>To<input class="form-input" type="date" name="to" value="<?= auditPageEscape((string) $filters['to']) ?>"></label>
-                <label>Search user or record ID<input class="form-input" type="search" name="q" maxlength="100" value="<?= auditPageEscape($filters['q']) ?>" placeholder="User ID, record ID, or description"></label>
-                <div class="audit-filter-actions">
-                    <button class="btn btn-primary" type="submit">Filter</button>
-                    <a class="btn btn-secondary" href="/admin/audit_logs.php">Reset</a>
+                <div class="audit-filter-bottom">
+                    <label>From<input class="form-input" type="date" name="from" value="<?= auditPageEscape((string) $filters['from']) ?>"></label>
+                    <label>To<input class="form-input" type="date" name="to" value="<?= auditPageEscape((string) $filters['to']) ?>"></label>
+                    <label>Search user or record ID<input class="form-input" type="search" name="q" maxlength="100" value="<?= auditPageEscape($filters['q']) ?>" placeholder="User ID, record ID, or description"></label>
+                    <div class="audit-filter-actions">
+                        <button class="btn btn-primary" type="submit">Filter</button>
+                        <a class="btn btn-secondary" href="/admin/audit_logs.php">Clear</a>
+                    </div>
                 </div>
             </form>
 
