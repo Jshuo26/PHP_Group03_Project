@@ -3,6 +3,7 @@
   var button = document.getElementById('search-book');
   var form = document.getElementById('book-form');
   if (!button || !form) return;
+  var clearButton = document.getElementById('clear-book-search');
   var token = form.querySelector('[name="csrf_token"]').value;
   var status = document.getElementById('lookup-status');
   var results = document.getElementById('lookup-results');
@@ -20,6 +21,7 @@
   var genreSelect = document.getElementById('genre_ids');
   var genres = Array.prototype.map.call(genreSelect.options, function (o) { return { id: o.value, name: o.textContent }; });
   var defaultButtonText = button.innerHTML;
+  var initialThreshold = document.getElementById('low_stock_threshold').value;
 
   function setStatus(message, kind) {
     status.textContent = message;
@@ -156,21 +158,65 @@
       .finally(function () { button.disabled = false; button.innerHTML = defaultButtonText; });
   });
 
+  if (clearButton) clearButton.addEventListener('click', function () {
+    fields.title.value = '';
+    fields.author.value = '';
+    fields.description.value = 'A full synopsis will be added soon.';
+    fields.isbn.value = '';
+    fields.language.value = 'Other Languages';
+    fields.publisher.value = '';
+    fields.format.value = 'paperback';
+    fields.price.value = '625.00';
+    fields.quantity.value = '10';
+    document.getElementById('low_stock_threshold').value = initialThreshold;
+    fields.authorBio.value = '';
+    fields.cover.value = '';
+    fields.coverDisplay.value = '';
+    fields.coverSource.value = '';
+    fields.metadataSource.value = '';
+    fields.coverConsent.checked = false;
+    fields.coverWrap.hidden = true;
+    fields.coverPreview.textContent = '';
+    Array.prototype.forEach.call(genreSelect.options, function (option) {
+      option.selected = normalize(option.textContent) === 'other general';
+    });
+    document.getElementById('scan_claimed').value = '0';
+    document.getElementById('author-scan-results').textContent = '';
+    results.textContent = '';
+    setStatus('', '');
+    fields.title.focus();
+  });
+
   var filter = document.getElementById('catalog-filter');
   var formatFilter = document.getElementById('catalog-format-filter');
+  var genreFilter = document.getElementById('catalog-genre-filter');
+  var languageFilter = document.getElementById('catalog-language-filter');
   var reviewFilter = document.getElementById('catalog-review-filter');
   var stockFilter = document.getElementById('catalog-stock-filter');
+  var applyFilters = document.getElementById('catalog-apply-filters');
+  var clearFilters = document.getElementById('catalog-clear-filters');
+  var catalogCount = document.getElementById('catalog-count');
   function applyCatalogFilters() {
     var query = normalize(filter ? filter.value : ''), format = formatFilter ? formatFilter.value : 'all';
+    var genre = genreFilter ? genreFilter.value : 'all', language = languageFilter ? languageFilter.value : 'all';
     var review = reviewFilter ? reviewFilter.value : 'all', stock = stockFilter ? stockFilter.value : 'all', shown = 0;
     document.querySelectorAll('.catalog-card').forEach(function (card) {
       var visible = card.getAttribute('data-search').indexOf(query) >= 0
         && (format === 'all' || card.dataset.format === format)
+        && (genre === 'all' || card.dataset.genre.split(',').some(function (name) { return normalize(name) === normalize(genre); }))
+        && (language === 'all' || card.dataset.language === language)
         && (review === 'all' || card.dataset.review === review)
         && (stock === 'all' || (stock === 'risk' && card.dataset.risk === '1') || (stock === 'out' && card.dataset.out === '1'));
       card.hidden = !visible; if (visible) shown++;
     });
     var empty = document.getElementById('catalog-empty'); if (empty) empty.hidden = shown !== 0;
+    if (catalogCount) catalogCount.textContent = 'Showing ' + shown + ' of ' + document.querySelectorAll('.catalog-card').length + ' editions';
   }
-  [filter, formatFilter, reviewFilter, stockFilter].forEach(function (control) { if (control) control.addEventListener('input', applyCatalogFilters); });
+  if (applyFilters) applyFilters.addEventListener('click', applyCatalogFilters);
+  if (clearFilters) clearFilters.addEventListener('click', function () {
+    [filter, formatFilter, genreFilter, languageFilter, reviewFilter, stockFilter].forEach(function (control) {
+      if (control) control.value = control === filter ? '' : 'all';
+    });
+    applyCatalogFilters();
+  });
 })();
