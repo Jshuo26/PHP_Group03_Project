@@ -37,6 +37,10 @@ $adminAssetVersion = '20261031-live-admin-4';
     <link rel="stylesheet" href="/css/styles.css?v=<?= $adminAssetVersion ?>">
     <link rel="stylesheet" href="/css/header.css?v=<?= $adminAssetVersion ?>">
 
+    <?php if (basename($_SERVER['PHP_SELF'] ?? '') === 'addresses.php'): ?>
+        <link rel="stylesheet" href="/css/account.css?v=20261031-address-book-refresh">
+    <?php endif; ?>
+
     <?php if ($isAdminPortal): ?>
         <link rel="stylesheet" href="/css/admin-ui.css?v=<?= $adminAssetVersion ?>">
     <?php endif; ?>

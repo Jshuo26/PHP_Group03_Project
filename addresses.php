@@ -208,7 +208,7 @@ include __DIR__ . '/includes/header.php';
                     <span class="addresses-count"><?= count($addresses) ?> saved</span>
                 </div>
                 <?php if (!$addresses): ?>
-                    <div class="addresses-empty"><span class="addresses-empty-icon" aria-hidden="true">⌖</span><h3>No saved addresses yet</h3><p>Add your first delivery address. You can mark it as the default for faster checkout.</p></div>
+                    <div class="addresses-empty"><span class="addresses-empty-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 5.25-7.5 11.25-7.5 11.25S4.5 15.75 4.5 10.5a7.5 7.5 0 1 1 15 0Z"/><circle cx="12" cy="10.5" r="2.25"/></svg></span><h3>No Saved Addresses Yet</h3><p>Add your first delivery address. You can mark it as the default for faster checkout.</p></div>
                 <?php else: ?>
                     <div class="addresses-list">
                         <?php foreach ($addresses as $address): ?>

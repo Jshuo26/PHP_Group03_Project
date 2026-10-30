@@ -925,19 +925,24 @@
 
 .addresses-content-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.18fr) minmax(310px, .82fr);
+  grid-template-columns: minmax(0, 1.05fr) minmax(360px, .95fr);
   align-items: start;
-  gap: 20px;
+  gap: 22px;
 }
 
 .addresses-list-panel,
 .address-form-panel {
   min-width: 0;
-  padding: 22px;
+  padding: 24px;
   border: 1px solid var(--border-color);
   border-radius: 18px;
   background: var(--white);
   box-shadow: var(--shadow-sm);
+}
+
+.addresses-list-panel,
+.address-form-panel {
+  min-height: 100%;
 }
 
 .addresses-section-heading {
@@ -1066,9 +1071,14 @@
   box-shadow: none;
 }
 
-.address-form-grid { gap: 14px 12px; }
+.address-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 16px 14px;
+}
 .address-form-grid .form-group-full { grid-column: 1 / -1; }
-.address-form-grid .form-group { min-width: 0; }
+.address-form-grid .form-group { min-width: 0; margin: 0; }
 
 .address-form-grid label {
   display: block;
@@ -1136,20 +1146,41 @@
 .addresses-empty {
   display: grid;
   justify-items: center;
-  padding: 38px 24px;
+  min-height: 250px;
+  align-content: center;
+  padding: 32px 24px;
   border: 1px dashed #e6d6c5;
   border-radius: 14px;
   background: #fffcf8;
   text-align: center;
 }
 
-.addresses-empty-icon { color: var(--primary-color); font-size: 1.5rem; }
+.addresses-empty-icon {
+  display: grid;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 8px;
+  place-items: center;
+  border-radius: 16px;
+  background: #fff0dc;
+  color: var(--primary-color);
+}
+.addresses-empty-icon svg { width: 25px; height: 25px; }
 .addresses-empty h3 { margin: 8px 0 5px; color: var(--primary-dark); font-size: 1.05rem; }
 .addresses-empty p { max-width: 360px; margin: 0; color: var(--muted-text); line-height: 1.5; }
 
+.addresses-list-panel > .addresses-eyebrow,
+.address-form-panel > .addresses-eyebrow { letter-spacing: .14em; }
+
+.address-default-choice:hover {
+  border-color: #e5c197;
+  background: #fff5e8;
+}
+
+.address-form-actions .btn { min-width: 148px; }
+
 @media (max-width: 1050px) {
   .addresses-content-grid { grid-template-columns: minmax(0, 1fr); }
-  .address-form-panel { order: -1; }
 }
 
 @media (max-width: 600px) {
