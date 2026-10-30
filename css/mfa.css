@@ -18,11 +18,19 @@
 }
 
 .mfa-heading { margin-bottom: 28px; }
+.mfa-heading-title {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+.mfa-heading-copy { min-width: 0; }
 .mfa-shield {
   display: grid;
+  flex: 0 0 56px;
   width: 56px;
   height: 56px;
-  margin-bottom: 20px;
+  margin: 0;
   place-items: center;
   border: 1px solid #f0d7b9;
   border-radius: 16px;
@@ -40,7 +48,7 @@
   text-transform: uppercase;
 }
 .mfa-wrap .card-title {
-  margin: 0 0 10px;
+  margin: 0;
   color: var(--primary-dark, #742c05);
   font-size: clamp(1.65rem, 4vw, 2rem);
   line-height: 1.2;
@@ -114,6 +122,9 @@
   .mfa-page { min-height: auto; }
   .mfa-wrap { padding: 24px 20px; border-radius: 18px; }
   .mfa-heading { margin-bottom: 22px; }
+  .mfa-heading-title { gap: 12px; }
+  .mfa-shield { flex-basis: 48px; width: 48px; height: 48px; border-radius: 14px; }
+  .mfa-shield svg { width: 25px; height: 25px; }
   .mfa-code-input { min-height: 58px; font-size: 1.4rem; }
 }
 

@@ -131,19 +131,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="/css/mfa.css?v=20261031-mfa-3">
+<link rel="stylesheet" href="/css/mfa.css?v=20261031-mfa-4">
 
 <section class="container auth-section mfa-page">
   <div class="card mfa-wrap">
     <div class="mfa-heading">
-      <span class="mfa-shield" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
-          <path d="M12 3 19 6v5c0 4.5-2.9 7.8-7 10-4.1-2.2-7-5.5-7-10V6l7-3Z" />
-          <path d="m9 12 2 2 4-4" />
-        </svg>
-      </span>
-      <span class="mfa-eyebrow">Account Security</span>
-      <h1 class="card-title">Verify It’s You</h1>
+      <div class="mfa-heading-title">
+        <span class="mfa-shield" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M12 3 19 6v5c0 4.5-2.9 7.8-7 10-4.1-2.2-7-5.5-7-10V6l7-3Z" />
+            <path d="m9 12 2 2 4-4" />
+          </svg>
+        </span>
+        <div class="mfa-heading-copy">
+          <span class="mfa-eyebrow">Account Security</span>
+          <h1 class="card-title">Verify It’s You</h1>
+        </div>
+      </div>
       <p class="mfa-lead">Open Google Authenticator and enter the current 6-digit code to securely finish signing in to aklAAAt!.</p>
     </div>
 
