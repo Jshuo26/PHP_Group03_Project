@@ -885,3 +885,279 @@
     width: 100%;
   }
 }
+
+/* Saved address manager */
+.account-page-layout .addresses-page {
+  width: auto;
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+  padding: 4px 0 36px;
+}
+
+.addresses-header {
+  margin: 0 0 24px;
+}
+
+.addresses-eyebrow {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--primary-color);
+  font-size: .74rem;
+  font-weight: 800;
+  letter-spacing: .16em;
+  text-transform: uppercase;
+}
+
+.addresses-header h1 {
+  margin: 0 0 7px;
+  color: var(--primary-dark);
+  font-size: clamp(1.75rem, 3vw, 2.25rem);
+  line-height: 1.15;
+}
+
+.addresses-header p,
+.address-form-intro {
+  margin: 0;
+  color: var(--muted-text);
+  line-height: 1.55;
+}
+
+.addresses-content-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.18fr) minmax(310px, .82fr);
+  align-items: start;
+  gap: 20px;
+}
+
+.addresses-list-panel,
+.address-form-panel {
+  min-width: 0;
+  padding: 22px;
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  background: var(--white);
+  box-shadow: var(--shadow-sm);
+}
+
+.addresses-section-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 18px;
+}
+
+.addresses-section-heading .addresses-eyebrow { margin-bottom: 4px; }
+
+.addresses-section-heading h2,
+.address-form-panel h2 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 1.28rem;
+  line-height: 1.25;
+}
+
+.addresses-count,
+.default-address-badge {
+  flex: 0 0 auto;
+  padding: 7px 11px;
+  border: 1px solid #f0d7bb;
+  border-radius: 999px;
+  background: #fff6e9;
+  color: #82400e;
+  font-size: .76rem;
+  font-weight: 750;
+}
+
+.addresses-list {
+  max-width: none;
+  margin: 0;
+  gap: 12px;
+}
+
+.address-card {
+  padding: 17px 18px;
+  border-color: #eadfD3;
+  border-radius: 14px;
+  box-shadow: none;
+  transition: border-color .18s ease, box-shadow .18s ease, transform .18s ease;
+}
+
+.address-card:hover {
+  border-color: #d7a36f;
+  box-shadow: 0 8px 22px rgba(89, 48, 17, .08);
+  transform: translateY(-1px);
+}
+
+.address-card.default-address {
+  border-color: #d99853;
+  background: linear-gradient(135deg, #fff 0%, #fffaf3 100%);
+}
+
+.address-card-title {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+
+.address-card-pin {
+  display: grid;
+  width: 38px;
+  height: 38px;
+  flex: 0 0 38px;
+  place-items: center;
+  border-radius: 12px;
+  background: #fff0dc;
+  color: var(--primary-color);
+}
+
+.address-card-pin svg { width: 20px; height: 20px; }
+
+.address-card-title h3 {
+  margin: 0 0 3px;
+  color: var(--primary-dark);
+  font-size: 1rem;
+}
+
+.address-card-title p { margin: 0; color: var(--muted-text); font-size: .84rem; }
+
+.address-details {
+  margin: 14px 0 0 49px;
+  color: var(--muted-text);
+  font-size: .88rem;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.address-details strong { color: var(--text-color); }
+
+.address-actions {
+  margin: 15px 0 0 49px;
+  padding-top: 13px;
+  gap: 8px;
+}
+
+.address-actions .btn {
+  min-height: 38px;
+  padding: 8px 13px;
+  border-radius: 10px;
+  font-size: .82rem;
+}
+
+.address-delete-button {
+  border: 1px solid #f0c7c4;
+  background: #fff;
+  color: #a8322b;
+}
+
+.address-delete-button:hover { background: #fff0ef; border-color: #d98b85; }
+
+.address-form-panel h2 { margin-bottom: 7px; }
+.address-form-intro { margin-bottom: 18px; font-size: .88rem; }
+
+.address-form-modern {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.address-form-grid { gap: 14px 12px; }
+.address-form-grid .form-group-full { grid-column: 1 / -1; }
+.address-form-grid .form-group { min-width: 0; }
+
+.address-form-grid label {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--text-color);
+  font-size: .83rem;
+  font-weight: 700;
+}
+
+.address-form-grid label span { color: var(--muted-text); font-weight: 500; }
+.address-form-grid label b { color: #c9342d; }
+
+.address-form-grid input {
+  width: 100%;
+  min-width: 0;
+  height: 44px;
+  padding: 0 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: #fff;
+  color: var(--text-color);
+  font: inherit;
+  font-size: .9rem;
+  transition: border-color .16s ease, box-shadow .16s ease;
+}
+
+.address-form-grid input:focus {
+  outline: none;
+  border-color: var(--primary-color);
+  box-shadow: 0 0 0 3px rgba(174, 92, 15, .13);
+}
+
+.address-default-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin: 17px 0;
+  padding: 13px 14px;
+  border: 1px solid #f0dfc9;
+  border-radius: 12px;
+  background: #fff9f1;
+  cursor: pointer;
+}
+
+.address-default-choice input { margin: 3px 0 0; accent-color: var(--primary-color); }
+.address-default-choice strong, .address-default-choice small { display: block; }
+.address-default-choice strong { color: var(--text-color); font-size: .86rem; }
+.address-default-choice small { margin-top: 3px; color: var(--muted-text); line-height: 1.4; }
+
+.address-form-actions { margin-top: 17px; gap: 9px; }
+.address-form-actions .btn { min-height: 43px; border-radius: 10px; }
+
+.address-notice {
+  margin: 0 0 18px;
+  padding: 12px 15px;
+  border: 1px solid #b9dfc4;
+  border-radius: 12px;
+  background: #eff9f1;
+  color: #17643a;
+  font-size: .9rem;
+}
+
+.address-notice.is-error { border-color: #efc5c2; background: #fff3f2; color: #9f2924; }
+
+.addresses-empty {
+  display: grid;
+  justify-items: center;
+  padding: 38px 24px;
+  border: 1px dashed #e6d6c5;
+  border-radius: 14px;
+  background: #fffcf8;
+  text-align: center;
+}
+
+.addresses-empty-icon { color: var(--primary-color); font-size: 1.5rem; }
+.addresses-empty h3 { margin: 8px 0 5px; color: var(--primary-dark); font-size: 1.05rem; }
+.addresses-empty p { max-width: 360px; margin: 0; color: var(--muted-text); line-height: 1.5; }
+
+@media (max-width: 1050px) {
+  .addresses-content-grid { grid-template-columns: minmax(0, 1fr); }
+  .address-form-panel { order: -1; }
+}
+
+@media (max-width: 600px) {
+  .account-page-layout .addresses-page { padding: 0 0 24px; }
+  .addresses-list-panel, .address-form-panel { padding: 17px; }
+  .address-form-grid { grid-template-columns: 1fr; }
+  .address-form-grid .form-group-full { grid-column: auto; }
+  .address-card-header { flex-direction: row; }
+  .address-details, .address-actions { margin-left: 0; }
+  .address-actions { flex-direction: row; }
+}

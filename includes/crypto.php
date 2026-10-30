@@ -102,7 +102,7 @@ function decryptAddressPersonalFields(array $row): array
     if (!isset($row['address_id'])) {
         throw new InvalidArgumentException('Address identifier is required to decrypt personal data.');
     }
-    foreach (['label', 'street', 'city', 'province', 'zip_code'] as $field) {
+    foreach (['label', 'recipient_name', 'mobile_number', 'street', 'city', 'province', 'zip_code'] as $field) {
         if (array_key_exists($field, $row)) {
             $row[$field] = decryptPersonalField(
                 $row[$field] === null ? null : (string) $row[$field],

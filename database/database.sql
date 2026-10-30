@@ -43,11 +43,13 @@ CREATE TABLE password_reset_tokens (
 CREATE TABLE addresses (
     address_id      INT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     user_id         INT UNSIGNED NOT NULL,
-    label           VARCHAR(50)  NULL,
-    street          VARCHAR(500) NOT NULL,
-    city            VARCHAR(100) NOT NULL,
-    province        VARCHAR(100) NOT NULL,
-    zip_code        VARCHAR(10)  NOT NULL,
+    label           VARCHAR(255) NULL,
+    recipient_name  VARCHAR(800) NOT NULL,
+    mobile_number   VARCHAR(120) NOT NULL,
+    street          VARCHAR(1200) NOT NULL,
+    city            VARCHAR(500) NOT NULL,
+    province        VARCHAR(500) NOT NULL,
+    zip_code        VARCHAR(100) NOT NULL,
     is_default      BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT fk_addresses_user
         FOREIGN KEY (user_id) REFERENCES users(user_id)

@@ -22,41 +22,34 @@ if ($userData) {
     $userData = decryptUserPersonalFields($userData);
 }
 
-$defaultAddrStmt = $pdo->prepare(
-    'SELECT address_id, street, city, province, zip_code
-     FROM addresses 
-     WHERE user_id = ? AND is_default = 1 
-     LIMIT 1'
+$savedAddrStmt = $pdo->prepare(
+    'SELECT address_id, label, recipient_name, mobile_number, street, city, province, zip_code, is_default
+     FROM addresses
+     WHERE user_id = ?
+     ORDER BY is_default DESC, address_id DESC'
 );
-$defaultAddrStmt->execute([$userId]);
-$defaultAddress = $defaultAddrStmt->fetch();
-if ($defaultAddress) {
-    $defaultAddress = decryptAddressPersonalFields($defaultAddress);
-}
-
-if (!$defaultAddress) {
-    $anyAddrStmt = $pdo->prepare(
-        'SELECT address_id, street, city, province, zip_code
-         FROM addresses 
-         WHERE user_id = ? 
-         ORDER BY address_id DESC 
-         LIMIT 1'
-    );
-    $anyAddrStmt->execute([$userId]);
-    $defaultAddress = $anyAddrStmt->fetch() ?: [];
-    if ($defaultAddress) {
-        $defaultAddress = decryptAddressPersonalFields($defaultAddress);
+$savedAddrStmt->execute([$userId]);
+$savedAddresses = array_map('decryptAddressPersonalFields', $savedAddrStmt->fetchAll());
+$defaultAddress = $savedAddresses[0] ?? [];
+$selectedAddressId = (int) ($defaultAddress['address_id'] ?? 0);
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $postedAddressId = filter_input(INPUT_POST, 'saved_address_id', FILTER_VALIDATE_INT) ?: 0;
+    foreach ($savedAddresses as $savedAddress) {
+        if ((int) $savedAddress['address_id'] === $postedAddressId) {
+            $selectedAddressId = $postedAddressId;
+            break;
+        }
     }
 }
 
 $shippingName = requestString($_POST, 'shipping_name');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $shippingName === '') {
-    $shippingName = (string) ($userData['full_name'] ?? $_SESSION['full_name'] ?? '');
+    $shippingName = (string) (($defaultAddress['recipient_name'] ?? '') ?: ($userData['full_name'] ?? $_SESSION['full_name'] ?? ''));
 }
 
 $shippingMobile = requestString($_POST, 'shipping_mobile');
 if ($_SERVER['REQUEST_METHOD'] !== 'POST' && $shippingMobile === '') {
-    $shippingMobile = (string) ($userData['mobile_number'] ?? '');
+    $shippingMobile = (string) (($defaultAddress['mobile_number'] ?? '') ?: ($userData['mobile_number'] ?? ''));
 }
 
 $shippingStreet = requestString($_POST, 'shipping_street');
@@ -232,6 +225,37 @@ include __DIR__ . '/includes/header.php';
 
                     <div class="checkout-card">
                         <h2 class="checkout-card-title">1) Shipping Address</h2>
+                        <?php if ($savedAddresses): ?>
+                            <div class="checkout-saved-address">
+                                <div class="checkout-saved-address-copy">
+                                    <label for="saved_address_id">Use A Saved Address</label>
+                                    <a href="/addresses.php">Manage Addresses</a>
+                                </div>
+                                <select id="saved_address_id" name="saved_address_id" aria-label="Choose a saved shipping address">
+                                    <?php foreach ($savedAddresses as $savedAddress): ?>
+                                        <?php
+                                            $addressTitle = trim((string) ($savedAddress['label'] ?? '')) ?: 'Delivery Address';
+                                            $addressSummary = trim(($savedAddress['city'] ?? '') . ', ' . ($savedAddress['province'] ?? '') . ' ' . ($savedAddress['zip_code'] ?? ''), ' ,');
+                                        ?>
+                                        <option
+                                            value="<?= (int) $savedAddress['address_id'] ?>"
+                                            data-recipient="<?= htmlspecialchars((string) ($savedAddress['recipient_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-mobile="<?= htmlspecialchars((string) ($savedAddress['mobile_number'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"
+                                            data-street="<?= htmlspecialchars((string) $savedAddress['street'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-city="<?= htmlspecialchars((string) $savedAddress['city'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-province="<?= htmlspecialchars((string) $savedAddress['province'], ENT_QUOTES, 'UTF-8') ?>"
+                                            data-zip="<?= htmlspecialchars((string) $savedAddress['zip_code'], ENT_QUOTES, 'UTF-8') ?>"
+                                            <?= (int) $savedAddress['address_id'] === $selectedAddressId ? 'selected' : '' ?>
+                                        ><?= htmlspecialchars($addressTitle . ' · ' . $addressSummary, ENT_QUOTES, 'UTF-8') ?></option>
+                                    <?php endforeach; ?>
+                                </select>
+                                <p>Your saved address is selected automatically. You can still edit the delivery details below for this order.</p>
+                            </div>
+                        <?php else: ?>
+                            <div class="checkout-saved-address checkout-saved-address-empty">
+                                <p>Save an address to reuse it next time.</p><a href="/addresses.php">Manage Addresses</a>
+                            </div>
+                        <?php endif; ?>
                         <div class="checkout-form-grid">
 
                             <div class="checkout-form-row-2">
@@ -241,6 +265,7 @@ include __DIR__ . '/includes/header.php';
                                         type="text" 
                                         id="shipping_name" 
                                         name="shipping_name" 
+                                        autocomplete="name"
                                         maxlength="150" 
                                         required 
                                         value="<?= htmlspecialchars($shipping['shipping_name'], ENT_QUOTES, 'UTF-8') ?>"
@@ -252,6 +277,7 @@ include __DIR__ . '/includes/header.php';
                                         type="tel" 
                                         id="shipping_mobile" 
                                         name="shipping_mobile" 
+                                        autocomplete="tel"
                                         maxlength="20" 
                                         placeholder="09XXXXXXXXX"
                                         required 
