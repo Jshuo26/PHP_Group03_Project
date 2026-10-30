@@ -82,7 +82,7 @@ $adminAssetVersion = '20261031-live-admin-4';
 
     <div class="header-container<?php echo $isAdminPortal ? ' admin-portal-header' : ''; ?>">
 
-        <a href="<?php echo htmlspecialchars($brandUrl, ENT_QUOTES, 'UTF-8'); ?>" class="brand">
+        <a href="<?php echo htmlspecialchars($brandUrl, ENT_QUOTES, 'UTF-8'); ?>" class="brand"<?php echo $isAdminPortal && $isLoggedIn && in_array($userRole, ['admin', 'staff'], true) ? ' aria-label="Go to dashboard"' : ''; ?>>
 
             <img
                 src="/images/logo/aklAAAt!-wordmark.png"
@@ -95,7 +95,6 @@ $adminAssetVersion = '20261031-live-admin-4';
 
             <?php if ($isAdminPortal): ?>
                 <?php if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
-                    <a class="nav-link" href="/admin/index.php">Dashboard</a>
                     <a class="nav-link" href="/admin/featured.php">Featured</a>
                     <a class="nav-link" href="/admin/products.php">Products</a>
                     <a class="nav-link" href="/admin/authors.php">Authors</a>
