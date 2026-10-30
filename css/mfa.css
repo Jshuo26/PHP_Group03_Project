@@ -1,5 +1,53 @@
-.mfa-wrap { max-width: 34rem; margin: 2rem auto; }
-.mfa-lead { color: #5b5b5b; margin: 0 0 1.25rem; }
+.mfa-page {
+  display: flex;
+  min-height: min(72vh, 760px);
+  align-items: center;
+  justify-content: center;
+  padding-top: clamp(28px, 6vh, 72px);
+  padding-bottom: clamp(28px, 6vh, 72px);
+}
+
+.mfa-wrap {
+  width: min(100%, 510px);
+  margin: 0 auto;
+  padding: clamp(26px, 5vw, 42px);
+  border: 1px solid #eadbca;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(83, 52, 25, 0.1);
+}
+
+.mfa-heading { margin-bottom: 28px; }
+.mfa-shield {
+  display: grid;
+  width: 56px;
+  height: 56px;
+  margin-bottom: 20px;
+  place-items: center;
+  border: 1px solid #f0d7b9;
+  border-radius: 16px;
+  background: #fff3e4;
+  color: var(--primary-color, #ae5c0f);
+}
+.mfa-shield svg { width: 29px; height: 29px; }
+.mfa-eyebrow {
+  display: block;
+  margin-bottom: 6px;
+  color: var(--primary-color, #ae5c0f);
+  font-size: .76rem;
+  font-weight: 800;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+.mfa-wrap .card-title {
+  margin: 0 0 10px;
+  color: var(--primary-dark, #742c05);
+  font-size: clamp(1.65rem, 4vw, 2rem);
+  line-height: 1.2;
+}
+.mfa-lead { max-width: 390px; margin: 0; color: var(--muted-text, #6e5642); line-height: 1.65; }
+.mfa-code-group { margin-bottom: 0; }
+.mfa-code-group label { display: block; margin-bottom: 9px; color: var(--text-color, #3a2616); font-weight: 700; }
 
 .mfa-status {
   display: inline-block; padding: .15rem .7rem; border-radius: 999px;
@@ -26,8 +74,47 @@
 }
 
 .mfa-code-input {
-  text-align: center; font-size: 1.4rem; letter-spacing: .35em;
+  min-height: 64px;
+  border: 1px solid #ddc8b1;
+  border-radius: 12px;
+  background: #fffdfa;
+  color: var(--primary-dark, #742c05);
+  text-align: center;
+  font-size: 1.65rem;
+  font-weight: 750;
+  letter-spacing: .35em;
   font-family: ui-monospace, Consolas, monospace;
+}
+.mfa-code-input:focus {
+  border-color: var(--primary-color, #ae5c0f);
+  outline: 3px solid rgba(174, 92, 15, .13);
+}
+.mfa-code-input::placeholder { color: #b8a18b; opacity: .75; }
+.mfa-code-help { margin: 8px 0 0; color: #806c59; font-size: .82rem; line-height: 1.5; }
+.mfa-wrap .form-errors { margin: 0 0 20px; padding: 13px 15px; border: 1px solid #efb7b1; border-radius: 11px; background: #fff4f2; color: #a33126; }
+.mfa-wrap .form-errors p { margin: 0; }
+.mfa-wrap .form-errors p + p { margin-top: 6px; }
+.mfa-actions { margin-top: 22px; }
+.mfa-actions .btn { width: 100%; min-height: 50px; border-radius: 10px; font-size: .96rem; }
+.mfa-note { margin: 12px 0 0; }
+.mfa-note .btn { width: 100%; min-height: 46px; border-radius: 10px; }
+.mfa-help-note {
+  margin-top: 24px;
+  padding: 15px 16px;
+  border: 1px solid #eee4d8;
+  border-radius: 12px;
+  background: #fbf8f3;
+  color: #614e3b;
+  font-size: .85rem;
+}
+.mfa-help-note strong { color: #49341f; }
+.mfa-help-note p { margin: 4px 0 0; line-height: 1.55; }
+
+@media (max-width: 480px) {
+  .mfa-page { min-height: auto; }
+  .mfa-wrap { padding: 24px 20px; border-radius: 18px; }
+  .mfa-heading { margin-bottom: 22px; }
+  .mfa-code-input { min-height: 58px; font-size: 1.4rem; }
 }
 
 .mfa-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1rem; }

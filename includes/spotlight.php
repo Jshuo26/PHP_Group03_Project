@@ -4,13 +4,17 @@ require_once __DIR__ . '/catalog_visibility.php';
 
 const SPOTLIGHT_REST_DAYS = 7;
 
+function spotlightToday(): string
+{
+    return (new DateTimeImmutable('now', new DateTimeZone('Asia/Manila')))->format('Y-m-d');
+}
+
 function pickSpotlightId(PDO $pdo, string $type, bool $verifiedOnly, bool $skipRecent): ?int
 {
     $verified = $verifiedOnly ? "AND a.verification_status = 'verified'" : '';
 
     $having = $skipRecent
-        ? 'HAVING MAX(ds.spotlight_date) IS NULL
-              OR MAX(ds.spotlight_date) < DATE_SUB(CURDATE(), INTERVAL ' . SPOTLIGHT_REST_DAYS . ' DAY)'
+        ? 'HAVING MAX(ds.spotlight_date) IS NULL OR MAX(ds.spotlight_date) < ?'
         : '';
 
     $order = $skipRecent
@@ -52,7 +56,13 @@ function pickSpotlightId(PDO $pdo, string $type, bool $verifiedOnly, bool $skipR
                 LIMIT 1";
     }
 
-    $id = $pdo->query($sql)->fetchColumn();
+    $stmt = $pdo->prepare($sql);
+    $params = $skipRecent
+        ? [(new DateTimeImmutable(spotlightToday(), new DateTimeZone('Asia/Manila')))
+            ->modify('-' . SPOTLIGHT_REST_DAYS . ' days')->format('Y-m-d')]
+        : [];
+    $stmt->execute($params);
+    $id = $stmt->fetchColumn();
 
     return $id === false ? null : (int) $id;
 }
@@ -71,7 +81,7 @@ function spotlightAuthorPhoto(?string $path): string
 
 function fetchSpotlightRow(PDO $pdo): ?array
 {
-    $stmt = $pdo->query(
+    $stmt = $pdo->prepare(
         "SELECT
             ds.spotlight_date,
             ds.book_id,
@@ -102,11 +112,12 @@ function fetchSpotlightRow(PDO $pdo): ?array
          FROM daily_spotlight ds
          INNER JOIN books b ON b.book_id = ds.book_id
          INNER JOIN authors a ON a.author_id = ds.author_id
-         WHERE ds.spotlight_date = CURDATE()
+         WHERE ds.spotlight_date = ?
            AND " . catalogVisibleBookSql('b') . "
            AND a.verification_status = 'verified'
          LIMIT 1"
     );
+    $stmt->execute([spotlightToday()]);
 
     $row = $stmt->fetch();
 
@@ -129,14 +140,16 @@ function getTodaysSpotlight(PDO $pdo): ?array
             return null;
         }
 
-        $pdo->exec('DELETE FROM daily_spotlight WHERE spotlight_date = CURDATE()');
+        $today = spotlightToday();
+        $deleteStmt = $pdo->prepare('DELETE FROM daily_spotlight WHERE spotlight_date = ?');
+        $deleteStmt->execute([$today]);
         $authorId = pickSpotlightWithFallback($pdo, 'author');
 
         $stmt = $pdo->prepare(
             'INSERT IGNORE INTO daily_spotlight (spotlight_date, book_id, author_id)
-             VALUES (CURDATE(), ?, ?)'
+             VALUES (?, ?, ?)'
         );
-        $stmt->execute([$bookId, $authorId]);
+        $stmt->execute([$today, $bookId, $authorId]);
 
         return fetchSpotlightRow($pdo);
     } catch (PDOException $e) {

@@ -26,7 +26,12 @@ if ($spotlight) {
 
     $genreList = array_filter(explode('|', (string) ($spotlight['genre_names'] ?? '')));
 
-    $spotlightDate = date('F j, Y', strtotime($spotlight['spotlight_date']));
+    $dateValue = DateTimeImmutable::createFromFormat(
+        '!Y-m-d',
+        (string) $spotlight['spotlight_date'],
+        new DateTimeZone('Asia/Manila')
+    );
+    $spotlightDate = $dateValue ? $dateValue->format('F j, Y') : '';
 }
 
 $authorBookCount = $spotlight ? (int) $spotlight['author_book_count'] : 0;

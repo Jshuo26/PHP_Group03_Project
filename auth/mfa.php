@@ -133,11 +133,19 @@ include __DIR__ . '/../includes/header.php';
 
 <link rel="stylesheet" href="/css/mfa.css">
 
-<section class="container auth-section">
+<section class="container auth-section mfa-page">
   <div class="card mfa-wrap">
-
-    <h1 class="card-title">Enter your code</h1>
-    <p class="mfa-lead">Open Google Authenticator and type the 6-digit code for aklAAAt!.</p>
+    <div class="mfa-heading">
+      <span class="mfa-shield" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 3 19 6v5c0 4.5-2.9 7.8-7 10-4.1-2.2-7-5.5-7-10V6l7-3Z" />
+          <path d="m9 12 2 2 4-4" />
+        </svg>
+      </span>
+      <span class="mfa-eyebrow">Account Security</span>
+      <h1 class="card-title">Verify It’s You</h1>
+      <p class="mfa-lead">Open Google Authenticator and enter the current 6-digit code to securely finish signing in to aklAAAt!.</p>
+    </div>
 
     <?php if ($errors): ?>
       <div class="form-errors" role="alert">
@@ -150,25 +158,29 @@ include __DIR__ . '/../includes/header.php';
     <form method="POST" action="/auth/mfa.php" autocomplete="off">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
 
-      <div class="form-group">
-        <label for="code">6-digit code</label>
+      <div class="form-group mfa-code-group">
+        <label for="code">Authenticator Code</label>
         <input class="form-input mfa-code-input" type="text" id="code" name="code"
                inputmode="numeric" autocomplete="one-time-code" pattern="[0-9 ]{6,7}" maxlength="7"
-               placeholder="123456" required autofocus>
+               placeholder="000 000" aria-describedby="mfa-code-help" required autofocus>
+        <p class="mfa-code-help" id="mfa-code-help">Codes refresh every 30 seconds. Use the newest code shown in your app.</p>
       </div>
 
       <div class="mfa-actions">
-        <button class="btn btn-primary" type="submit">Verify and log in</button>
+        <button class="btn btn-primary" type="submit">Verify And Continue</button>
       </div>
     </form>
 
     <form method="POST" action="/auth/mfa.php" class="mfa-note">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
       <input type="hidden" name="action" value="cancel">
-      <button class="btn btn-outline btn-sm" type="submit">Cancel and go back</button>
+      <button class="btn btn-outline btn-sm" type="submit">Cancel And Return To Login</button>
     </form>
 
-    <p class="mfa-note">Lost your phone? Contact an administrator to reset your authenticator.</p>
+    <div class="mfa-help-note">
+      <strong>Can’t access your authenticator?</strong>
+      <p>Contact an administrator to reset the authenticator for your account.</p>
+    </div>
 
   </div>
 </section>

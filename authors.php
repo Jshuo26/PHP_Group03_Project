@@ -1,5 +1,6 @@
 <?php
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/catalog.php';
 
 $h = static fn ($value): string => htmlspecialchars(
     (string) $value,
@@ -44,6 +45,40 @@ $sql .= " GROUP BY
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $authors = $stmt->fetchAll();
+
+// Load the public catalog records for these authors once, so the profile
+// dialogs can show the same active books customers can browse.
+$booksByAuthor = [];
+if ($authors) {
+    $authorIds = array_values(array_unique(array_map(
+        static fn (array $author): int => (int) $author['author_id'],
+        $authors
+    )));
+    $placeholders = implode(',', array_fill(0, count($authorIds), '?'));
+    $booksStmt = $pdo->prepare(
+        "SELECT ba.author_id, b.book_id, b.title, b.description, b.isbn, b.language,
+                MIN(e.price) AS min_price,
+                MAX(e.price) AS max_price,
+                SUM(e.stock_quantity) AS stock_total,
+                GROUP_CONCAT(DISTINCT e.format ORDER BY FIELD(e.format, 'paperback', 'hardbound', 'ebook') SEPARATOR ', ') AS formats,
+                MAX(e.cover_image_path) AS cover_image_path
+           FROM book_authors ba
+           JOIN books b ON b.book_id = ba.book_id
+           JOIN book_genres bg ON bg.book_id = b.book_id
+           JOIN genres g ON g.genre_id = bg.genre_id AND g.status = 'active'
+           JOIN book_editions e ON e.book_id = b.book_id
+          WHERE ba.author_id IN ($placeholders)
+            AND b.status = 'active'
+            AND b.review_status = 'approved'
+          GROUP BY ba.author_id, b.book_id, b.title, b.description, b.isbn, b.language
+          ORDER BY ba.author_id, b.title"
+    );
+    $booksStmt->execute($authorIds);
+    foreach ($booksStmt->fetchAll() as $book) {
+        $book['cover_image_path'] = catalogCover($book['cover_image_path'] ?? null);
+        $booksByAuthor[(int) $book['author_id']][] = $book;
+    }
+}
 
 
 $selectedLetter = strtoupper(trim((string) ($_GET['letter'] ?? '')));
@@ -214,18 +249,27 @@ include __DIR__ . '/includes/header.php';
                     <?php
                     $photo = authorPhoto($author['author_image_path'] ?? null);
                     $bookCount = (int) $author['book_count'];
-                    $booksUrl = '/books.php?search=' . rawurlencode($author['full_name']);
+                    $profileBooks = $booksByAuthor[(int) $author['author_id']] ?? [];
+                    $profilePayload = [
+                        'name' => (string) $author['full_name'],
+                        'bio' => trim((string) ($author['bio'] ?? '')),
+                        'photo' => $photo,
+                        'books' => $profileBooks,
+                    ];
+                    $profileJson = json_encode(
+                        $profilePayload,
+                        JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+                    );
                     ?>
 
-                    <article
+                    <button
+                        type="button"
                         class="author-directory-card"
                         id="author-<?= (int) $author['author_id'] ?>"
+                        data-author-profile="<?= $h($profileJson ?: '{}') ?>"
+                        aria-label="View profile and books by <?= $h($author['full_name']) ?>"
                     >
-                        <a
-                            class="author-card-photo-link"
-                            href="<?= $h($booksUrl) ?>"
-                            aria-label="Explore books by <?= $h($author['full_name']) ?>"
-                        >
+                        <span class="author-card-photo-link" aria-hidden="true">
                             <?php if ($photo !== ''): ?>
                                 <img
                                     class="author-directory-photo"
@@ -243,7 +287,7 @@ include __DIR__ . '/includes/header.php';
                                 <?= $bookCount ?>
                                 <?= $bookCount === 1 ? 'book' : 'books' ?>
                             </span>
-                        </a>
+                        </span>
 
                         <div class="author-directory-content">
                             <h3><?= $h($author['full_name']) ?></h3>
@@ -252,8 +296,8 @@ include __DIR__ . '/includes/header.php';
                                 <?= $h(authorBioPreview($author['bio'] ?? null)) ?>
                             </p>
 
-                            <a class="author-explore-link" href="<?= $h($booksUrl) ?>">
-                                Explore Books
+                            <span class="author-explore-link">
+                                View Author Profile
                                 <svg viewBox="0 0 24 24" fill="none"
                                      stroke="currentColor" stroke-width="1.8"
                                      stroke-linecap="round" stroke-linejoin="round"
@@ -261,13 +305,32 @@ include __DIR__ . '/includes/header.php';
                                     <path d="M5 12h14"></path>
                                     <path d="m13 6 6 6-6 6"></path>
                                 </svg>
-                            </a>
+                            </span>
                         </div>
-                    </article>
+                    </button>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
     </section>
 </section>
+
+<dialog class="customer-author-dialog" id="customer-author-dialog" aria-labelledby="customer-author-dialog-title">
+    <div class="customer-author-dialog-shell">
+        <header class="customer-author-dialog-header">
+            <div>
+                <span class="authors-eyebrow">Author Profile</span>
+                <h2 id="customer-author-dialog-title">Author Details</h2>
+            </div>
+            <button class="customer-author-dialog-close" type="button" aria-label="Close author profile">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+                    <path d="M6 18 18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </header>
+        <div class="customer-author-dialog-body" id="customer-author-dialog-body"></div>
+    </div>
+</dialog>
+
+<script src="/js/customer-authors.js" defer></script>
 
 <?php include __DIR__ . '/includes/footer.php'; ?>

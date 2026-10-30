@@ -897,6 +897,11 @@
   display: flex;
   flex-direction: column;
   min-width: 0;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
   overflow: hidden;
   border: 1px solid #e9dfd2;
   border-radius: 12px;
@@ -1025,6 +1030,327 @@
 
 .author-explore-link:hover svg {
   transform: translateX(4px);
+}
+
+.author-directory-card:focus-visible {
+  outline: 3px solid rgba(174, 92, 15, 0.45);
+  outline-offset: 3px;
+}
+
+.customer-author-dialog {
+  width: min(920px, calc(100vw - 32px));
+  max-width: 920px;
+  max-height: min(88vh, 900px);
+  padding: 0;
+  overflow: hidden;
+  border: 1px solid #eadbca;
+  border-radius: 22px;
+  background: #fffdfa;
+  color: var(--text-color);
+  box-shadow: 0 28px 90px rgba(48, 37, 31, 0.3);
+}
+
+.customer-author-dialog::backdrop {
+  background: rgba(35, 24, 17, 0.58);
+  backdrop-filter: blur(5px);
+}
+
+.customer-author-dialog-shell {
+  display: flex;
+  max-height: min(88vh, 900px);
+  flex-direction: column;
+}
+
+.customer-author-dialog-header {
+  position: sticky;
+  z-index: 1;
+  top: 0;
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 20px 26px;
+  border-bottom: 1px solid #efe4d7;
+  background: #fffdfa;
+}
+
+.customer-author-dialog-header .authors-eyebrow {
+  color: var(--primary-color);
+  font-size: 0.76rem;
+  font-weight: 800;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.customer-author-dialog-header h2 {
+  margin: 4px 0 0;
+  color: var(--primary-dark);
+  font-size: 1.45rem;
+  line-height: 1.25;
+}
+
+.customer-author-dialog-close {
+  display: inline-grid;
+  width: 44px;
+  height: 44px;
+  flex: 0 0 44px;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  background: #f5eee5;
+  color: #695744;
+  transition: background-color 0.18s ease, color 0.18s ease;
+}
+
+.customer-author-dialog-close:hover {
+  background: #ead8c2;
+  color: var(--primary-dark);
+}
+
+.customer-author-dialog-close svg {
+  width: 20px;
+  height: 20px;
+}
+
+.customer-author-dialog-body {
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  padding: 22px 26px 28px;
+}
+
+.customer-author-overview {
+  display: grid;
+  grid-template-columns: 112px minmax(160px, 0.8fr) minmax(0, 1.5fr);
+  align-items: center;
+  gap: 20px;
+  padding: 18px;
+  border: 1px solid #f0ddc7;
+  border-radius: 16px;
+  background: linear-gradient(115deg, #fff8ef, #fffdf9);
+}
+
+.customer-author-portrait {
+  display: grid;
+  width: 112px;
+  height: 132px;
+  place-items: center;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #f3e5d3;
+}
+
+.customer-author-portrait img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.customer-author-portrait.is-placeholder {
+  color: var(--primary-dark);
+  font-size: 2.4rem;
+  font-weight: 800;
+}
+
+.customer-author-identity h3 {
+  margin: 0 0 12px;
+  color: var(--primary-dark);
+  font-size: 1.25rem;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.customer-author-verified {
+  display: inline-flex;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: #e8f5ec;
+  color: #18713b;
+  font-size: 0.76rem;
+  font-weight: 750;
+}
+
+.customer-author-biography {
+  align-self: stretch;
+  padding-left: 20px;
+  border-left: 1px solid #ead8c2;
+}
+
+.customer-author-biography h3 {
+  margin: 2px 0 8px;
+  color: var(--primary-dark);
+  font-size: 0.96rem;
+}
+
+.customer-author-biography p {
+  margin: 0;
+  color: var(--muted-text);
+  font-size: 0.9rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.customer-author-books {
+  margin-top: 24px;
+}
+
+.customer-author-books-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.customer-author-books-heading h3 {
+  margin: 0;
+  color: var(--primary-dark);
+  font-size: 1.1rem;
+}
+
+.customer-author-books-heading span {
+  color: var(--muted-text);
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.customer-author-book-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.customer-author-book-card {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid #eadfd2;
+  border-radius: 14px;
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, border-color 0.18s ease;
+}
+
+.customer-author-book-card:hover {
+  transform: translateY(-3px);
+  border-color: #d9b58d;
+  box-shadow: 0 10px 24px rgba(48, 37, 31, 0.1);
+  color: inherit;
+}
+
+.customer-author-book-card:focus-visible,
+.customer-author-dialog-close:focus-visible {
+  outline: 3px solid rgba(174, 92, 15, 0.45);
+  outline-offset: 3px;
+}
+
+.customer-author-book-cover {
+  display: grid;
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  place-items: center;
+  overflow: hidden;
+  padding: 12px;
+  background: #fbf4e9;
+}
+
+.customer-author-book-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+
+.customer-author-book-cover.is-placeholder {
+  background: linear-gradient(145deg, #f8ead8, #efdbbf);
+  color: #784013;
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 1.02rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.customer-author-book-details {
+  display: grid;
+  gap: 7px;
+  padding: 12px;
+}
+
+.customer-author-book-details strong {
+  display: -webkit-box;
+  overflow: hidden;
+  color: #30251f;
+  font-size: 0.9rem;
+  line-height: 1.4;
+  overflow-wrap: anywhere;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.customer-author-book-meta,
+.customer-author-book-stock {
+  color: var(--muted-text);
+  font-size: 0.77rem;
+  line-height: 1.45;
+}
+
+.customer-author-book-stock {
+  color: var(--primary-dark);
+  font-weight: 750;
+}
+
+.customer-author-no-books {
+  padding: 18px;
+  border: 1px dashed #ddcdbb;
+  border-radius: 12px;
+  color: var(--muted-text);
+  text-align: center;
+}
+
+@media (max-width: 680px) {
+  .customer-author-dialog-header {
+    padding: 16px 18px;
+  }
+
+  .customer-author-dialog-body {
+    padding: 16px 18px 22px;
+  }
+
+  .customer-author-overview {
+    grid-template-columns: 82px minmax(0, 1fr);
+    gap: 14px;
+    padding: 14px;
+  }
+
+  .customer-author-portrait {
+    width: 82px;
+    height: 100px;
+  }
+
+  .customer-author-identity h3 {
+    font-size: 1.05rem;
+  }
+
+  .customer-author-biography {
+    grid-column: 1 / -1;
+    padding: 14px 0 0;
+    border-top: 1px solid #ead8c2;
+    border-left: 0;
+  }
+
+  .customer-author-book-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+}
+
+@media (max-width: 380px) {
+  .customer-author-book-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 
 .authors-empty {
