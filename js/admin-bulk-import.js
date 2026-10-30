@@ -1256,7 +1256,12 @@
       row.genre_lookup_complete = false;
     }
     if (isSynopsisPlaceholder(row.description) && !row.description_source) row.description_source = 'placeholder';
-    if (String(row.language || '').trim() && !row.language_source) row.language_source = 'csv';
+    // Older batches stored the fallback value but not its source marker. Keep
+    // those rows visibly flagged instead of misclassifying the placeholder as
+    // language supplied in the CSV.
+    if (String(row.language || '').trim() && !row.language_source) {
+      row.language_source = String(row.language).trim().toLowerCase() === 'other languages' ? 'fallback' : 'csv';
+    }
     if (!String(row.language || '').trim() && !imported) { row.language = 'Other Languages'; row.language_source = 'fallback'; }
     if (String(row.format || '').trim() && !row.format_source) row.format_source = 'csv';
     if (!String(row.format || '').trim()) { row.format = 'paperback'; row.format_source = 'default'; }

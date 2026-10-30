@@ -87,6 +87,14 @@ function bulkReusableCatalogCover(PDO $pdo, array $row): ?array
     return $cover ?: null;
 }
 
+function bulkRowAlreadyIdentifiedAsCatalogBook(array $row): bool
+{
+    if (!empty($row['existing_catalog_selected']) || !empty($row['server_excluded_existing']) || !empty($row['local_match'])) {
+        return true;
+    }
+    return in_array((string) ($row['lookup_status'] ?? ''), ['Existing catalog book', 'Existing catalog record selected'], true);
+}
+
 function bulkFindExistingBook(PDO $pdo, array $row, bool $lock = false): ?array
 {
     $isbn = trim((string) ($row['isbn'] ?? ''));
@@ -566,6 +574,15 @@ try {
     // strictly for adding new books. Detect and exclude them server-side too.
     foreach ($rows as $index => $row) {
         if (!is_array($row) || !empty($row['skip'])) continue;
+        // The review UI has already confirmed this row against this shop's
+        // catalog. It is an excluded, read-only row; never let a secondary
+        // server-side name/ISBN variation check block publication of other
+        // valid new rows in the batch.
+        if (bulkRowAlreadyIdentifiedAsCatalogBook($row)) {
+            $existingRows[(int) $index] = true;
+            $rows[$index]['server_excluded_existing'] = true;
+            continue;
+        }
         try {
             if (bulkFindExistingBook($pdo, $row)) {
                 $existingRows[(int) $index] = true;
