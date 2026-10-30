@@ -75,40 +75,33 @@ if ($ready) {
 }
 include __DIR__ . '/../includes/header.php';
 ?>
-<section class="container">
-    <div class="card">
-        <p class="card-text"><a href="/admin/index.php">Dashboard</a> / Inventory</p>
-        <h1 class="card-title">Low-stock alerts</h1>
-        <p class="card-text">Alerts are created when edition stock reaches the configured threshold and resolve automatically after restocking above it.</p>
-        <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
-        <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
-        <?php if (!$ready): ?>
-            <div class="form-errors" role="alert"><p>Low-stock alert tables are not installed yet. Apply <code>database/migrations/005_low_stock_alerts.sql</code> to this database.</p></div>
-        <?php else: ?>
-            <p><strong><?= number_format($activeCount) ?></strong> active alert<?= $activeCount === 1 ? '' : 's' ?> · Current threshold: <strong><?= number_format($threshold) ?></strong> units</p>
-        <?php endif; ?>
-    </div>
+<main class="container admin-operations admin-low-stock-page">
+    <header class="admin-page-hero">
+        <div><span class="admin-hero-eyebrow">INVENTORY CONTROL</span><h1>Low-Stock Alerts</h1><p>Monitor editions that need replenishment. Alerts open at the configured threshold and resolve after stock rises above it.</p></div>
+        <div class="hero-meta"><a class="btn btn-secondary" href="/admin/products.php">Manage Inventory</a></div>
+    </header>
+    <?php if ($errors): ?><div class="operations-alert error" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
+    <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
+    <?php if (!$ready): ?><div class="operations-alert error" role="alert"><p>Low-stock alert tables are not installed yet. Apply <code>database/migrations/005_low_stock_alerts.sql</code> to this database.</p></div><?php endif; ?>
 
-    <?php if ($isAdmin): ?>
-        <div class="card" style="margin-top:16px;">
-            <h2 class="card-title">Alert settings</h2>
-            <p class="card-text">Use one threshold for all book editions. Changing it immediately reevaluates inventory and updates active alerts.</p>
-            <form method="post" action="/admin/low_stock.php" class="inline-form" style="margin-top:16px;">
-                <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
-                <label for="low-stock-threshold">Alert when stock is at or below</label>
-                <input class="form-input" type="number" id="low-stock-threshold" name="low_stock_threshold" min="1" max="9999999" step="1" required value="<?= (int) $threshold ?>" <?= !$ready ? 'disabled' : '' ?>>
-                <span>units</span>
-                <button class="btn btn-primary" type="submit" <?= !$ready ? 'disabled' : '' ?>>Save threshold</button>
-            </form>
+    <section class="low-stock-overview-panel" aria-label="Low-stock overview and settings">
+        <div class="low-stock-overview-copy"><span class="operations-eyebrow">CURRENT INVENTORY PULSE</span><h2><?= number_format($activeCount) ?> Active Alert<?= $activeCount === 1 ? '' : 's' ?></h2><p><?= $ready ? 'Editions at or below the shared restock threshold appear in the alert list.' : 'Apply the low-stock migration to enable monitoring.' ?></p><div class="low-stock-threshold-pill">Current Threshold <strong><?= number_format($threshold) ?> Units</strong></div></div>
+        <div class="low-stock-settings">
+            <div><span class="operations-eyebrow">ALERT SETTINGS</span><h2>Shared Stock Threshold</h2><p><?php if ($isAdmin): ?>Changing this value updates every edition and reevaluates open alerts.<?php else: ?>Only an administrator can change the shared threshold.<?php endif; ?></p></div>
+            <?php if ($isAdmin): ?>
+                <form method="post" action="/admin/low_stock.php" class="low-stock-threshold-form">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <label for="low-stock-threshold">Alert When Stock Is at or Below</label>
+                    <div class="low-stock-threshold-controls"><input class="form-input" type="number" id="low-stock-threshold" name="low_stock_threshold" min="1" max="9999999" step="1" required value="<?= (int) $threshold ?>" <?= !$ready ? 'disabled' : '' ?>><span>Units</span><button class="btn btn-primary" type="submit" <?= !$ready ? 'disabled' : '' ?>>Save Threshold</button></div>
+                </form>
+            <?php else: ?><p class="low-stock-admin-note">The administrator manages this setting.</p><?php endif; ?>
         </div>
-    <?php else: ?>
-        <div class="card" style="margin-top:16px;"><h2 class="card-title">Alert settings</h2><p class="card-text">The administrator controls the global stock threshold. Current threshold: <strong><?= number_format($threshold) ?></strong> units.</p></div>
-    <?php endif; ?>
+    </section>
 
-    <div class="card" style="margin-top:16px;">
-        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <h2 class="card-title">Inventory alerts</h2>
-            <nav class="inline-form" aria-label="Alert status filter">
+    <section class="low-stock-alerts-panel" aria-labelledby="inventory-alerts-title">
+        <div class="low-stock-alerts-heading">
+            <div><span class="operations-eyebrow">RESTOCK QUEUE</span><h2 id="inventory-alerts-title">Inventory Alerts</h2><p>Review current and resolved stock alerts, then open an edition to update its inventory.</p></div>
+            <nav class="low-stock-filter-tabs" aria-label="Filter alert status">
                 <a class="btn <?= $statusFilter === 'active' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=active">Active</a>
                 <a class="btn <?= $statusFilter === 'resolved' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=resolved">Resolved</a>
                 <a class="btn <?= $statusFilter === 'all' ? 'btn-primary' : 'btn-secondary' ?>" href="/admin/low_stock.php?status=all">All</a>
@@ -117,9 +110,9 @@ include __DIR__ . '/../includes/header.php';
         <?php if (!$ready): ?>
             <p class="card-text">Alerts will appear here once the migration is applied.</p>
         <?php elseif (!$alerts): ?>
-            <p class="card-text">No <?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?> low-stock alerts.</p>
+            <div class="operations-empty"><h2>No <?= htmlspecialchars(ucfirst($statusFilter), ENT_QUOTES, 'UTF-8') ?> Alerts</h2><p>There are no <?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?> low-stock alerts to show.</p></div>
         <?php else: ?>
-            <div style="overflow-x:auto;"><table class="table">
+            <div class="low-stock-table-wrap"><table class="table low-stock-table">
                 <thead><tr><th>Book / edition</th><th>Stock</th><th>Threshold</th><th>Detected</th><th>Status</th><th>Resolved</th><th>Manage</th></tr></thead>
                 <tbody><?php foreach ($alerts as $alert): ?>
                     <tr>
@@ -134,6 +127,6 @@ include __DIR__ . '/../includes/header.php';
                 <?php endforeach; ?></tbody>
             </table></div>
         <?php endif; ?>
-    </div>
-</section>
+    </section>
+</main>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

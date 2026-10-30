@@ -75,10 +75,20 @@ include __DIR__ . '/../includes/header.php';
     </header>
     <?php if ($errors): ?><div class="operations-alert error" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
     <?php if ($success !== ''): ?><div class="operations-alert success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
+    <?php if ($orders): ?>
+        <section class="orders-filter-panel" aria-label="Filter customer orders">
+            <label for="orders-search">Search Orders<input class="form-input" type="search" id="orders-search" placeholder="Order number, customer, or book"></label>
+            <label for="orders-status-filter">Order Status<select class="form-input" id="orders-status-filter"><option value="all">All Statuses</option><?php foreach ($statuses as $status): ?><option value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?></select></label>
+            <button type="button" class="btn btn-secondary" id="orders-filter-clear">Clear Filters</button>
+            <p id="orders-filter-count" aria-live="polite">Showing <?= count($orders) ?> of <?= count($orders) ?> orders</p>
+        </section>
+        <div class="operations-empty orders-filter-empty" id="orders-filter-empty" hidden><h2>No Matching Orders</h2><p>Try a different search or status filter.</p></div>
+    <?php endif; ?>
     <?php if (!$orders): ?>
-        <div class="operations-empty"><span aria-hidden="true">✓</span><h2>No orders yet</h2><p>New customer orders will appear here.</p></div>
+        <div class="operations-empty"><span aria-hidden="true">✓</span><h2>No Orders Yet</h2><p>New customer orders will appear here.</p></div>
     <?php else: foreach ($orders as $order): ?>
-        <article class="order-management-card">
+        <?php $orderSearch = mb_strtolower((string) $order['order_number'] . ' ' . (string) $order['shipping_name'] . ' ' . (string) $order['items'] . ' ' . (string) $order['email']); ?>
+        <article class="order-management-card" data-order-status="<?= htmlspecialchars((string) $order['status'], ENT_QUOTES, 'UTF-8') ?>" data-order-search="<?= htmlspecialchars($orderSearch, ENT_QUOTES, 'UTF-8') ?>">
             <header class="order-management-heading"><div><span class="operations-eyebrow">ORDER</span><h2><?= htmlspecialchars($order['order_number'], ENT_QUOTES, 'UTF-8') ?></h2><p>Placed <?= htmlspecialchars($order['placed_at'], ENT_QUOTES, 'UTF-8') ?></p></div><div class="order-heading-meta"><span class="order-status-pill status-<?= htmlspecialchars($order['status'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst($order['status']), ENT_QUOTES, 'UTF-8') ?></span><strong>₱<?= number_format((float) $order['total_amount'], 2) ?></strong></div></header>
             <div class="order-detail-grid">
                 <section><h3>Customer</h3><p><?= htmlspecialchars($order['shipping_name'], ENT_QUOTES, 'UTF-8') ?></p><a href="mailto:<?= htmlspecialchars($order['email'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($order['email'], ENT_QUOTES, 'UTF-8') ?></a></section>
@@ -97,4 +107,30 @@ include __DIR__ . '/../includes/header.php';
         </article>
     <?php endforeach; endif; ?>
 </main>
+<?php if ($orders): ?><script>
+document.addEventListener('DOMContentLoaded', function () {
+  var search = document.getElementById('orders-search');
+  var status = document.getElementById('orders-status-filter');
+  var clear = document.getElementById('orders-filter-clear');
+  var count = document.getElementById('orders-filter-count');
+  var empty = document.getElementById('orders-filter-empty');
+  var cards = Array.from(document.querySelectorAll('.order-management-card[data-order-status]'));
+  function applyFilters() {
+    var query = search.value.trim().toLowerCase();
+    var selectedStatus = status.value;
+    var visible = 0;
+    cards.forEach(function (card) {
+      var match = (selectedStatus === 'all' || card.dataset.orderStatus === selectedStatus)
+        && (!query || card.dataset.orderSearch.includes(query));
+      card.hidden = !match;
+      if (match) visible++;
+    });
+    count.textContent = 'Showing ' + visible + ' of ' + cards.length + ' orders';
+    empty.hidden = visible !== 0;
+  }
+  search.addEventListener('input', applyFilters);
+  status.addEventListener('change', applyFilters);
+  clear.addEventListener('click', function () { search.value = ''; status.value = 'all'; applyFilters(); });
+});
+</script><?php endif; ?>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

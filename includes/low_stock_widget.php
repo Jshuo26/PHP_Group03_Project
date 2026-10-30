@@ -4,7 +4,7 @@
     <div class="admin-low-stock-heading">
         <div>
             <p class="admin-eyebrow">Inventory pulse</p>
-            <h2 id="low-stock-title">Low-stock watch</h2>
+            <h2 id="low-stock-title">Low-Stock Watch</h2>
         </div>
         <?php if ($lowStockReady): ?><span class="admin-alert-count <?= $activeLowStockCount > 0 ? 'has-alerts' : '' ?>"><?= number_format($activeLowStockCount) ?> active</span><?php endif; ?>
     </div>

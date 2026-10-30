@@ -253,6 +253,9 @@
   transform: translateY(-1px);
 }
 
+.logout-form .login-button { gap:.5rem; }
+.logout-form .login-button svg { width:1rem; height:1rem; flex:0 0 auto; }
+
 .logout-form {
   margin: 0;
 }

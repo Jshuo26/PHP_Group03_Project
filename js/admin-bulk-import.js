@@ -162,7 +162,7 @@
     var dialogTitle = el('div', 'bulk-row-dialog-title'); dialogTitle.appendChild(el('small', '', 'Book ' + String(index + 1).padStart(2, '0')));
     var dialogTitleText = el('h2', '', row.title || 'Untitled row'); dialogTitleText.dataset.dialogTitle = index; dialogTitle.appendChild(dialogTitleText);
     dialogHead.appendChild(dialogTitle);
-    var closeButton = el('button', 'bulk-row-dialog-close', '×'); closeButton.type = 'button'; closeButton.setAttribute('aria-label', 'Close book details');
+    var closeButton = el('button', 'bulk-row-dialog-close'); closeButton.type = 'button'; closeButton.setAttribute('aria-label', 'Close book details'); closeButton.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>';
     closeButton.addEventListener('click', function () { dialog.close(); }); dialogHead.appendChild(closeButton); dialog.appendChild(dialogHead);
     var body = el('div', 'bulk-row-body');
     var grid = el('div', 'bulk-review-grid');

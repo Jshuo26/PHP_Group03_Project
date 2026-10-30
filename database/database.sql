@@ -273,6 +273,16 @@ CREATE TABLE book_editions (
     INDEX idx_editions_stock (stock_quantity, low_stock_threshold)
 ) ENGINE=InnoDB;
 
+CREATE TABLE featured_books (
+    book_id         INT UNSIGNED NOT NULL PRIMARY KEY,
+    display_order   INT UNSIGNED NOT NULL DEFAULT 0,
+    added_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_featured_books_book
+        FOREIGN KEY (book_id) REFERENCES books(book_id)
+        ON DELETE CASCADE ON UPDATE CASCADE,
+    INDEX idx_featured_books_order (display_order, added_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 CREATE TABLE book_import_batches (
     batch_id        CHAR(32) NOT NULL PRIMARY KEY,
     user_id         INT UNSIGNED NOT NULL,

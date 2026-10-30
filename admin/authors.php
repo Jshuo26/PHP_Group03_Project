@@ -258,7 +258,7 @@ include __DIR__ . '/../includes/header.php';
 </main>
 
 <dialog class="admin-author-dialog author-details-dialog" id="author-details-dialog" aria-labelledby="author-details-title">
-    <div class="admin-author-dialog-header"><div><span class="admin-authors-eyebrow">AUTHOR PROFILE</span><h2 id="author-details-title">Author details</h2></div><button type="button" class="dialog-close" data-close-dialog aria-label="Close">×</button></div>
+    <div class="admin-author-dialog-header"><div><span class="admin-authors-eyebrow">AUTHOR PROFILE</span><h2 id="author-details-title">Author details</h2></div><button type="button" class="dialog-close" data-close-dialog aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button></div>
     <div class="admin-author-dialog-body" id="author-details-content"></div>
     <footer class="admin-author-dialog-footer"><button type="button" class="btn btn-secondary" data-close-dialog>Close</button><button type="button" class="btn btn-primary" id="edit-from-details">Edit Profile</button></footer>
 </dialog>
@@ -266,7 +266,7 @@ include __DIR__ . '/../includes/header.php';
 <dialog class="admin-author-dialog" id="author-edit-dialog" aria-labelledby="author-edit-title">
     <form method="post" action="/admin/authors.php" enctype="multipart/form-data" class="admin-author-dialog-form" id="author-edit-form">
         <input type="hidden" name="csrf_token" value="<?= adminAuthorEsc($csrf) ?>"><input type="hidden" name="action" value="save_profile"><input type="hidden" name="author_id" id="edit-author-id"><input type="hidden" name="photo_url" id="edit-photo-url">
-        <header class="admin-author-dialog-header"><div><span class="admin-authors-eyebrow">AUTHOR PROFILE</span><h2 id="author-edit-title">Edit Author</h2></div><button type="button" class="dialog-close" data-close-dialog aria-label="Close">×</button></header>
+        <header class="admin-author-dialog-header"><div><span class="admin-authors-eyebrow">AUTHOR PROFILE</span><h2 id="author-edit-title">Edit Author</h2></div><button type="button" class="dialog-close" data-close-dialog aria-label="Close"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button></header>
         <div class="admin-author-dialog-body">
             <label>Author Name<input id="edit-author-name" type="text" readonly></label>
             <div class="admin-author-edit-grid"><label>Biography<textarea name="bio" id="edit-author-bio" rows="6" maxlength="10000" placeholder="Add a concise, sourced author biography."></textarea><small>Leave blank to remove the biography.</small></label>

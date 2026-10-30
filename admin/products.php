@@ -554,14 +554,14 @@ include __DIR__ . '/../includes/header.php';
 </main>
 
 <dialog class="admin-book-dialog" id="admin-book-dialog" aria-labelledby="admin-book-dialog-title">
-  <header class="admin-book-dialog-head"><div><span class="products-eyebrow">CATALOG RECORD</span><h2 id="admin-book-dialog-title">Book details</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Close details">×</button></header>
+  <header class="admin-book-dialog-head"><div><span class="products-eyebrow">CATALOG RECORD</span><h2 id="admin-book-dialog-title">Book details</h2></div><button type="button" class="dialog-close" data-dialog-close aria-label="Close details"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button></header>
   <div class="admin-book-dialog-body"><div class="admin-book-dialog-cover"></div><dl class="admin-book-dialog-info"></dl></div>
   <footer class="admin-author-dialog-footer"><button type="button" class="btn btn-secondary" data-dialog-close>Close</button></footer>
 </dialog>
 
 <?php if ((int) $form['edition_id'] === 0): ?>
 <dialog class="admin-book-dialog lookup-dialog" id="lookup-dialog" aria-labelledby="lookup-dialog-title">
-  <header class="admin-book-dialog-head"><div><span class="products-eyebrow">ONLINE CATALOG RESULTS</span><h2 id="lookup-dialog-title">Choose the matching book</h2><p>Compare title, author, publisher, and publication date before selecting.</p></div><button type="button" class="dialog-close" data-lookup-close aria-label="Close results">×</button></header>
+  <header class="admin-book-dialog-head"><div><span class="products-eyebrow">ONLINE CATALOG RESULTS</span><h2 id="lookup-dialog-title">Choose the matching book</h2><p>Compare title, author, publisher, and publication date before selecting.</p></div><button type="button" class="dialog-close" data-lookup-close aria-label="Close results"><svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg></button></header>
   <div id="lookup-results" class="lookup-results" aria-live="polite"></div>
   <footer class="admin-author-dialog-footer"><button type="button" class="btn btn-secondary" data-lookup-close>Cancel</button></footer>
 </dialog>

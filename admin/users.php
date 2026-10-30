@@ -153,7 +153,7 @@ include __DIR__ . '/../includes/header.php';
     </header>
     <div class="admin-users-workspace">
     <section class="card staff-account-editor">
-        <div class="operations-section-heading"><div><span class="operations-eyebrow"><?= $editUser ? 'ACCOUNT SETTINGS' : 'TEAM SETUP' ?></span><h2><?= $editUser ? 'Edit my profile' : 'Create staff account' ?></h2></div><?php if ($editUser): ?><a class="btn btn-secondary" href="/admin/users.php">Cancel Edit</a><?php endif; ?></div>
+        <div class="operations-section-heading"><div><span class="operations-eyebrow"><?= $editUser ? 'ACCOUNT SETTINGS' : 'TEAM SETUP' ?></span><h2><?= $editUser ? 'Edit My Profile' : 'Create Staff Account' ?></h2></div><?php if ($editUser): ?><a class="btn btn-secondary" href="/admin/users.php">Cancel Edit</a><?php endif; ?></div>
         <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
         <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
         <form method="post" action="/admin/users.php<?= $editUser && $editId ? '?edit=' . (int) $editId : '' ?>" class="staff-account-form">
@@ -171,7 +171,7 @@ include __DIR__ . '/../includes/header.php';
         </form>
     </section>
     <section class="staff-directory" aria-labelledby="staff-directory-title">
-        <div class="operations-section-heading"><div><span class="operations-eyebrow">ACCESS DIRECTORY</span><h2 id="staff-directory-title">Staff and administrators</h2></div><span class="operations-count"><?= count($staffUsers) ?> listed</span></div>
+        <div class="operations-section-heading"><div><span class="operations-eyebrow">ACCESS DIRECTORY</span><h2 id="staff-directory-title">Staff and Administrators</h2></div><span class="operations-count"><?= count($staffUsers) ?> Listed</span></div>
         <nav class="staff-filter-tabs" aria-label="Filter team accounts"><button type="button" data-staff-filter="all" aria-pressed="true">All</button><button type="button" data-staff-filter="admin" aria-pressed="false">Admin</button><button type="button" data-staff-filter="staff" aria-pressed="false">Staff</button></nav>
         <div class="staff-account-grid">
             <?php foreach ($staffUsers as $staffUser): ?>

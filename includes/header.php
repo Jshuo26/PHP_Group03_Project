@@ -52,7 +52,7 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
         <link rel="stylesheet" href="/css/admin-authors.css">
     <?php endif; ?>
 
-    <?php if (in_array(basename($_SERVER['PHP_SELF']), ['orders.php', 'users.php', 'security.php'], true) && $isAdminPortal): ?>
+    <?php if (in_array(basename($_SERVER['PHP_SELF']), ['orders.php', 'users.php', 'security.php', 'featured.php', 'low_stock.php'], true) && $isAdminPortal): ?>
         <link rel="stylesheet" href="/css/admin-operations.css">
     <?php endif; ?>
 
@@ -62,6 +62,10 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
 
     <?php if (basename($_SERVER['PHP_SELF']) === 'featured.php'): ?>
         <link rel="stylesheet" href="/css/featured.css">
+    <?php endif; ?>
+
+    <?php if (basename($_SERVER['PHP_SELF']) === 'featured.php' && $isAdminPortal): ?>
+        <link rel="stylesheet" href="/css/admin-featured.css">
     <?php endif; ?>
 
     <?php if (basename($_SERVER['PHP_SELF']) === 'cart.php'): ?>
@@ -90,13 +94,14 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
             <?php if ($isAdminPortal): ?>
                 <?php if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
                     <a class="nav-link" href="/admin/index.php">Dashboard</a>
+                    <a class="nav-link" href="/admin/featured.php">Featured</a>
                     <a class="nav-link" href="/admin/products.php">Products</a>
                     <a class="nav-link" href="/admin/authors.php">Authors</a>
                     <a class="nav-link" href="/admin/orders.php">Orders</a>
                     <?php if ($userRole === 'admin'): ?>
                         <a class="nav-link" href="/admin/users.php">Staff &amp; Roles</a>
                         <a class="nav-link" href="/admin/security.php">Security</a>
-                        <a class="nav-link" href="/admin/audit_logs.php">Activities</a>
+                        <a class="nav-link" href="/admin/audit_logs.php">Audit Log</a>
                     <?php endif; ?>
                 <?php endif; ?>
             <?php else: ?>
@@ -210,7 +215,8 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
                     >
 
                     <button class="login-button" type="submit">
-                        Log out
+                        Log Out
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18 18 6M6 6l12 12" /></svg>
                     </button>
 
                 </form>

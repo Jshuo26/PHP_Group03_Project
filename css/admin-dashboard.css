@@ -136,7 +136,8 @@
   transition: transform .16s ease, border-color .16s ease, box-shadow .16s ease, background .16s ease;
 }
 .admin-tool-card:hover { transform: translateY(-2px); border-color: #d99556; background: #fffaf3; box-shadow: 0 8px 20px rgba(87,48,18,.08); }
-.admin-tool-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: #85420e; background: #fff0d9; font-size: 1rem; font-weight: 800; }
+.admin-tool-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; color: #85420e; background: #fff0d9; }
+.admin-tool-icon svg { width: 22px; height: 22px; }
 .admin-tool-card strong, .admin-tool-card small { display: block; }
 .admin-tool-card strong { color: #71300c; font-size: .91rem; }
 .admin-tool-card small { margin-top: .22rem; color: #7d6a57; font-size: .75rem; line-height: 1.35; }
