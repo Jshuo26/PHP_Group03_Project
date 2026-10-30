@@ -36,6 +36,10 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
     <link rel="stylesheet" href="/css/styles.css">
     <link rel="stylesheet" href="/css/header.css">
 
+    <?php if ($isAdminPortal): ?>
+        <link rel="stylesheet" href="/css/admin-ui.css">
+    <?php endif; ?>
+
     <?php if (($_SERVER['SCRIPT_NAME'] ?? '') === '/admin/index.php' && in_array(($_SESSION['role'] ?? ''), ['admin', 'staff'], true)): ?>
         <link rel="stylesheet" href="/css/admin-dashboard.css">
     <?php endif; ?>

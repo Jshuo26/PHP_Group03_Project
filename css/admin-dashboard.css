@@ -36,6 +36,7 @@
 .admin-dashboard-hero > div:first-child,
 .admin-hero-actions { position: relative; z-index: 1; }
 .admin-dashboard-hero h1 {
+  font-family: Georgia, "Times New Roman", serif;
   margin: .55rem 0 .55rem;
   color: #fff;
   font-size: clamp(2rem, 3.6vw, 3rem);

@@ -53,9 +53,10 @@
 .admin-authors-hero .admin-authors-eyebrow { color: #ffdfb4; }
 
 .admin-authors-hero h1 {
+  font-family: Georgia, "Times New Roman", serif;
   margin: 6px 0 7px;
   color: #fff;
-  font-size: clamp(1.8rem, 3vw, 2.45rem);
+  font-size: clamp(2rem, 3.6vw, 3rem);
   letter-spacing: -.03em;
   line-height: 1.12;
 }
@@ -66,6 +67,9 @@
 .admin-authors-hero-actions { display: flex; align-items: center; gap: 12px; }
 .admin-authors-total { display: grid; gap: 2px; color: #fff; font-size: 1.15rem; font-weight: 800; text-align: right; white-space: nowrap; }
 .admin-authors-total small { font-size: .78rem; font-weight: 500; }
+.admin-author-card[hidden] { display:none!important; }
+.authors-client-filter { min-height:38px; padding:.45rem .7rem; border:1px solid rgba(255,255,255,.65); border-radius:999px; color:#71300c; background:#fff; font:inherit; font-size:.74rem; font-weight:750; cursor:pointer; }
+.authors-client-filter[aria-pressed="true"] { color:#fff; background:rgba(255,255,255,.16); }
 
 .admin-authors-directory { padding: 24px; }
 .admin-authors-search {

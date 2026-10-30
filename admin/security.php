@@ -232,13 +232,15 @@ include __DIR__ . '/../includes/header.php';
 ?>
 
 <main class="container admin-operations security-page">
-  <header class="operations-page-heading">
-    <div><span class="operations-eyebrow">ACCOUNT PROTECTION</span><h1>Security Settings</h1><p>Set login protections, session limits, and password rules for the bookstore.</p></div>
-    <span class="operations-security-badge"><span aria-hidden="true">✓</span> Protected</span>
+  <header class="admin-page-hero admin-page-heading">
+    <div><span class="admin-hero-eyebrow">ACCOUNT PROTECTION</span><h1>Security Settings</h1><p>Set login protections, session limits, and password rules for the bookstore.</p></div>
+    <div class="hero-meta"><span class="operations-security-badge"><span aria-hidden="true">✓</span> Protected</span></div>
   </header>
   <?php if ($flashOk): ?><div class="operations-alert success" role="status"><p><?php echo e($flashOk); ?></p></div><?php endif; ?>
   <?php if ($flashError): ?><div class="operations-alert error" role="alert"><p><?php echo e($flashError); ?></p></div><?php endif; ?>
+  <section class="security-main-panel" aria-label="Account security policies">
   <div class="security-settings-grid">
+  <div class="security-protection-stack">
   <section class="card security-settings-card security-lockout-card">
     <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">01</span><div><h2>Account Lockout</h2><p>Control failed sign-in attempts before an account is locked.</p></div></div>
 
@@ -292,6 +294,7 @@ include __DIR__ . '/../includes/header.php';
       </button>
     </form>
   </section>
+  </div>
 
   <section class="card security-settings-card security-password-card">
     <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">03</span><div><h2>Password Rules</h2><p>Apply complexity rules to new accounts and future password changes. Existing passwords are not changed.</p></div></div>
@@ -345,10 +348,12 @@ include __DIR__ . '/../includes/header.php';
       <button type="submit" class="btn btn-primary">Save password rules</button>
     </form>
   </section>
+  </div>
+  </section>
 
   <section class="card security-settings-card security-locked-card">
     <div class="lk-head">
-      <h2>Locked accounts</h2>
+      <h2>Locked Accounts</h2>
       <span class="lk-count<?php echo $lockedAccounts ? '' : ' is-zero'; ?>">
         <?php echo count($lockedAccounts); ?> locked
       </span>

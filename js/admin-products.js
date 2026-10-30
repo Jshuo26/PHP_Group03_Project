@@ -7,6 +7,8 @@
   var token = form.querySelector('[name="csrf_token"]').value;
   var status = document.getElementById('lookup-status');
   var results = document.getElementById('lookup-results');
+  var lookupDialog = document.getElementById('lookup-dialog');
+  document.querySelectorAll('[data-lookup-close]').forEach(function (control) { control.addEventListener('click', function () { if (lookupDialog && lookupDialog.open) lookupDialog.close(); }); });
   var fields = {
     title: document.getElementById('title'), author: document.getElementById('author'),
     description: document.getElementById('description'), isbn: document.getElementById('isbn'),
@@ -126,8 +128,9 @@
       var by = document.createElement('p'); by.textContent = authorsOf(item) || 'Author not listed'; body.appendChild(by);
       var details = document.createElement('p'); details.textContent = [item.provider || provider, v.publisher, v.publishedDate].filter(Boolean).join(' · '); body.appendChild(details);
       var select = document.createElement('button'); select.type = 'button'; select.className = 'btn btn-secondary'; select.textContent = 'Use This Record';
-      select.addEventListener('click', function () { fill(item, scan, authorBio); results.textContent = ''; }); body.appendChild(select); card.appendChild(body); results.appendChild(card);
+      select.addEventListener('click', function () { fill(item, scan, authorBio); results.textContent = ''; if (lookupDialog && lookupDialog.open) lookupDialog.close(); }); body.appendChild(select); card.appendChild(body); results.appendChild(card);
     });
+    if (lookupDialog && typeof lookupDialog.showModal === 'function') lookupDialog.showModal();
   }
   button.addEventListener('click', function () {
     var title = fields.title.value.trim();
@@ -183,6 +186,7 @@
     document.getElementById('scan_claimed').value = '0';
     document.getElementById('author-scan-results').textContent = '';
     results.textContent = '';
+    if (lookupDialog && lookupDialog.open) lookupDialog.close();
     setStatus('', '');
     fields.title.focus();
   });

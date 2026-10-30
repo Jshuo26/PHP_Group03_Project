@@ -55,6 +55,7 @@
 
 <script src="/js/script.js"></script>
 <script src="/js/cookie-consent.js"></script>
+<?php if (!empty($isAdminPortal)): ?><script src="/js/admin-ui.js" defer></script><?php endif; ?>
 
 <?php if (!empty($_SESSION['user_id'])): ?>
     <script>

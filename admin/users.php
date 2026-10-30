@@ -20,9 +20,9 @@ if ($editId > 0) {
     $stmt->execute([$editId]);
     $editUser = $stmt->fetch();
     if ($editUser) $editUser = decryptUserPersonalFields($editUser);
-    if (!$editUser || $editId === $actorId) {
+    if (!$editUser || $editId !== $actorId) {
         $editUser = null;
-        $errors[] = 'That account cannot be edited from this page.';
+        $errors[] = $editId === $actorId ? 'Your profile could not be loaded.' : 'You can edit only your own account from this page.';
         $editId = 0;
     }
 }
@@ -41,6 +41,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $role = requestString($_POST, 'role');
         $status = requestString($_POST, 'account_status');
         $password = requestString($_POST, 'password');
+        $isSelfEdit = $targetId > 0 && $targetId === $actorId;
+        if ($targetId > 0 && !$isSelfEdit) $errors[] = 'You can edit only your own account. Create new staff accounts using this form.';
+        if ($isSelfEdit) { $role = (string) $_SESSION['role']; $status = 'active'; }
 
         if ($firstName === '' || $lastName === '' || mb_strlen($firstName) > 75 || mb_strlen($lastName) > 75
             || !preg_match('/^[\p{L}\p{M}\s.\'\-]+$/u', $firstName)
@@ -51,7 +54,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if (!filter_var($email, FILTER_VALIDATE_EMAIL) || strlen($email) > 255) $errors[] = 'Enter a valid email address.';
         if (!in_array($role, ['staff', 'admin'], true)) $errors[] = 'Choose Staff or Admin as the account role.';
         if (!in_array($status, ['active', 'suspended'], true)) $errors[] = 'Choose Active or Suspended as the account status.';
-        if ($targetId === $actorId) $errors[] = 'You cannot change your own role or account status here.';
         if ($targetId === 0 && $password === '') $errors[] = 'A password is required when creating an account.';
         if ($password !== '') {
             foreach (validatePasswordAgainstPolicy($password, getPasswordPolicy($pdo)) as $passwordError) $errors[] = $passwordError;
@@ -67,21 +69,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             try {
                 $pdo->beginTransaction();
                 if ($targetId > 0) {
+                    if ($targetId !== $actorId) throw new RuntimeException('You can edit only your own account.');
                     $lock = $pdo->prepare("SELECT user_id, role, account_status FROM users WHERE user_id = ? AND role IN ('staff','admin') FOR UPDATE");
                     $lock->execute([$targetId]);
                     $previous = $lock->fetch();
                     if (!$previous) throw new RuntimeException('Staff account not found.');
-                    if ($previous['role'] === 'admin' && ($role !== 'admin' || $status !== 'active')) {
-                        $activeAdmins = (int) $pdo->query("SELECT COUNT(*) FROM users WHERE role = 'admin' AND account_status = 'active'")->fetchColumn();
-                        if ($activeAdmins <= 1) throw new RuntimeException('The last active administrator cannot be demoted or suspended.');
-                    }
-                    $sql = 'UPDATE users SET first_name = ?, last_name = ?, full_name = ?, email = ?, email_lookup_hash = ?, role = ?, account_status = ?';
+                    $sql = 'UPDATE users SET first_name = ?, last_name = ?, full_name = ?, email = ?, email_lookup_hash = ?';
                     $params = [
                         encryptPersonalField($firstName, personalFieldContext('users', 'first_name', $targetId)),
                         encryptPersonalField($lastName, personalFieldContext('users', 'last_name', $targetId)),
                         encryptPersonalField($fullName, personalFieldContext('users', 'full_name', $targetId)),
                         encryptPersonalField($email, personalFieldContext('users', 'email', $targetId)),
-                        emailLookupHash($email), $role, $status,
+                        emailLookupHash($email),
                     ];
                     if ($password !== '') {
                         $sql .= ', password_hash = ?';
@@ -90,8 +89,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $sql .= ' WHERE user_id = ?';
                     $params[] = $targetId;
                     $pdo->prepare($sql)->execute($params);
-                    auditLogRequired($pdo, 'update', 'Administrator updated a staff account, role, or access status.', 'administration', $actorId, 'user', $targetId, 'success', 'admin');
-                    $message = 'Staff account updated.';
+                    auditLogRequired($pdo, 'update', 'Administrator updated their own account profile.', 'administration', $actorId, 'user', $targetId, 'success', 'admin');
+                    $message = 'Your account profile was updated.';
                     $recordId = $targetId;
                     $auditAction = 'update';
                 } else {
@@ -120,6 +119,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $auditAction = 'create';
                 }
                 $pdo->commit();
+                if ($targetId === $actorId) {
+                    $_SESSION['full_name'] = $fullName;
+                    $_SESSION['email'] = $email;
+                }
                 $_SESSION['admin_flash'] = $message;
                 header('Location: /admin/users.php');
                 exit;
@@ -128,8 +131,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to save this account. Verify the database fields and try again.';
             }
         }
-        if ($targetId > 0) $editId = $targetId;
-        $editUser = ['user_id' => $targetId, 'first_name' => $firstName, 'last_name' => $lastName, 'email' => $email, 'role' => $role, 'account_status' => $status];
+        if ($targetId === $actorId && $targetId > 0) {
+            $editId = $targetId;
+            $editUser = ['user_id' => $targetId, 'first_name' => $firstName, 'last_name' => $lastName, 'email' => $email, 'role' => $role, 'account_status' => $status];
+        } else {
+            $editId = 0;
+            $editUser = null;
+        }
     }
 }
 
@@ -139,12 +147,13 @@ unset($staffUser);
 include __DIR__ . '/../includes/header.php';
 ?>
 <main class="container admin-operations admin-users-page">
-    <header class="operations-page-heading">
-        <div><span class="operations-eyebrow">TEAM ACCESS</span><h1>Staff &amp; Roles</h1><p>Create staff accounts and manage access. This workspace is available to administrators.</p></div>
-        <span class="operations-count"><?= count($staffUsers) ?> team <?= count($staffUsers) === 1 ? 'account' : 'accounts' ?></span>
+    <header class="admin-page-hero admin-page-heading">
+        <div><span class="admin-hero-eyebrow">TEAM ACCESS</span><h1>Staff &amp; Roles</h1><p>Create staff accounts and update your own profile. Other team accounts remain protected.</p></div>
+        <div class="hero-meta"><span class="operations-count"><?= count($staffUsers) ?> team <?= count($staffUsers) === 1 ? 'account' : 'accounts' ?></span></div>
     </header>
+    <div class="admin-users-workspace">
     <section class="card staff-account-editor">
-        <div class="operations-section-heading"><div><span class="operations-eyebrow"><?= $editUser ? 'ACCOUNT SETTINGS' : 'TEAM SETUP' ?></span><h2><?= $editUser ? 'Edit staff account' : 'Create staff account' ?></h2></div><?php if ($editUser): ?><a class="btn btn-secondary" href="/admin/users.php">Cancel Edit</a><?php endif; ?></div>
+        <div class="operations-section-heading"><div><span class="operations-eyebrow"><?= $editUser ? 'ACCOUNT SETTINGS' : 'TEAM SETUP' ?></span><h2><?= $editUser ? 'Edit my profile' : 'Create staff account' ?></h2></div><?php if ($editUser): ?><a class="btn btn-secondary" href="/admin/users.php">Cancel Edit</a><?php endif; ?></div>
         <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
         <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
         <form method="post" action="/admin/users.php<?= $editUser && $editId ? '?edit=' . (int) $editId : '' ?>" class="staff-account-form">
@@ -154,23 +163,26 @@ include __DIR__ . '/../includes/header.php';
             <label class="staff-field-first">First Name<input class="form-input" name="first_name" maxlength="75" required value="<?= htmlspecialchars((string) ($editUser['first_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
             <label class="staff-field-last">Last Name<input class="form-input" name="last_name" maxlength="75" required value="<?= htmlspecialchars((string) ($editUser['last_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
             <label class="staff-field-email">Email Address<input class="form-input" type="email" name="email" maxlength="255" required value="<?= htmlspecialchars((string) ($editUser['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
-            <label class="staff-field-role">Role<select class="form-input" name="role"><option value="staff" <?= ($editUser['role'] ?? 'staff') === 'staff' ? 'selected' : '' ?>>Staff</option><option value="admin" <?= ($editUser['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option></select></label>
-            <label class="staff-field-status">Account Status<select class="form-input" name="account_status"><option value="active" <?= ($editUser['account_status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= ($editUser['account_status'] ?? 'active') === 'suspended' ? 'selected' : '' ?>>Suspended</option></select></label>
+            <?php if ($editUser): ?><input type="hidden" name="role" value="<?= htmlspecialchars((string) $editUser['role'], ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="account_status" value="<?= htmlspecialchars((string) $editUser['account_status'], ENT_QUOTES, 'UTF-8') ?>"><div class="staff-field-role staff-edit-note">Role: <?= htmlspecialchars(ucfirst((string) $editUser['role']), ENT_QUOTES, 'UTF-8') ?> · Status: <?= htmlspecialchars(ucfirst((string) $editUser['account_status']), ENT_QUOTES, 'UTF-8') ?><small>Role and access status are managed separately.</small></div><?php else: ?>
+            <label class="staff-field-role">Role<select class="form-input" name="role"><option value="staff">Staff</option><option value="admin">Admin</option></select></label>
+            <label class="staff-field-status">Account Status<select class="form-input" name="account_status"><option value="active">Active</option><option value="suspended">Suspended</option></select></label><?php endif; ?>
             <label class="staff-field-password">Password <?= $editUser ? '(leave blank to keep current)' : '' ?><input class="form-input" type="password" name="password" autocomplete="new-password" <?= $editUser ? '' : 'required' ?>></label>
             <div class="staff-form-footer"><p>Staff and administrator accounts enroll in Google Authenticator at first sign-in.</p><button class="btn btn-primary" type="submit"><?= $editUser ? 'Save Changes' : 'Create Account' ?></button></div>
         </form>
     </section>
     <section class="staff-directory" aria-labelledby="staff-directory-title">
         <div class="operations-section-heading"><div><span class="operations-eyebrow">ACCESS DIRECTORY</span><h2 id="staff-directory-title">Staff and administrators</h2></div><span class="operations-count"><?= count($staffUsers) ?> listed</span></div>
+        <nav class="staff-filter-tabs" aria-label="Filter team accounts"><button type="button" data-staff-filter="all" aria-pressed="true">All</button><button type="button" data-staff-filter="admin" aria-pressed="false">Admin</button><button type="button" data-staff-filter="staff" aria-pressed="false">Staff</button></nav>
         <div class="staff-account-grid">
             <?php foreach ($staffUsers as $staffUser): ?>
-                <article class="staff-account-card">
+                <article class="staff-account-card" data-role="<?= htmlspecialchars((string) $staffUser['role'], ENT_QUOTES, 'UTF-8') ?>">
                     <div class="staff-account-avatar" aria-hidden="true"><?= htmlspecialchars(mb_strtoupper(mb_substr((string) $staffUser['full_name'], 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
                     <div class="staff-account-info"><h3><?= htmlspecialchars((string) $staffUser['full_name'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars((string) $staffUser['email'], ENT_QUOTES, 'UTF-8') ?></p><div class="staff-account-badges"><span class="staff-role-badge role-<?= htmlspecialchars((string) $staffUser['role'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst((string) $staffUser['role']), ENT_QUOTES, 'UTF-8') ?></span><span class="staff-state-badge state-<?= htmlspecialchars((string) $staffUser['account_status'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst((string) $staffUser['account_status']), ENT_QUOTES, 'UTF-8') ?></span><small>Since <?= htmlspecialchars(date('M j, Y', strtotime((string) $staffUser['created_at'])), ENT_QUOTES, 'UTF-8') ?></small></div></div>
-                    <div class="staff-account-action"><?php if ((int) $staffUser['user_id'] === $actorId): ?><span class="you-account-badge">You</span><?php else: ?><a class="btn btn-secondary" href="/admin/users.php?edit=<?= (int) $staffUser['user_id'] ?>">Edit Account</a><?php endif; ?></div>
+                    <div class="staff-account-action"><?php if ((int) $staffUser['user_id'] === $actorId): ?><a class="btn btn-secondary" href="/admin/users.php?edit=<?= (int) $staffUser['user_id'] ?>">Edit My Profile</a><?php else: ?><span class="you-account-badge">Protected</span><?php endif; ?></div>
                 </article>
             <?php endforeach; ?>
         </div>
     </section>
+    </div>
 </main>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

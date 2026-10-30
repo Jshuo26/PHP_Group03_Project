@@ -69,9 +69,9 @@ unset($order);
 include __DIR__ . '/../includes/header.php';
 ?>
 <main class="container admin-operations admin-orders-page">
-    <header class="operations-page-heading">
-        <div><span class="operations-eyebrow">STORE OPERATIONS</span><h1><?= $customerId > 0 ? 'Customer Order History' : 'Order Management' ?></h1><p><?= $customerId > 0 ? 'Review and update orders for this customer.' : 'Review incoming orders and keep fulfillment moving.' ?></p></div>
-        <div class="operations-heading-actions"><span class="operations-count"><?= count($orders) ?> <?= count($orders) === 1 ? 'order' : 'orders' ?></span><?php if ($customerId > 0): ?><a class="btn btn-secondary" href="/admin/customers.php">Back to customers</a><?php endif; ?></div>
+    <header class="admin-page-hero">
+        <div><span class="admin-hero-eyebrow">STORE OPERATIONS</span><h1><?= $customerId > 0 ? 'Customer Order History' : 'Order Management' ?></h1><p><?= $customerId > 0 ? 'Review and update orders for this customer.' : 'Review incoming orders and keep fulfillment moving.' ?></p></div>
+        <div class="hero-meta"><span class="operations-count"><?= count($orders) ?> <?= count($orders) === 1 ? 'order' : 'orders' ?></span><?php if ($customerId > 0): ?><a class="btn btn-secondary" href="/admin/customers.php">Back to customers</a><?php endif; ?></div>
     </header>
     <?php if ($errors): ?><div class="operations-alert error" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
     <?php if ($success !== ''): ?><div class="operations-alert success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>

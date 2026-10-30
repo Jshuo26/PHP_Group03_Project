@@ -122,7 +122,14 @@ $search = mb_substr(trim((string) ($_GET['search'] ?? '')), 0, 100);
 $letter = strtoupper(trim((string) ($_GET['letter'] ?? '')));
 if (!preg_match('/^[A-Z]$/', $letter)) $letter = '';
 $sql = "SELECT a.author_id, a.full_name, a.bio, a.author_image_path, a.verification_status,
-               COUNT(DISTINCT ba.book_id) AS book_count
+               COUNT(DISTINCT ba.book_id) AS book_count,
+               EXISTS (SELECT 1 FROM book_authors client_ba
+                       JOIN books client_b ON client_b.book_id = client_ba.book_id
+                       JOIN book_genres client_bg ON client_bg.book_id = client_b.book_id
+                       JOIN genres client_g ON client_g.genre_id = client_bg.genre_id AND client_g.status = 'active'
+                       JOIN book_editions client_e ON client_e.book_id = client_b.book_id
+                       WHERE client_ba.author_id = a.author_id
+                         AND client_b.status = 'active' AND client_b.review_status = 'approved') AS client_visible
         FROM authors a LEFT JOIN book_authors ba ON ba.author_id = a.author_id";
 $where = [];
 $params = [];
@@ -207,7 +214,7 @@ include __DIR__ . '/../includes/header.php';
 <main class="container admin-authors-page">
     <section class="admin-authors-hero">
         <div><span class="admin-authors-eyebrow">AUTHOR DIRECTORY</span><h1>Manage Authors</h1><p>View author profiles, update biographies, and keep portraits current.</p></div>
-        <div class="admin-authors-hero-actions"><span class="admin-authors-total"><?= count($authors) ?> shown <small>of <?= $totalAuthors ?> authors</small></span></div>
+        <div class="admin-authors-hero-actions"><span class="admin-authors-total"><?= count($authors) ?> shown <small>of <?= $totalAuthors ?> authors</small></span><button class="authors-client-filter" type="button" data-authors-client-filter aria-pressed="false">Client-visible authors</button></div>
     </section>
 
     <?php if ($success !== ''): ?><div class="admin-author-flash success" role="status"><?= adminAuthorEsc($success) ?></div><?php endif; ?>
@@ -231,7 +238,7 @@ include __DIR__ . '/../includes/header.php';
         <?php if (!$authors): ?><div class="admin-authors-empty"><h2>No authors found</h2><p>Try another name or clear the current filters.</p></div>
         <?php else: ?><div class="admin-authors-grid">
             <?php foreach ($authors as $author): $id = (int) $author['author_id']; $photo = adminAuthorPhoto($author['author_image_path'] ?? null); $status = (string) $author['verification_status']; ?>
-                <article class="admin-author-card">
+                <article class="admin-author-card" data-client-visible="<?= !empty($author['client_visible']) ? '1' : '0' ?>">
                     <button type="button" class="admin-author-open" data-author-id="<?= $id ?>" aria-haspopup="dialog" aria-label="View details for <?= adminAuthorEsc($author['full_name']) ?>">
                         <span class="admin-author-photo">
                             <?php if ($photo !== ''): ?><img src="<?= adminAuthorEsc($photo) ?>" alt="" loading="lazy"><?php else: ?><span aria-hidden="true"><?= adminAuthorEsc(adminAuthorInitials((string) $author['full_name'])) ?></span><?php endif; ?>

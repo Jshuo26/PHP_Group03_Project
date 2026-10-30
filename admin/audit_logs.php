@@ -222,11 +222,12 @@ if (!$missingColumns) {
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<section class="container">
-    <div class="card">
-        <h1 class="card-title">Audit Trail</h1>
-        <p class="card-text">Review customer, staff, administrator, and system activity.</p>
-        <p><a class="btn btn-secondary" href="/admin/index.php">Back to administration</a></p>
+<main class="container admin-operations admin-audit-page">
+    <header class="admin-page-hero admin-page-heading">
+        <div><span class="admin-hero-eyebrow">ACCOUNTABILITY</span><h1>Audit Trail</h1><p>Review customer, staff, administrator, and system activity across the bookstore.</p></div>
+        <div class="hero-meta"><a class="btn btn-secondary" href="/admin/index.php">Back to Dashboard</a></div>
+    </header>
+    <div class="admin-audit-card">
 
         <?php if ($missingColumns): ?>
             <div class="form-errors" role="alert">
@@ -236,7 +237,7 @@ include __DIR__ . '/../includes/header.php';
         <?php elseif ($loadError !== ''): ?>
             <div class="form-errors" role="alert"><p><?= auditPageEscape($loadError) ?></p></div>
         <?php else: ?>
-            <form method="get" action="/admin/audit_logs.php" class="card" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;">
+            <form method="get" action="/admin/audit_logs.php" class="admin-audit-filters">
                 <label>User
                     <select name="user_id" class="form-input">
                         <option value="">All users</option>
@@ -282,15 +283,15 @@ include __DIR__ . '/../includes/header.php';
                 <label>From<input class="form-input" type="date" name="from" value="<?= auditPageEscape((string) $filters['from']) ?>"></label>
                 <label>To<input class="form-input" type="date" name="to" value="<?= auditPageEscape((string) $filters['to']) ?>"></label>
                 <label>Search user or record ID<input class="form-input" type="search" name="q" maxlength="100" value="<?= auditPageEscape($filters['q']) ?>" placeholder="User ID, record ID, or description"></label>
-                <div style="align-self:end;display:flex;gap:8px;">
+                <div class="audit-filter-actions">
                     <button class="btn btn-primary" type="submit">Filter</button>
                     <a class="btn btn-secondary" href="/admin/audit_logs.php">Reset</a>
                 </div>
             </form>
 
-            <p class="card-text">Showing <?= $totalRows ? ($offset + 1) : 0 ?>–<?= min($offset + $pageSize, $totalRows) ?> of <?= $totalRows ?> records.</p>
-            <div style="overflow-x:auto;">
-                <table class="table">
+            <p class="admin-audit-count">Showing <?= $totalRows ? ($offset + 1) : 0 ?>–<?= min($offset + $pageSize, $totalRows) ?> of <?= $totalRows ?> records.</p>
+            <div class="admin-audit-table-wrap">
+                <table class="table admin-audit-table">
                     <thead><tr><th>Date and time</th><th>User</th><th>Role / actor</th><th>Action</th><th>Module</th><th>Record</th><th>Result</th><th>Description</th></tr></thead>
                     <tbody>
                     <?php foreach ($rows as $row): ?>
@@ -318,6 +319,6 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         <?php endif; ?>
     </div>
-</section>
+</main>
 
 <?php include __DIR__ . '/../includes/footer.php'; ?>
