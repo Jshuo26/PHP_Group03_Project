@@ -81,6 +81,31 @@
   background: #fbf7f0;
 }
 
+/* Keep the cart's cover and its fallback at the same portrait dimensions. */
+.cart-item-cover {
+  height: auto;
+  aspect-ratio: 3 / 4;
+  flex: 0 0 112px;
+}
+
+.cart-item-cover > img,
+.cart-item-cover > .cart-cover-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.cart-cover-placeholder {
+  box-sizing: border-box;
+}
+
+@media (max-width: 900px) {
+  .cart-item-cover { flex-basis: 90px; }
+}
+
+@media (max-width: 480px) {
+  .cart-item-cover { flex-basis: 76px; }
+}
+
 .cart-item-cover img {
   display: block;
   width: 100%;

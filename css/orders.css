@@ -411,7 +411,8 @@
 
 .order-item-cover-wrap {
   width: 52px;
-  height: 74px;
+  height: auto;
+  aspect-ratio: 3 / 4;
   flex-shrink: 0;
   border-radius: 6px;
   overflow: hidden;
@@ -422,7 +423,7 @@
 .order-item-cover {
   width: 100%;
   height: 100%;
-  object-fit: cover;
+  object-fit: contain;
   display: block;
 }
 

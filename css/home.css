@@ -691,6 +691,54 @@ a.hero-cta:focus-visible {
   }
 }
 
+/* Use identical portrait frames for customer-side book covers and placeholders. */
+.book-tile-cover {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+}
+
+.book-tile-cover > img,
+.book-tile-cover > .catalog-cover-placeholder {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  margin: 0;
+}
+
+.book-tile-cover > img {
+  object-fit: contain;
+}
+
+.book-tile-cover > .catalog-cover-placeholder {
+  box-sizing: border-box;
+  min-height: 0;
+  aspect-ratio: auto;
+  border: 0;
+  border-radius: 4px;
+}
+
+.spotlight-content .author-image-placeholder,
+.spotlight-content .book-image-placeholder {
+  width: clamp(76px, 10vw, 130px);
+  height: auto;
+  min-height: 0;
+  aspect-ratio: 3 / 4;
+  flex: 0 0 auto;
+}
+
+.spotlight-content .author-image-placeholder > img,
+.spotlight-content .book-image-placeholder > img {
+  width: 100%;
+  height: 100%;
+}
+
 @media (max-width: 600px) {
   .hero-slider {
     min-height: 420px;
@@ -853,4 +901,22 @@ a.hero-cta:focus-visible {
     width: 16px;
     height: 16px;
   }
+}
+
+/* Reassert the shared portrait dimensions after all responsive layout rules. */
+.book-tile-cover {
+  height: auto;
+  aspect-ratio: 3 / 4;
+  padding: 0;
+}
+
+.book-tile-cover > img,
+.book-tile-cover > .catalog-cover-placeholder {
+  height: 100%;
+}
+
+.spotlight-content .author-image-placeholder,
+.spotlight-content .book-image-placeholder {
+  height: auto;
+  aspect-ratio: 3 / 4;
 }

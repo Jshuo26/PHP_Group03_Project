@@ -1500,6 +1500,81 @@
   }
 }
 
+/* Keep customer-facing book covers and author portraits consistent at every breakpoint. */
+.catalog-cover-link {
+  position: relative;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+}
+
+.catalog-cover-link > .catalog-cover,
+.catalog-cover-link > .catalog-cover-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.catalog-cover-link > .catalog-cover {
+  object-fit: contain;
+}
+
+.book-detail-cover,
+.book-detail-cover-placeholder {
+  width: min(100%, 340px);
+  height: auto;
+  max-height: none;
+  min-height: 0;
+  aspect-ratio: 3 / 4;
+}
+
+.book-detail-cover-placeholder {
+  box-sizing: border-box;
+}
+
+.author-card-photo-link {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+}
+
+.author-directory-photo,
+.author-directory-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+.author-directory-photo {
+  object-fit: cover;
+}
+
+.customer-author-portrait {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+}
+
+.customer-author-book-cover {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 4;
+}
+
+.customer-author-book-cover > img,
+.customer-author-book-cover > .catalog-cover-placeholder {
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 760px) {
+  .book-detail-cover,
+  .book-detail-cover-placeholder {
+    width: min(100%, 300px);
+    height: auto;
+    max-height: none;
+    min-height: 0;
+  }
+}
+
 
 .authors-alphabet {
     display: flex;
