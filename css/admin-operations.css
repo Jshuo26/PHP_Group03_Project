@@ -23,6 +23,7 @@
 .operations-alert.success { border-color: #bbdfc5; background: #edf8f0; color: #17653a; }
 .operations-alert.error { border-color: #efc1bd; background: #fff3f2; color: #9b2c25; }
 .operations-empty { display: grid; min-height: 220px; place-content: center; justify-items: center; padding: 2rem; border: 1px dashed #ddcdbb; border-radius: 16px; background: #fffdfa; text-align: center; }
+.operations-empty[hidden] { display:none!important; }
 .operations-empty > span { display: grid; width: 46px; height: 46px; place-items: center; margin-bottom: .8rem; border-radius: 50%; background: #e8f5ec; color: #287044; font-size: 1.2rem; font-weight: 800; }
 .operations-empty h2 { margin: 0 0 .35rem; color: var(--primary-dark); font-size: 1.2rem; }
 .operations-empty p { margin: 0; color: var(--muted-text); font-size: .9rem; }
@@ -86,6 +87,7 @@
 .orders-filter-panel label { display:flex; min-width:0; flex-direction:column; gap:.32rem; color:#584637; font-size:.76rem; font-weight:750; }
 .orders-filter-panel .form-input { width:100%; min-height:42px; margin:0; border:1px solid #dfd0c0; border-radius:9px; font-size:.83rem; }
 .orders-filter-panel .btn { min-height:42px; white-space:nowrap; }
+.orders-filter-panel .btn:focus-visible { outline:3px solid rgba(169,81,12,.24); outline-offset:2px; }
 .orders-filter-panel > p { grid-column:1/-1; margin:0; padding-top:.35rem; border-top:1px solid #f0e5d9; color:#796858; font-size:.77rem; }
 .orders-filter-empty { min-height:160px; margin-bottom:.9rem; }
 .admin-audit-table .audit-action-badge { white-space:nowrap; }
@@ -133,7 +135,12 @@
 .security-settings-card label { display: block; margin: 0 0 .35rem; color: #49382d; font-size: .8rem; font-weight: 750; }
 .security-settings-card .form-input { width: 100%; min-height: 43px; margin: 0; border: 1px solid #dfd0c0; border-radius: 9px; }
 .security-settings-card .btn { min-height: 41px; padding: .6rem .95rem; font-size: .82rem; }
-.security-password-card .pp-grid { display: grid; grid-template-columns:minmax(0,1fr); gap: .45rem; margin:0; }
+.security-password-card .pp-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:.65rem .75rem; margin:0; }
+.security-password-card { padding:1rem; border-color:#ebddcb; border-radius:14px; background:linear-gradient(150deg,#fffdfa 0%,#fff8ef 100%); }
+.security-password-card .security-card-heading { margin-bottom:.8rem; }
+.security-password-card .form-group { min-width:0; padding:.55rem; border:1px solid #f0e3d4; border-radius:10px; background:#fff; }
+.security-password-card .pp-grid > .form-group:first-child { grid-column:1/-1; }
+.security-password-card .security-save-all { grid-column:1/-1; justify-self:end; margin-top:.2rem; }
 .security-password-card .pp-hint { margin-top: .25rem; color: #806d5c; font-size: .72rem; }
 .security-locked-card .lk-count { padding: .3rem .62rem; font-size: .74rem; }
 .security-locked-card .lk-note { margin: -.3rem 0 .8rem; color: #806d5c; font-size: .82rem; }

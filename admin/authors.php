@@ -120,16 +120,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $search = mb_substr(trim((string) ($_GET['search'] ?? '')), 0, 100);
 $letter = strtoupper(trim((string) ($_GET['letter'] ?? '')));
+$clientVisibleOnly = (string) ($_GET['client_visible'] ?? '') === '1';
 if (!preg_match('/^[A-Z]$/', $letter)) $letter = '';
 $sql = "SELECT a.author_id, a.full_name, a.bio, a.author_image_path, a.verification_status,
                COUNT(DISTINCT ba.book_id) AS book_count,
-               EXISTS (SELECT 1 FROM book_authors client_ba
+               (a.verification_status = 'verified' AND EXISTS (SELECT 1 FROM book_authors client_ba
                        JOIN books client_b ON client_b.book_id = client_ba.book_id
                        JOIN book_genres client_bg ON client_bg.book_id = client_b.book_id
                        JOIN genres client_g ON client_g.genre_id = client_bg.genre_id AND client_g.status = 'active'
                        JOIN book_editions client_e ON client_e.book_id = client_b.book_id
                        WHERE client_ba.author_id = a.author_id
-                         AND client_b.status = 'active' AND client_b.review_status = 'approved') AS client_visible
+                         AND client_b.status = 'active' AND client_b.review_status = 'approved')) AS client_visible
         FROM authors a LEFT JOIN book_authors ba ON ba.author_id = a.author_id";
 $where = [];
 $params = [];
@@ -137,10 +138,23 @@ if ($search !== '') { $where[] = 'a.full_name LIKE ?'; $params[] = '%' . $search
 if ($letter !== '') { $where[] = 'UPPER(LEFT(a.full_name, 1)) = ?'; $params[] = $letter; }
 if ($where) $sql .= ' WHERE ' . implode(' AND ', $where);
 $sql .= ' GROUP BY a.author_id, a.full_name, a.bio, a.author_image_path, a.verification_status ORDER BY a.full_name';
+if ($clientVisibleOnly) {
+    $sql = str_replace(' ORDER BY a.full_name', ' HAVING client_visible = 1 ORDER BY a.full_name', $sql);
+}
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $authors = $stmt->fetchAll();
-$totalAuthors = (int) $pdo->query('SELECT COUNT(*) FROM authors')->fetchColumn();
+$totalAuthors = $clientVisibleOnly
+    ? (int) $pdo->query("SELECT COUNT(*) FROM authors a WHERE EXISTS (
+          SELECT 1 FROM book_authors client_ba
+          JOIN books client_b ON client_b.book_id = client_ba.book_id
+          JOIN book_genres client_bg ON client_bg.book_id = client_b.book_id
+          JOIN genres client_g ON client_g.genre_id = client_bg.genre_id AND client_g.status = 'active'
+          JOIN book_editions client_e ON client_e.book_id = client_b.book_id
+          WHERE client_ba.author_id = a.author_id
+            AND client_b.status = 'active' AND client_b.review_status = 'approved'
+      ) AND a.verification_status = 'verified'")->fetchColumn()
+    : (int) $pdo->query('SELECT COUNT(*) FROM authors')->fetchColumn();
 $csrf = generateCsrfToken();
 $authorDetails = [];
 if ($authors) {
@@ -214,7 +228,7 @@ include __DIR__ . '/../includes/header.php';
 <main class="container admin-authors-page">
     <section class="admin-authors-hero">
         <div><span class="admin-authors-eyebrow">AUTHOR DIRECTORY</span><h1>Manage Authors</h1><p>View author profiles, update biographies, and keep portraits current.</p></div>
-        <div class="admin-authors-hero-actions"><span class="admin-authors-total"><?= count($authors) ?> shown <small>of <?= $totalAuthors ?> authors</small></span><button class="authors-client-filter" type="button" data-authors-client-filter aria-pressed="false">Client-visible authors</button></div>
+        <div class="admin-authors-hero-actions"><span class="admin-authors-total"><?= count($authors) ?> shown <small>of <?= $totalAuthors ?> <?= $clientVisibleOnly ? 'client visible authors' : 'authors' ?></small></span><a class="authors-client-filter<?= $clientVisibleOnly ? ' is-active' : '' ?>" href="/admin/authors.php?<?= adminAuthorEsc(http_build_query(array_filter(['search' => $search, 'letter' => $letter, 'client_visible' => $clientVisibleOnly ? null : '1'], static fn ($value) => $value !== null && $value !== ''))) ?>" aria-pressed="<?= $clientVisibleOnly ? 'true' : 'false' ?>"><?= $clientVisibleOnly ? 'Show All Authors' : 'Client Visible Authors' ?></a></div>
     </section>
 
     <?php if ($success !== ''): ?><div class="admin-author-flash success" role="status"><?= adminAuthorEsc($success) ?></div><?php endif; ?>
@@ -222,13 +236,14 @@ include __DIR__ . '/../includes/header.php';
 
     <section class="admin-authors-directory" aria-label="Author directory">
         <form class="admin-authors-search" method="get" action="/admin/authors.php" role="search">
+            <?php if ($clientVisibleOnly): ?><input type="hidden" name="client_visible" value="1"><?php endif; ?>
             <label class="visually-hidden" for="author-search">Search authors</label><span aria-hidden="true">⌕</span>
             <input id="author-search" type="search" name="search" maxlength="100" placeholder="Search by author name..." value="<?= adminAuthorEsc($search) ?>">
             <button type="submit" class="btn btn-primary">Search</button>
-            <?php if ($search !== '' || $letter !== ''): ?><a class="admin-author-clear" href="/admin/authors.php">Clear</a><?php endif; ?>
+            <?php if ($search !== '' || $letter !== ''): ?><a class="admin-author-clear" href="/admin/authors.php<?= $clientVisibleOnly ? '?client_visible=1' : '' ?>">Clear</a><?php endif; ?>
         </form>
         <nav class="admin-authors-alphabet" aria-label="Filter authors alphabetically">
-            <?php $params = $search !== '' ? ['search' => $search] : []; ?>
+            <?php $params = array_filter(['search' => $search, 'client_visible' => $clientVisibleOnly ? '1' : null]); ?>
             <a class="<?= $letter === '' ? 'active' : '' ?>" href="/admin/authors.php<?= $params ? '?' . http_build_query($params) : '' ?>">All</a>
             <?php foreach (range('A', 'Z') as $initial): $letterParams = $params + ['letter' => $initial]; ?>
                 <a class="<?= $letter === $initial ? 'active' : '' ?>" href="/admin/authors.php?<?= adminAuthorEsc(http_build_query($letterParams)) ?>"<?= $letter === $initial ? ' aria-current="page"' : '' ?>><?= $initial ?></a>
