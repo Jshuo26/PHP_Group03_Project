@@ -111,43 +111,65 @@ include __DIR__ . '/../includes/header.php';
     <section class="featured-curation-toolbar card" aria-label="Featured selection tools">
         <div><span class="operations-eyebrow">CURATION TOOLS</span><h2>Build Customer Shelves</h2><p>Only active, approved books with an active genre can be featured. Changes appear on the customer page as soon as they are saved.</p></div>
         <div class="featured-toolbar-actions">
-            <?php foreach ($shelves as $key => $label): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="auto_pick"><input type="hidden" name="shelf_key" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"><button class="btn btn-secondary" type="submit">Auto-Fill <?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></button></form><?php endforeach; ?>
+            <?php foreach ($shelves as $key => $label): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="auto_pick"><input type="hidden" name="shelf_key" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"><button class="btn btn-secondary" type="submit"><?= $key === 'staff_picks' ? 'Use Best Sellers' : 'Use New &amp; Less-Sold' ?></button></form><?php endforeach; ?>
             <a class="btn btn-primary" href="/featured.php" target="_blank" rel="noopener">Preview Featured Page <span aria-hidden="true">↗</span></a>
         </div>
+        <p class="featured-quick-pick-note">Quick picks replace that shelf immediately: Best Sellers uses sales history; New &amp; Less-Sold favors recently added books. Review the selections below to curate manually.</p>
     </section>
 
     <?php foreach ($shelves as $shelfKey => $shelfLabel): ?><form class="featured-curation-form" method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
         <input type="hidden" name="action" value="save_picks">
         <input type="hidden" name="shelf_key" value="<?= htmlspecialchars($shelfKey, ENT_QUOTES, 'UTF-8') ?>">
-        <div class="featured-library-heading"><div><span class="operations-eyebrow"><?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></span><h2><?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></h2><p>Select up to <?= $limit ?> books for this shelf and set their display order.</p></div><label class="featured-search">Search Catalog<input type="search" data-featured-search placeholder="Title or author"></label></div>
+        <?php
+        $shelfGuidance = $shelfKey === 'staff_picks'
+            ? 'Your team’s recommendations. Choose titles you want to personally put in front of customers; the sold count is context, not a requirement.'
+            : 'A spotlight for newer or lesser-known Filipino books. Choose discoveries you want more customers to notice.';
+        ?>
+        <div class="featured-library-heading"><div><span class="operations-eyebrow"><?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></span><h2><?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></h2><p><?= htmlspecialchars($shelfGuidance, ENT_QUOTES, 'UTF-8') ?></p><p class="featured-selection-hint">Select up to <?= $limit ?> titles and set their order. A book can appear on both shelves.</p></div><label class="featured-search">Search Catalog<input type="search" data-featured-search placeholder="Title or author"></label></div>
         <?php if (!$books): ?><div class="operations-empty"><h2>No Eligible Books Yet</h2><p>Approved, active books with an active genre will appear here.</p></div><?php else: ?>
             <div class="featured-admin-grid">
                 <?php foreach ($books as $book): $id = (int) $book['book_id']; $cover = catalogCover($book['cover_image_path'] ?? null); ?>
                     <article class="featured-admin-card" data-search="<?= htmlspecialchars(mb_strtolower((string) $book['title'] . ' ' . (string) ($book['authors'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
                         <div class="featured-admin-cover"><?php if ($cover !== ''): ?><img src="<?= htmlspecialchars($cover, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) $book['title'], ENT_QUOTES, 'UTF-8') ?> cover" loading="lazy"><?php else: ?><?= catalogCoverPlaceholder((string) $book['title'], 'featured-admin-placeholder') ?><?php endif; ?></div>
-                        <div class="featured-admin-card-body"><span class="featured-sales-badge"><?= (int) $book['units_sold'] ?> sold</span><h3><?= htmlspecialchars((string) $book['title'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars((string) ($book['authors'] ?: 'Author not listed'), ENT_QUOTES, 'UTF-8') ?></p><div class="featured-admin-controls"><label><input type="checkbox" name="featured_ids[]" value="<?= $id ?>" <?= isset($selected[$shelfKey][$id]) ? 'checked' : '' ?>> Feature</label><label>Order<input type="number" name="display_order[<?= $id ?>]" min="1" max="<?= $limit ?>" value="<?= isset($selected[$shelfKey][$id]) ? (int) $selected[$shelfKey][$id] : '' ?>" placeholder="—" <?= isset($selected[$shelfKey][$id]) ? '' : 'disabled' ?>></label></div></div>
+                        <div class="featured-admin-card-body"><span class="featured-sales-badge"><?= (int) $book['units_sold'] ?> sold</span><h3><?= htmlspecialchars((string) $book['title'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars((string) ($book['authors'] ?: 'Author not listed'), ENT_QUOTES, 'UTF-8') ?></p><div class="featured-admin-controls"><label><input type="checkbox" name="featured_ids[]" value="<?= $id ?>" <?= isset($selected[$shelfKey][$id]) ? 'checked' : '' ?>><span><?= isset($selected[$shelfKey][$id]) ? 'On ' . htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') : 'Add to ' . htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></span></label><label>Order<input type="number" name="display_order[<?= $id ?>]" min="1" max="<?= $limit ?>" value="<?= isset($selected[$shelfKey][$id]) ? (int) $selected[$shelfKey][$id] : '' ?>" placeholder="—" <?= isset($selected[$shelfKey][$id]) ? '' : 'disabled' ?>></label></div></div>
                     </article>
                 <?php endforeach; ?>
             </div>
-            <div class="featured-save-bar"><p><strong><?= count($selected[$shelfKey]) ?></strong> selected · maximum <?= $limit ?></p><button class="btn btn-primary" type="submit">Save <?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></button></div>
+            <div class="featured-save-bar"><p data-featured-selection-count aria-live="polite"><strong><?= count($selected[$shelfKey]) ?></strong> of <?= $limit ?> titles selected for <?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></p><button class="btn btn-primary" type="submit">Save <?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></button></div>
         <?php endif; ?>
     </form><?php endforeach; ?>
 </main>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
+  function syncSelection(form) {
+    var checkboxes = form.querySelectorAll('.featured-admin-controls input[type="checkbox"]');
+    var count = form.querySelectorAll('.featured-admin-controls input[type="checkbox"]:checked').length;
+    var status = form.querySelector('[data-featured-selection-count]');
+    var shelfName = form.querySelector('input[name="shelf_key"]').value === 'staff_picks' ? 'Staff Picks' : 'Local Gems';
+    status.querySelector('strong').textContent = String(count);
+    checkboxes.forEach(function (item) {
+      var text = item.parentElement.querySelector('span');
+      if (text) text.textContent = item.checked ? 'On ' + shelfName : 'Add to ' + shelfName;
+      item.disabled = !item.checked && count >= 10;
+      item.title = item.disabled ? 'Remove a selected title before adding another.' : '';
+    });
+  }
   document.querySelectorAll('[data-featured-search]').forEach(function (search) {
     search.addEventListener('input', function () {
       var query = search.value.trim().toLowerCase();
       search.closest('.featured-curation-form').querySelectorAll('.featured-admin-card').forEach(function (card) { card.hidden = query !== '' && !card.dataset.search.includes(query); });
     });
   });
+  document.querySelectorAll('.featured-curation-form').forEach(syncSelection);
   document.querySelectorAll('.featured-admin-controls input[type="checkbox"]').forEach(function (checkbox) {
     checkbox.addEventListener('change', function () {
       var order = checkbox.closest('.featured-admin-controls').querySelector('input[type="number"]');
       order.disabled = !checkbox.checked;
       if (!checkbox.checked) order.value = '';
-      else if (!order.value) order.value = String(checkbox.closest('.featured-curation-form').querySelectorAll('.featured-admin-controls input[type="checkbox"]:checked').length);
+      var form = checkbox.closest('.featured-curation-form');
+      if (checkbox.checked && !order.value) order.value = String(form.querySelectorAll('.featured-admin-controls input[type="checkbox"]:checked').length);
+      syncSelection(form);
     });
   });
 });
