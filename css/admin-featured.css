@@ -7,6 +7,9 @@
 .featured-curation-toolbar h2,.featured-library-heading h2 { margin:.25rem 0; color:#71300c; font-family:Georgia,"Times New Roman",serif; font-size:1.25rem; }
 .featured-curation-toolbar p,.featured-library-heading p { margin:.15rem 0 0; color:#796858; font-size:.84rem; line-height:1.45; }
 .featured-curation-toolbar .btn { white-space:nowrap; }
+.featured-toolbar-actions { display:flex; max-width:590px; flex-wrap:wrap; align-items:center; justify-content:flex-end; gap:.5rem; }
+.featured-toolbar-actions form { margin:0; }
+.featured-toolbar-actions .btn { display:inline-flex; min-height:40px; align-items:center; justify-content:center; padding:.55rem .8rem; font-size:.77rem; }
 .featured-curation-form { min-width:0; padding:1.2rem; border:1px solid #eadbc9; border-radius:16px; background:#fff; box-shadow:0 5px 18px rgba(87,48,18,.05); }
 .featured-library-heading { display:flex; min-width:0; align-items:end; justify-content:space-between; gap:1rem; margin-bottom:1rem; }
 .featured-library-heading > div { min-width:0; }
@@ -41,5 +44,5 @@
 .featured-save-bar p strong { color:#71300c; }
 .featured-save-bar .btn { min-height:42px; }
 @media(max-width:1200px) { .featured-admin-grid { grid-template-columns:repeat(4,minmax(0,1fr)); } }
-@media(max-width:900px) { .featured-admin-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .featured-curation-toolbar { grid-template-columns:1fr; justify-items:start; } }
-@media(max-width:650px) { .featured-admin-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; } .featured-curation-form { padding:.75rem; } .featured-library-heading { align-items:stretch; flex-direction:column; } .featured-search { width:100%; flex-basis:auto; } .featured-save-bar { align-items:stretch; flex-direction:column; } }
+@media(max-width:900px) { .featured-admin-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .featured-curation-toolbar { grid-template-columns:1fr; justify-items:start; } .featured-toolbar-actions { max-width:none; justify-content:flex-start; } }
+@media(max-width:650px) { .featured-admin-grid { grid-template-columns:repeat(2,minmax(0,1fr)); gap:.55rem; } .featured-curation-form { padding:.75rem; } .featured-library-heading { align-items:stretch; flex-direction:column; } .featured-search { width:100%; flex-basis:auto; } .featured-toolbar-actions { display:grid; width:100%; grid-template-columns:1fr; } .featured-toolbar-actions .btn { width:100%; } .featured-save-bar { align-items:stretch; flex-direction:column; } }

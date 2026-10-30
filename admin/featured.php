@@ -45,41 +45,68 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $eligibleById = [];
         foreach ($eligible as $book) $eligibleById[(int) $book['book_id']] = $book;
 
-        if ($action !== 'save_curation') {
+        $autoPickShelf = null;
+        if ($action === 'auto_pick') {
+            $autoPickShelf = requestString($_POST, 'shelf_key');
+            if (!isset($shelves[$autoPickShelf])) throw new RuntimeException('Choose a valid featured shelf.');
+            $autoOrder = $autoPickShelf === 'local_gems'
+                ? ' ORDER BY b.created_at DESC, units_sold ASC, b.book_id DESC'
+                : ' ORDER BY units_sold DESC, b.created_at DESC, b.book_id DESC';
+            $autoBooks = $pdo->query($eligibleSql . $autoOrder)->fetchAll();
+            $reservedStmt = $pdo->prepare('SELECT book_id FROM featured_books WHERE shelf_key <> ?');
+            $reservedStmt->execute([$autoPickShelf]);
+            $reservedIds = array_fill_keys(array_map('intval', $reservedStmt->fetchAll(PDO::FETCH_COLUMN)), true);
+            $autoBooks = array_values(array_filter($autoBooks, static fn(array $book): bool => !isset($reservedIds[(int) $book['book_id']])));
+            $chosen = array_fill_keys(array_keys($shelves), []);
+            $chosen[$autoPickShelf] = array_map(
+                static fn(array $book): int => (int) $book['book_id'],
+                array_slice($autoBooks, 0, $limit)
+            );
+        } elseif ($action !== 'save_curation') {
             throw new RuntimeException('Choose a valid featured-books action.');
-        }
-
-        $submitted = $_POST['featured_ids'] ?? [];
-        $shelfValues = $_POST['shelf_key'] ?? [];
-        $orderValues = $_POST['display_order'] ?? [];
-        if (!is_array($submitted)) $submitted = [];
-        if (!is_array($shelfValues)) $shelfValues = [];
-        if (!is_array($orderValues)) $orderValues = [];
-        $chosen = array_fill_keys(array_keys($shelves), []);
-        foreach (array_unique($submitted) as $rawId) {
-            $id = filter_var($rawId, FILTER_VALIDATE_INT);
-            if (!$id || !isset($eligibleById[$id])) continue;
-            $key = (string) ($shelfValues[$id] ?? '');
-            if (!isset($shelves[$key])) continue;
-            $order = filter_var($orderValues[$id] ?? null, FILTER_VALIDATE_INT);
-            $chosen[$key][] = ['id' => $id, 'order' => $order !== false && $order > 0 ? $order : PHP_INT_MAX];
-        }
-        foreach ($chosen as $key => $items) {
-            if (count($items) > $limit) throw new RuntimeException('Choose up to ' . $limit . ' books for ' . $shelves[$key] . '.');
-            usort($items, static fn(array $a, array $b): int => ($a['order'] <=> $b['order']) ?: ($a['id'] <=> $b['id']));
-            $chosen[$key] = array_column($items, 'id');
+        } else {
+            $submitted = $_POST['featured_ids'] ?? [];
+            $shelfValues = $_POST['shelf_key'] ?? [];
+            $orderValues = $_POST['display_order'] ?? [];
+            if (!is_array($submitted)) $submitted = [];
+            if (!is_array($shelfValues)) $shelfValues = [];
+            if (!is_array($orderValues)) $orderValues = [];
+            $chosen = array_fill_keys(array_keys($shelves), []);
+            foreach (array_unique($submitted) as $rawId) {
+                $id = filter_var($rawId, FILTER_VALIDATE_INT);
+                if (!$id || !isset($eligibleById[$id])) continue;
+                $key = (string) ($shelfValues[$id] ?? '');
+                if (!isset($shelves[$key])) continue;
+                $order = filter_var($orderValues[$id] ?? null, FILTER_VALIDATE_INT);
+                $chosen[$key][] = ['id' => $id, 'order' => $order !== false && $order > 0 ? $order : PHP_INT_MAX];
+            }
+            foreach ($chosen as $key => $items) {
+                if (count($items) > $limit) throw new RuntimeException('Choose up to ' . $limit . ' books for ' . $shelves[$key] . '.');
+                usort($items, static fn(array $a, array $b): int => ($a['order'] <=> $b['order']) ?: ($a['id'] <=> $b['id']));
+                $chosen[$key] = array_column($items, 'id');
+            }
         }
 
         $pdo->beginTransaction();
-        $pdo->exec('DELETE FROM featured_books');
+        if ($autoPickShelf !== null) {
+            $deleteShelf = $pdo->prepare('DELETE FROM featured_books WHERE shelf_key = ?');
+            $deleteShelf->execute([$autoPickShelf]);
+        } else {
+            $pdo->exec('DELETE FROM featured_books');
+        }
         $insert = $pdo->prepare('INSERT INTO featured_books (shelf_key, book_id, display_order) VALUES (?, ?, ?)');
         foreach ($chosen as $key => $ids) {
             foreach (array_values($ids) as $index => $bookId) $insert->execute([$key, (int) $bookId, $index + 1]);
         }
         $totalChosen = count($chosen['staff_picks']) + count($chosen['local_gems']);
-        auditLog($pdo, 'update', 'Updated featured shelves: ' . count($chosen['staff_picks']) . ' Staff Picks and ' . count($chosen['local_gems']) . ' Local Gems.', 'products', (int) $_SESSION['user_id'], 'featured_books', null, 'success', (string) $_SESSION['role']);
+        $auditDescription = $autoPickShelf !== null
+            ? 'Auto-filled ' . $shelves[$autoPickShelf] . ' using ' . ($autoPickShelf === 'staff_picks' ? 'best-selling titles' : 'newer, less-sold titles') . ' (' . count($chosen[$autoPickShelf]) . ' books).'
+            : 'Updated featured shelves: ' . count($chosen['staff_picks']) . ' Staff Picks and ' . count($chosen['local_gems']) . ' Local Gems.';
+        auditLog($pdo, 'update', $auditDescription, 'products', (int) $_SESSION['user_id'], 'featured_books', null, 'success', (string) $_SESSION['role']);
         $pdo->commit();
-        $_SESSION['admin_flash'] = $totalChosen . ' featured ' . ($totalChosen === 1 ? 'book was' : 'books were') . ' saved across both shelves.';
+        $_SESSION['admin_flash'] = $autoPickShelf !== null
+            ? count($chosen[$autoPickShelf]) . ' books added to ' . $shelves[$autoPickShelf] . '. Review the catalog and save to adjust the shelves.'
+            : $totalChosen . ' featured ' . ($totalChosen === 1 ? 'book was' : 'books were') . ' saved across both shelves.';
         header('Location: /admin/featured.php');
         exit;
     } catch (Throwable $e) {
@@ -111,8 +138,12 @@ include __DIR__ . '/../includes/header.php';
     <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
 
     <section class="featured-curation-toolbar card" aria-label="Featured selection tools">
-        <div><span class="operations-eyebrow">CURATION TOOLS</span><h2>Choose Your Featured Books</h2><p>Select each title once, assign it to a shelf, and set its display position. Each shelf holds up to <?= $limit ?> books.</p></div>
-        <a class="btn btn-primary" href="/featured.php" target="_blank" rel="noopener">Preview Featured Page <span aria-hidden="true">↗</span></a>
+        <div><span class="operations-eyebrow">CURATION TOOLS</span><h2>Choose Your Featured Books</h2><p>Select each title once, assign it to a shelf, and set its display position. Each shelf holds up to <?= $limit ?> books. Autofill replaces that shelf with suggested titles.</p></div>
+        <div class="featured-toolbar-actions">
+            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="auto_pick"><input type="hidden" name="shelf_key" value="staff_picks"><button class="btn btn-secondary" type="submit">Use Best Sellers</button></form>
+            <form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="auto_pick"><input type="hidden" name="shelf_key" value="local_gems"><button class="btn btn-secondary" type="submit">Use New &amp; Less-Sold</button></form>
+            <a class="btn btn-primary" href="/featured.php" target="_blank" rel="noopener">Preview Featured Page <span aria-hidden="true">↗</span></a>
+        </div>
     </section>
 
     <form class="featured-curation-form" method="post">
