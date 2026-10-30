@@ -716,6 +716,25 @@
     row.description = synopsisPlaceholder;
     row.description_source = 'placeholder';
   }
+  function applyMissingMetadataFallbacks(row, items) {
+    var candidates = Array.isArray(items) ? items : [];
+    var exactGenreFound = candidates.some(function (item) {
+      var score = scoreCandidate(row, item);
+      return score.exactTitle && score.exactAuthor && !score.titleConflict
+        && metadataGenreIds((item.volumeInfo || {}).categories || []).length > 0;
+    });
+    row.genre_lookup_complete = true;
+    if (!exactGenreFound && (!Array.isArray(row.genre_ids) || row.genre_ids.length === 0)
+        && Number(state.fallbackGenreId) > 0) {
+      row.genre_ids = [Number(state.fallbackGenreId)];
+      row.genre_assignment_source = 'fallback';
+    }
+
+    var hasDescription = String(row.description || '').trim() !== '' && !isSynopsisPlaceholder(row.description);
+    if (!hasDescription && !row.google_synopsis_found && !row.open_library_synopsis_found) {
+      applySynopsisPlaceholder(row);
+    }
+  }
   function showCandidates(index, items) {
     var box = container.querySelector('[data-online-candidates="' + index + '"]');
     box.textContent = '';
@@ -868,14 +887,15 @@
           items = items.concat(fallbackItems);
         } catch (_) { row.open_library_lookup_failed = true; /* Keep Google Books candidates visible if the fallback is unavailable. */ }
       }
+      // Metadata search can return a title/author record while omitting its
+      // synopsis or genre. Apply field-level fallbacks after both providers
+      // have been checked, even when there are records to select from.
+      applyMissingMetadataFallbacks(row, items);
       if (!items.length) {
         row.lookup_status = 'No result'; updateRowHeading(index, 'no-result', 'No result');
-        if (row.genre_lookup_complete && Number(state.fallbackGenreId) > 0 && (!row.genre_ids || !row.genre_ids.length)) {
-          row.genre_ids = [Number(state.fallbackGenreId)]; row.genre_assignment_source = 'fallback';
-        }
         renderRowFields(index);
-        if ((row.google_books_checked || row.open_library_checked) && !row.google_synopsis_found && !row.open_library_synopsis_found && (!String(row.description || '').trim() || isSynopsisPlaceholder(row.description))) {
-          applySynopsisPlaceholder(row); renderRowFields(index);
+        if (isSynopsisPlaceholder(row.description)) {
+          renderRowFields(index);
           setNotice(index, 'No synopsis was found in the metadata checked. A placeholder was added; replace it with a trusted description before publishing.', 'warning');
         } else setNotice(index, data.fallback_notice || 'No matching records were found in Google Books or Open Library. Complete this row manually.', 'warning');
         showCandidates(index, []); refreshSummary(); return;
@@ -893,6 +913,15 @@
         refreshSummary();
       }
     } catch (error) {
+      // Keep required listing fields visibly marked when the lookup service
+      // is unavailable; staff can still replace these placeholders manually.
+      row.genre_lookup_complete = true;
+      if ((!Array.isArray(row.genre_ids) || row.genre_ids.length === 0) && Number(state.fallbackGenreId) > 0) {
+        row.genre_ids = [Number(state.fallbackGenreId)];
+        row.genre_assignment_source = 'fallback';
+      }
+      if (!String(row.description || '').trim()) applySynopsisPlaceholder(row);
+      renderRowFields(index);
       row.lookup_status = 'Lookup unavailable'; updateRowHeading(index, 'lookup-error', 'Lookup unavailable');
       setNotice(index, 'Online lookup could not complete. ' + error.message + ' Complete this row manually.', 'warning');
       refreshSummary();
