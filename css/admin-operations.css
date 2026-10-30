@@ -246,3 +246,42 @@
   .staff-account-action .btn { width: 100%; }
   .security-password-card .pp-grid { grid-template-columns: 1fr; }
 }
+
+/* Security page: policy cards first, account queues beneath in two columns. */
+.security-main-panel { display:block; padding:1rem; margin:0 0 1rem; }
+.security-policy-form { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); align-items:stretch; gap:.85rem; }
+.security-policy-form > .security-settings-card { display:flex; min-width:0; flex-direction:column; }
+.security-policy-form > .security-lockout-card .form-group,
+.security-policy-form > .security-timeout-card .form-group { margin-top:auto; }
+.security-policy-form > .security-password-card { grid-column:auto; }
+.security-password-card .pp-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+.security-password-card .pp-grid > .form-group:first-child { grid-column:1/-1; }
+.security-form-footer { display:flex; grid-column:1/-1; align-items:center; justify-content:space-between; gap:1rem; padding:.85rem .2rem 0; margin-top:.1rem; border-top:1px solid #efe4d8; }
+.security-form-footer > span { color:#796858; font-size:.8rem; }
+.security-form-footer .security-save-all { justify-self:auto; margin:0; }
+.security-account-panels { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); grid-template-rows:1fr; align-items:stretch; gap:1rem; }
+.security-account-panels > .security-settings-card { min-height:430px; padding:1.1rem; }
+.security-locked-card .lk-wrap,.security-staff-card .security-staff-list { max-height:300px; flex:1 1 auto; overflow:auto; }
+.security-locked-card .lk-empty,.security-staff-card .lk-empty { min-height:260px; }
+.security-staff-card .lk-head { justify-content:space-between; }
+.security-staff-card .lk-head > div { min-width:0; }
+.security-staff-card .lk-head .lk-note { margin:.3rem 0 0; }
+
+@media(max-width:1000px) {
+  .security-policy-form { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .security-policy-form > .security-password-card { grid-column:1/-1; }
+  .security-account-panels { grid-template-columns:1fr; }
+  .security-account-panels > .security-settings-card { min-height:380px; }
+}
+@media(max-width:720px) {
+  .security-policy-form { grid-template-columns:1fr; }
+  .security-policy-form > .security-password-card,.security-form-footer { grid-column:1; }
+  .security-password-card .pp-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .security-account-panels > .security-settings-card { min-height:340px; }
+  .security-form-footer { align-items:stretch; flex-direction:column; }
+  .security-form-footer .btn { width:100%; }
+}
+@media(max-width:460px) {
+  .security-password-card .pp-grid { grid-template-columns:1fr; }
+  .security-password-card .pp-grid > .form-group:first-child { grid-column:1; }
+}

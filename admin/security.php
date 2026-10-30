@@ -309,16 +309,14 @@ include __DIR__ . '/../includes/header.php';
     <form method="POST" action="/admin/security.php" class="security-policy-form">
       <input type="hidden" name="csrf_token" value="<?php echo e($csrf); ?>">
       <input type="hidden" name="action" value="save_all_security">
-      <div class="security-protection-stack">
-        <section class="card security-settings-card security-lockout-card">
+      <section class="card security-settings-card security-lockout-card">
           <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">01</span><div><h2>Account Lockout</h2><p>Control failed sign-in attempts before an account is locked.</p></div></div>
           <div class="form-group"><label for="max_failed_attempts">Maximum failed attempts (<?php echo MIN_ATTEMPTS; ?> to <?php echo MAX_ATTEMPTS; ?>)</label><input type="number" id="max_failed_attempts" name="max_failed_attempts" class="form-input" min="<?php echo MIN_ATTEMPTS; ?>" max="<?php echo MAX_ATTEMPTS; ?>" value="<?php echo (int) $current; ?>" required></div>
-        </section>
-        <section class="card security-settings-card security-timeout-card">
+      </section>
+      <section class="card security-settings-card security-timeout-card">
           <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">02</span><div><h2>Session Timeout</h2><p>Sign out inactive customer and staff sessions automatically.</p></div></div>
           <div class="form-group"><label for="session_timeout_minutes">Inactivity timeout (1 to 1440 minutes)</label><input type="number" id="session_timeout_minutes" name="session_timeout_minutes" class="form-input" min="1" max="1440" value="<?php echo $sessionTimeout; ?>" required><div class="pp-hint">Current timeout: <?php echo $sessionTimeout; ?> minute(s).</div></div>
-        </section>
-      </div>
+      </section>
       <section class="card security-settings-card security-password-card">
         <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">03</span><div><h2>Password Rules</h2><p>Apply complexity rules to new accounts and future password changes.</p></div></div>
         <div class="pp-grid">
@@ -329,9 +327,11 @@ include __DIR__ . '/../includes/header.php';
           <div class="form-group"><label for="special_min_length">Special characters</label><input type="number" id="special_min_length" name="special_min_length" class="form-input" min="0" max="<?php echo PASSWORD_COUNT_MAX; ?>" value="<?php echo (int) $pw['special_min_length']; ?>" required><div class="pp-hint">For example ! @ #</div></div>
         </div>
       </section>
-      <div class="security-form-footer"><button type="submit" class="btn btn-primary security-save-all">Save All Security Settings</button></div>
+      <div class="security-form-footer"><span>Save your changes across all three settings at once.</span><button type="submit" class="btn btn-primary security-save-all">Save All Security Settings</button></div>
     </form>
-    <div class="security-account-panels">
+  </section>
+
+  <div class="security-account-panels" aria-label="Account access management">
     <section class="card security-settings-card security-locked-card">
       <div class="lk-head"><h2>Locked Accounts</h2><span class="lk-count<?php echo $lockedAccounts ? '' : ' is-zero'; ?>"><?php echo count($lockedAccounts); ?> locked</span></div>
       <p class="lk-note">Review an account and unlock it to restore sign-in access.</p>
@@ -364,8 +364,7 @@ include __DIR__ . '/../includes/header.php';
       </div>
     <?php endif; ?>
   </section>
-    </div>
-  </section>
+  </div>
 </main>
 
 <script>
