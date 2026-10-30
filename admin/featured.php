@@ -41,43 +41,45 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
     $action = requestString($_POST, 'action');
     try {
-        $shelfKey = requestString($_POST, 'shelf_key');
-        if (!isset($shelves[$shelfKey])) throw new RuntimeException('Choose a valid featured shelf.');
-        $autoOrder = $shelfKey === 'local_gems'
-            ? ' ORDER BY b.created_at DESC, units_sold ASC, b.book_id DESC'
-            : ' ORDER BY units_sold DESC, b.created_at DESC, b.book_id DESC';
-        $eligible = $pdo->query($eligibleSql . $autoOrder)->fetchAll();
+        $eligible = $pdo->query($eligibleSql . ' ORDER BY units_sold DESC, b.created_at DESC, b.book_id DESC')->fetchAll();
         $eligibleById = [];
         foreach ($eligible as $book) $eligibleById[(int) $book['book_id']] = $book;
 
-        if ($action === 'auto_pick') {
-            $chosen = array_slice(array_keys($eligibleById), 0, $limit);
-        } elseif ($action === 'save_picks') {
-            $submitted = $_POST['featured_ids'] ?? [];
-            $orderValues = $_POST['display_order'] ?? [];
-            if (!is_array($submitted)) $submitted = [];
-            if (count($submitted) > $limit) throw new RuntimeException('Choose up to ' . $limit . ' books for ' . $shelves[$shelfKey] . '.');
-            $chosen = [];
-            foreach ($submitted as $rawId) {
-                $id = filter_var($rawId, FILTER_VALIDATE_INT);
-                if (!$id || !isset($eligibleById[$id])) continue;
-                $order = filter_var($orderValues[$id] ?? null, FILTER_VALIDATE_INT);
-                $chosen[] = ['id' => $id, 'order' => $order !== false && $order > 0 ? $order : PHP_INT_MAX];
-            }
-            usort($chosen, static fn(array $a, array $b): int => ($a['order'] <=> $b['order']) ?: ($a['id'] <=> $b['id']));
-            $chosen = array_column($chosen, 'id');
-        } else {
+        if ($action !== 'save_curation') {
             throw new RuntimeException('Choose a valid featured-books action.');
         }
 
+        $submitted = $_POST['featured_ids'] ?? [];
+        $shelfValues = $_POST['shelf_key'] ?? [];
+        $orderValues = $_POST['display_order'] ?? [];
+        if (!is_array($submitted)) $submitted = [];
+        if (!is_array($shelfValues)) $shelfValues = [];
+        if (!is_array($orderValues)) $orderValues = [];
+        $chosen = array_fill_keys(array_keys($shelves), []);
+        foreach (array_unique($submitted) as $rawId) {
+            $id = filter_var($rawId, FILTER_VALIDATE_INT);
+            if (!$id || !isset($eligibleById[$id])) continue;
+            $key = (string) ($shelfValues[$id] ?? '');
+            if (!isset($shelves[$key])) continue;
+            $order = filter_var($orderValues[$id] ?? null, FILTER_VALIDATE_INT);
+            $chosen[$key][] = ['id' => $id, 'order' => $order !== false && $order > 0 ? $order : PHP_INT_MAX];
+        }
+        foreach ($chosen as $key => $items) {
+            if (count($items) > $limit) throw new RuntimeException('Choose up to ' . $limit . ' books for ' . $shelves[$key] . '.');
+            usort($items, static fn(array $a, array $b): int => ($a['order'] <=> $b['order']) ?: ($a['id'] <=> $b['id']));
+            $chosen[$key] = array_column($items, 'id');
+        }
+
         $pdo->beginTransaction();
-        $delete = $pdo->prepare('DELETE FROM featured_books WHERE shelf_key = ?');
-        $delete->execute([$shelfKey]);
+        $pdo->exec('DELETE FROM featured_books');
         $insert = $pdo->prepare('INSERT INTO featured_books (shelf_key, book_id, display_order) VALUES (?, ?, ?)');
-        foreach (array_values($chosen) as $index => $bookId) $insert->execute([$shelfKey, (int) $bookId, $index + 1]);
-        auditLog($pdo, 'update', ($action === 'auto_pick' ? 'Automatically refreshed ' : 'Updated ') . $shelves[$shelfKey] . ' (' . count($chosen) . ' books).', 'products', (int) $_SESSION['user_id'], 'featured_books', null, 'success', (string) $_SESSION['role']);
+        foreach ($chosen as $key => $ids) {
+            foreach (array_values($ids) as $index => $bookId) $insert->execute([$key, (int) $bookId, $index + 1]);
+        }
+        $totalChosen = count($chosen['staff_picks']) + count($chosen['local_gems']);
+        auditLog($pdo, 'update', 'Updated featured shelves: ' . count($chosen['staff_picks']) . ' Staff Picks and ' . count($chosen['local_gems']) . ' Local Gems.', 'products', (int) $_SESSION['user_id'], 'featured_books', null, 'success', (string) $_SESSION['role']);
         $pdo->commit();
-        $_SESSION['admin_flash'] = count($chosen) . ' ' . $shelves[$shelfKey] . ' ' . (count($chosen) === 1 ? 'book was' : 'books were') . ' saved.';
+        $_SESSION['admin_flash'] = $totalChosen . ' featured ' . ($totalChosen === 1 ? 'book was' : 'books were') . ' saved across both shelves.';
         header('Location: /admin/featured.php');
         exit;
     } catch (Throwable $e) {
@@ -109,51 +111,46 @@ include __DIR__ . '/../includes/header.php';
     <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
 
     <section class="featured-curation-toolbar card" aria-label="Featured selection tools">
-        <div><span class="operations-eyebrow">CURATION TOOLS</span><h2>Build Customer Shelves</h2><p>Only active, approved books with an active genre can be featured. Changes appear on the customer page as soon as they are saved.</p></div>
-        <div class="featured-toolbar-actions">
-            <?php foreach ($shelves as $key => $label): ?><form method="post"><input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="auto_pick"><input type="hidden" name="shelf_key" value="<?= htmlspecialchars($key, ENT_QUOTES, 'UTF-8') ?>"><button class="btn btn-secondary" type="submit"><?= $key === 'staff_picks' ? 'Use Best Sellers' : 'Use New &amp; Less-Sold' ?></button></form><?php endforeach; ?>
-            <a class="btn btn-primary" href="/featured.php" target="_blank" rel="noopener">Preview Featured Page <span aria-hidden="true">↗</span></a>
-        </div>
-        <p class="featured-quick-pick-note">Quick picks replace that shelf immediately: Best Sellers uses sales history; New &amp; Less-Sold favors recently added books. Review the selections below to curate manually.</p>
+        <div><span class="operations-eyebrow">CURATION TOOLS</span><h2>Choose Your Featured Books</h2><p>Select each title once, assign it to a shelf, and set its display position. Each shelf holds up to <?= $limit ?> books.</p></div>
+        <a class="btn btn-primary" href="/featured.php" target="_blank" rel="noopener">Preview Featured Page <span aria-hidden="true">↗</span></a>
     </section>
 
-    <?php foreach ($shelves as $shelfKey => $shelfLabel): ?><form class="featured-curation-form" method="post">
+    <form class="featured-curation-form" method="post">
         <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
-        <input type="hidden" name="action" value="save_picks">
-        <input type="hidden" name="shelf_key" value="<?= htmlspecialchars($shelfKey, ENT_QUOTES, 'UTF-8') ?>">
-        <?php
-        $shelfGuidance = $shelfKey === 'staff_picks'
-            ? 'Your team’s recommendations. Choose titles you want to personally put in front of customers; the sold count is context, not a requirement.'
-            : 'A spotlight for newer or lesser-known Filipino books. Choose discoveries you want more customers to notice.';
-        ?>
-        <div class="featured-library-heading"><div><span class="operations-eyebrow"><?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></span><h2><?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></h2><p><?= htmlspecialchars($shelfGuidance, ENT_QUOTES, 'UTF-8') ?></p><p class="featured-selection-hint">Select up to <?= $limit ?> titles and set their order. A book can appear on both shelves.</p></div><label class="featured-search">Search Catalog<input type="search" data-featured-search placeholder="Title or author"></label></div>
+        <input type="hidden" name="action" value="save_curation">
+        <div class="featured-library-heading"><div><span class="operations-eyebrow">ELIGIBLE CATALOG</span><h2>Featured Book Catalog</h2><p>Check a book to feature it. Choose Staff Pick or Local Gem, then set its order on the shelf.</p></div><label class="featured-search">Search Catalog<input type="search" data-featured-search placeholder="Title or author"></label></div>
         <?php if (!$books): ?><div class="operations-empty"><h2>No Eligible Books Yet</h2><p>Approved, active books with an active genre will appear here.</p></div><?php else: ?>
             <div class="featured-admin-grid">
                 <?php foreach ($books as $book): $id = (int) $book['book_id']; $cover = catalogCover($book['cover_image_path'] ?? null); ?>
+                    <?php $assignedShelf = isset($selected['staff_picks'][$id]) ? 'staff_picks' : (isset($selected['local_gems'][$id]) ? 'local_gems' : 'staff_picks'); $isSelected = isset($selected['staff_picks'][$id]) || isset($selected['local_gems'][$id]); $bookOrder = $selected[$assignedShelf][$id] ?? ''; ?>
                     <article class="featured-admin-card" data-search="<?= htmlspecialchars(mb_strtolower((string) $book['title'] . ' ' . (string) ($book['authors'] ?? '')), ENT_QUOTES, 'UTF-8') ?>">
                         <div class="featured-admin-cover"><?php if ($cover !== ''): ?><img src="<?= htmlspecialchars($cover, ENT_QUOTES, 'UTF-8') ?>" alt="<?= htmlspecialchars((string) $book['title'], ENT_QUOTES, 'UTF-8') ?> cover" loading="lazy"><?php else: ?><?= catalogCoverPlaceholder((string) $book['title'], 'featured-admin-placeholder') ?><?php endif; ?></div>
-                        <div class="featured-admin-card-body"><span class="featured-sales-badge"><?= (int) $book['units_sold'] ?> sold</span><h3><?= htmlspecialchars((string) $book['title'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars((string) ($book['authors'] ?: 'Author not listed'), ENT_QUOTES, 'UTF-8') ?></p><div class="featured-admin-controls"><label><input type="checkbox" name="featured_ids[]" value="<?= $id ?>" <?= isset($selected[$shelfKey][$id]) ? 'checked' : '' ?>><span><?= isset($selected[$shelfKey][$id]) ? 'On ' . htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') : 'Add to ' . htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></span></label><label>Order<input type="number" name="display_order[<?= $id ?>]" min="1" max="<?= $limit ?>" value="<?= isset($selected[$shelfKey][$id]) ? (int) $selected[$shelfKey][$id] : '' ?>" placeholder="—" <?= isset($selected[$shelfKey][$id]) ? '' : 'disabled' ?>></label></div></div>
+                        <div class="featured-admin-card-body"><div class="featured-book-title-row"><h3><?= htmlspecialchars((string) $book['title'], ENT_QUOTES, 'UTF-8') ?></h3><span class="featured-sales-badge"><?= (int) $book['units_sold'] ?> sold</span></div><p><?= htmlspecialchars((string) ($book['authors'] ?: 'Author not listed'), ENT_QUOTES, 'UTF-8') ?></p><div class="featured-admin-controls"><label class="featured-book-check"><input type="checkbox" name="featured_ids[]" value="<?= $id ?>" <?= $isSelected ? 'checked' : '' ?>><span><?= $isSelected ? 'Featured' : 'Feature this book' ?></span></label><label class="featured-shelf-select">Shelf<select name="shelf_key[<?= $id ?>]" <?= $isSelected ? '' : 'disabled' ?>><option value="staff_picks" <?= $assignedShelf === 'staff_picks' ? 'selected' : '' ?>>Staff Pick</option><option value="local_gems" <?= $assignedShelf === 'local_gems' ? 'selected' : '' ?>>Local Gem</option></select></label><label class="featured-order-control">Order<input type="number" name="display_order[<?= $id ?>]" min="1" max="<?= $limit ?>" value="<?= htmlspecialchars((string) $bookOrder, ENT_QUOTES, 'UTF-8') ?>" placeholder="—" <?= $isSelected ? '' : 'disabled' ?>></label></div></div>
                     </article>
                 <?php endforeach; ?>
             </div>
-            <div class="featured-save-bar"><p data-featured-selection-count aria-live="polite"><strong><?= count($selected[$shelfKey]) ?></strong> of <?= $limit ?> titles selected for <?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></p><button class="btn btn-primary" type="submit">Save <?= htmlspecialchars($shelfLabel, ENT_QUOTES, 'UTF-8') ?></button></div>
+            <div class="featured-save-bar"><p data-featured-selection-count aria-live="polite"><strong><?= array_sum(array_map('count', $selected)) ?></strong> titles selected. Staff Picks: <strong><?= count($selected['staff_picks']) ?>/<?= $limit ?></strong> · Local Gems: <strong><?= count($selected['local_gems']) ?>/<?= $limit ?></strong></p><button class="btn btn-primary" type="submit">Save Featured Books</button></div>
         <?php endif; ?>
-    </form><?php endforeach; ?>
+    </form>
 </main>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   function syncSelection(form) {
-    var checkboxes = form.querySelectorAll('.featured-admin-controls input[type="checkbox"]');
-    var count = form.querySelectorAll('.featured-admin-controls input[type="checkbox"]:checked').length;
-    var status = form.querySelector('[data-featured-selection-count]');
-    var shelfName = form.querySelector('input[name="shelf_key"]').value === 'staff_picks' ? 'Staff Picks' : 'Local Gems';
-    status.querySelector('strong').textContent = String(count);
-    checkboxes.forEach(function (item) {
-      var text = item.parentElement.querySelector('span');
-      if (text) text.textContent = item.checked ? 'On ' + shelfName : 'Add to ' + shelfName;
-      item.disabled = !item.checked && count >= 10;
-      item.title = item.disabled ? 'Remove a selected title before adding another.' : '';
+    var selected = {staff_picks: 0, local_gems: 0};
+    form.querySelectorAll('.featured-admin-card').forEach(function (card) {
+      var checkbox = card.querySelector('input[type="checkbox"]');
+      var shelf = card.querySelector('select[name^="shelf_key"]');
+      var order = card.querySelector('input[type="number"]');
+      shelf.disabled = !checkbox.checked;
+      order.disabled = !checkbox.checked;
+      shelf.dataset.current = shelf.value;
+      card.classList.toggle('is-featured', checkbox.checked);
+      var text = checkbox.parentElement.querySelector('span');
+      text.textContent = checkbox.checked ? 'Featured' : 'Feature this book';
+      if (checkbox.checked) selected[shelf.value]++;
     });
+    var counts = form.querySelector('[data-featured-selection-count]');
+    counts.innerHTML = '<strong>' + (selected.staff_picks + selected.local_gems) + '</strong> titles selected. Staff Picks: <strong>' + selected.staff_picks + '/10</strong> · Local Gems: <strong>' + selected.local_gems + '/10</strong>';
   }
   document.querySelectorAll('[data-featured-search]').forEach(function (search) {
     search.addEventListener('input', function () {
@@ -161,15 +158,46 @@ document.addEventListener('DOMContentLoaded', function () {
       search.closest('.featured-curation-form').querySelectorAll('.featured-admin-card').forEach(function (card) { card.hidden = query !== '' && !card.dataset.search.includes(query); });
     });
   });
-  document.querySelectorAll('.featured-curation-form').forEach(syncSelection);
-  document.querySelectorAll('.featured-admin-controls input[type="checkbox"]').forEach(function (checkbox) {
-    checkbox.addEventListener('change', function () {
-      var order = checkbox.closest('.featured-admin-controls').querySelector('input[type="number"]');
-      order.disabled = !checkbox.checked;
-      if (!checkbox.checked) order.value = '';
-      var form = checkbox.closest('.featured-curation-form');
-      if (checkbox.checked && !order.value) order.value = String(form.querySelectorAll('.featured-admin-controls input[type="checkbox"]:checked').length);
-      syncSelection(form);
+  document.querySelectorAll('.featured-curation-form').forEach(function (form) {
+    syncSelection(form);
+    form.querySelectorAll('.featured-admin-card input[type="checkbox"], .featured-admin-card select').forEach(function (control) {
+      control.addEventListener('change', function () {
+        var card = control.closest('.featured-admin-card');
+        var checkbox = card.querySelector('input[type="checkbox"]');
+        var shelf = card.querySelector('select[name^="shelf_key"]');
+        var order = card.querySelector('input[type="number"]');
+        if (control === checkbox && checkbox.checked) {
+          var counts = {staff_picks: 0, local_gems: 0};
+          form.querySelectorAll('.featured-admin-card').forEach(function (entry) {
+            var picked = entry.querySelector('input[type="checkbox"]');
+            var assigned = entry.querySelector('select[name^="shelf_key"]');
+            if (picked.checked && picked !== checkbox) counts[assigned.value]++;
+          });
+          if (counts[shelf.value] >= 10 && counts.local_gems < 10) {
+            shelf.value = 'local_gems';
+          } else if (counts[shelf.value] >= 10 && counts.staff_picks < 10) {
+            shelf.value = 'staff_picks';
+          } else if (counts.staff_picks >= 10 && counts.local_gems >= 10) {
+            checkbox.checked = false;
+            window.alert('Both featured shelves already contain 10 books. Remove a title before adding another.');
+          }
+          if (checkbox.checked && !order.value) order.value = String(counts[shelf.value] + 1);
+        }
+        if (control === checkbox && !checkbox.checked) order.value = '';
+        if (control === shelf) {
+          var counts = {staff_picks: 0, local_gems: 0};
+          form.querySelectorAll('.featured-admin-card').forEach(function (entry) {
+            var picked = entry.querySelector('input[type="checkbox"]');
+            var assigned = entry.querySelector('select[name^="shelf_key"]');
+            if (picked.checked) counts[assigned.value]++;
+          });
+          if (counts[shelf.value] > 10) {
+            shelf.value = shelf.dataset.current;
+            window.alert('Each featured shelf can contain up to 10 books.');
+          }
+        }
+        syncSelection(form);
+      });
     });
   });
 });

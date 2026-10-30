@@ -328,9 +328,10 @@ include __DIR__ . '/../includes/header.php';
           <div class="form-group"><label for="number_min_length">Numbers</label><input type="number" id="number_min_length" name="number_min_length" class="form-input" min="0" max="<?php echo PASSWORD_COUNT_MAX; ?>" value="<?php echo (int) $pw['number_min_length']; ?>" required><div class="pp-hint">At least (0-9)</div></div>
           <div class="form-group"><label for="special_min_length">Special characters</label><input type="number" id="special_min_length" name="special_min_length" class="form-input" min="0" max="<?php echo PASSWORD_COUNT_MAX; ?>" value="<?php echo (int) $pw['special_min_length']; ?>" required><div class="pp-hint">For example ! @ #</div></div>
         </div>
-        <button type="submit" class="btn btn-primary security-save-all">Save All Security Settings</button>
       </section>
+      <div class="security-form-footer"><button type="submit" class="btn btn-primary security-save-all">Save All Security Settings</button></div>
     </form>
+    <div class="security-account-panels">
     <section class="card security-settings-card security-locked-card">
       <div class="lk-head"><h2>Locked Accounts</h2><span class="lk-count<?php echo $lockedAccounts ? '' : ' is-zero'; ?>"><?php echo count($lockedAccounts); ?> locked</span></div>
       <p class="lk-note">Review an account and unlock it to restore sign-in access.</p>
@@ -341,9 +342,8 @@ include __DIR__ . '/../includes/header.php';
         <?php endforeach; ?>
       </tbody></table></div><?php endif; ?>
     </section>
-  </section>
   <section class="card security-settings-card security-staff-card" id="staff-access" aria-labelledby="staff-access-title">
-    <div class="lk-head"><div><h2 id="staff-access-title">Staff Access</h2><p class="lk-note">Suspend staff access when needed, then restore it from the Suspended filter.</p></div><span class="lk-count"><?php echo (int) $staffCounts['all']; ?> staff</span></div>
+    <div class="lk-head"><div><h2 id="staff-access-title">Suspended Staffs</h2><p class="lk-note">Filter staff by status. Suspend active staff or restore access to suspended accounts.</p></div><span class="lk-count"><?php echo (int) $staffCounts['suspended']; ?> suspended</span></div>
     <nav class="staff-filter-tabs security-staff-filters" aria-label="Filter staff by access status">
       <?php foreach (['all' => 'All', 'active' => 'Active', 'suspended' => 'Suspended'] as $filterKey => $filterLabel): ?>
         <button type="button" data-security-staff-filter="<?php echo e($filterKey); ?>" aria-pressed="<?php echo $staffStatusFilter === $filterKey ? 'true' : 'false'; ?>"><?php echo e($filterLabel); ?> <span><?php echo (int) $staffCounts[$filterKey]; ?></span></button>
@@ -363,6 +363,8 @@ include __DIR__ . '/../includes/header.php';
         <?php endforeach; ?>
       </div>
     <?php endif; ?>
+  </section>
+    </div>
   </section>
 </main>
 

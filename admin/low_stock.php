@@ -17,16 +17,59 @@ $threshold = $ready ? getLowStockThreshold($pdo) : 5;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
-    if (!$isAdmin) {
-        http_response_code(403);
-        exit('Only administrators can change the low-stock threshold.');
-    }
-    $rawThreshold = trim(requestString($_POST, 'low_stock_threshold'));
-    if (!preg_match('/^[1-9][0-9]{0,6}$/', $rawThreshold)) {
-        $errors[] = 'Enter a whole-number threshold from 1 to 9,999,999.';
-    } elseif (!$ready) {
-        $errors[] = 'Apply database/migrations/005_low_stock_alerts.sql before configuring alerts.';
-    } else {
+    $action = requestString($_POST, 'action');
+    if ($action === 'demo_restock') {
+        $editionId = filter_var(requestString($_POST, 'edition_id'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1]]);
+        $quantity = filter_var(requestString($_POST, 'quantity'), FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 5000]]);
+        if ($editionId === false || $quantity === false) {
+            $errors[] = 'Choose a valid edition and a restock quantity from 1 to 5,000.';
+        } elseif (!$ready) {
+            $errors[] = 'Apply the low-stock migration before restocking from alerts.';
+        } else {
+            try {
+                $pdo->beginTransaction();
+                $stockStmt = $pdo->prepare('SELECT stock_quantity FROM book_editions WHERE edition_id = ? FOR UPDATE');
+                $stockStmt->execute([(int) $editionId]);
+                $stock = $stockStmt->fetchColumn();
+                if ($stock === false) throw new RuntimeException('That edition could not be found.');
+                if ((int) $stock + (int) $quantity > 4294967295) throw new RuntimeException('The new stock total is above the database limit.');
+                $pdo->prepare('UPDATE book_editions SET stock_quantity = stock_quantity + ? WHERE edition_id = ?')
+                    ->execute([(int) $quantity, (int) $editionId]);
+                syncEditionLowStockAlert($pdo, (int) $editionId);
+                auditLogRequired(
+                    $pdo,
+                    'update',
+                    'Demo restock added ' . (int) $quantity . ' copies to book edition #' . (int) $editionId . '.',
+                    'products',
+                    (int) $_SESSION['user_id'],
+                    'book_edition',
+                    (int) $editionId,
+                    'success',
+                    (string) $_SESSION['role']
+                );
+                $pdo->commit();
+                $_SESSION['admin_flash'] = 'Restocked ' . (int) $quantity . ' copies. Inventory and its low-stock alert are updated.';
+                $status = requestString($_POST, 'status');
+                if (!in_array($status, ['active', 'resolved', 'all'], true)) $status = 'active';
+                header('Location: /admin/low_stock.php?status=' . rawurlencode($status));
+                exit;
+            } catch (Throwable $e) {
+                if ($pdo->inTransaction()) $pdo->rollBack();
+                error_log('Demo low-stock restock failed: ' . $e->getMessage());
+                $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to restock this edition. Please try again.';
+            }
+        }
+    } elseif ($action === 'save_threshold') {
+        if (!$isAdmin) {
+            http_response_code(403);
+            exit('Only administrators can change the low-stock threshold.');
+        }
+        $rawThreshold = trim(requestString($_POST, 'low_stock_threshold'));
+        if (!preg_match('/^[1-9][0-9]{0,6}$/', $rawThreshold)) {
+            $errors[] = 'Enter a whole-number threshold from 1 to 9,999,999.';
+        } elseif (!$ready) {
+            $errors[] = 'Apply database/migrations/005_low_stock_alerts.sql before configuring alerts.';
+        } else {
         try {
             $newThreshold = (int) $rawThreshold;
             $pdo->beginTransaction();
@@ -54,6 +97,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             error_log('Low-stock threshold update failed: ' . $e->getMessage());
             $errors[] = $e instanceof RuntimeException ? $e->getMessage() : 'Unable to save the threshold. Please try again.';
         }
+        }
+    } else {
+        $errors[] = 'Choose a valid inventory action.';
     }
 }
 
@@ -90,7 +136,7 @@ include __DIR__ . '/../includes/header.php';
             <div><span class="operations-eyebrow">ALERT SETTINGS</span><h2>Shared Stock Threshold</h2><p><?php if ($isAdmin): ?>Changing this value updates every edition and reevaluates open alerts.<?php else: ?>Only an administrator can change the shared threshold.<?php endif; ?></p></div>
             <?php if ($isAdmin): ?>
                 <form method="post" action="/admin/low_stock.php" class="low-stock-threshold-form">
-                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="save_threshold">
                     <label for="low-stock-threshold">Alert When Stock Is at or Below</label>
                     <div class="low-stock-threshold-controls"><input class="form-input" type="number" id="low-stock-threshold" name="low_stock_threshold" min="1" max="9999999" step="1" required value="<?= (int) $threshold ?>" <?= !$ready ? 'disabled' : '' ?>><span>Units</span><button class="btn btn-primary" type="submit" <?= !$ready ? 'disabled' : '' ?>>Save Threshold</button></div>
                 </form>
@@ -122,7 +168,15 @@ include __DIR__ . '/../includes/header.php';
                         <td><?= htmlspecialchars((string) $alert['created_at'], ENT_QUOTES, 'UTF-8') ?></td>
                         <td><?= htmlspecialchars(ucfirst((string) $alert['status']), ENT_QUOTES, 'UTF-8') ?></td>
                         <td><?= htmlspecialchars((string) ($alert['resolved_at'] ?? '—'), ENT_QUOTES, 'UTF-8') ?></td>
-                        <td><a class="btn btn-secondary" href="/admin/products.php?edit=<?= (int) $alert['edition_id'] ?>">Manage stock</a></td>
+                        <td class="low-stock-row-actions">
+                            <?php if ($alert['status'] === 'active'): ?>
+                                <form method="post" action="/admin/low_stock.php" class="low-stock-restock-form">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>"><input type="hidden" name="action" value="demo_restock"><input type="hidden" name="edition_id" value="<?= (int) $alert['edition_id'] ?>"><input type="hidden" name="status" value="<?= htmlspecialchars($statusFilter, ENT_QUOTES, 'UTF-8') ?>">
+                                    <label class="sr-only" for="restock-quantity-<?= (int) $alert['edition_id'] ?>">Copies to add for <?= htmlspecialchars((string) $alert['book_title'], ENT_QUOTES, 'UTF-8') ?></label><input class="form-input" type="number" id="restock-quantity-<?= (int) $alert['edition_id'] ?>" name="quantity" min="1" max="5000" value="10" required>
+                                    <button class="btn btn-primary" type="submit">Restock</button>
+                                </form>
+                            <?php else: ?><a class="btn btn-secondary" href="/admin/products.php?edit=<?= (int) $alert['edition_id'] ?>">Manage Stock</a><?php endif; ?>
+                        </td>
                     </tr>
                 <?php endforeach; ?></tbody>
             </table></div>
