@@ -1,14 +1,11 @@
 <?php
 declare(strict_types=1);
 
-$host = strtolower((string) ($_SERVER['HTTP_HOST'] ?? ''));
-$isLocalRequest = $host === 'localhost' || $host === '127.0.0.1' || str_starts_with($host, 'localhost:');
-$localConfigFile = __DIR__ . '/../config/config.php';
 $rootConfigFile = __DIR__ . '/../config.php';
-$configFile = $isLocalRequest && is_file($localConfigFile) ? $localConfigFile : $rootConfigFile;
+$configFile = $rootConfigFile;
 
 if (!file_exists($configFile)) {
-    error_log('config.php is missing. Copy config/config.sample.php to config/config.php.');
+    error_log('Root config.php is missing. Copy config/config.sample.php to config.php.');
     http_response_code(500);
     exit('Server configuration error.');
 }
