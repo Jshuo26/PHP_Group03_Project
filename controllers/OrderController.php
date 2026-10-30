@@ -347,11 +347,14 @@ class OrderController
             throw new RuntimeException('Order not found.');
         }
 
-        if ($order['status'] !== 'pending') {
-            throw new RuntimeException('Only pending orders can be cancelled.');
+        if (!in_array($order['status'], ['pending', 'processing'], true)) {
+            throw new RuntimeException('Only pending or processing orders can be cancelled.');
         }
 
         if (in_array($order['payment_method'] ?? 'cod', ['gcash', 'maya', 'qrph'], true)) {
+            if ($order['status'] !== 'pending') {
+                throw new RuntimeException('An online payment order can only be cancelled while it is pending and unpaid.');
+            }
             throw new RuntimeException('Use the PayMongo cancellation action to safely expire this checkout before cancelling the order.');
         }
 

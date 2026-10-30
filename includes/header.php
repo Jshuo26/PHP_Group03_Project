@@ -70,6 +70,7 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
 
     <?php if (basename($_SERVER['PHP_SELF']) === 'cart.php'): ?>
         <link rel="stylesheet" href="/css/cart.css">
+        <script src="/js/cart.js" defer></script>
     <?php endif; ?>
 
 </head>
@@ -98,10 +99,10 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
                     <a class="nav-link" href="/admin/products.php">Products</a>
                     <a class="nav-link" href="/admin/authors.php">Authors</a>
                     <a class="nav-link" href="/admin/orders.php">Orders</a>
+                    <a class="nav-link" href="/admin/audit_logs.php">Audit Log</a>
                     <?php if ($userRole === 'admin'): ?>
                         <a class="nav-link" href="/admin/users.php">Staff &amp; Roles</a>
                         <a class="nav-link" href="/admin/security.php">Security</a>
-                        <a class="nav-link" href="/admin/audit_logs.php">Audit Log</a>
                     <?php endif; ?>
                 <?php endif; ?>
             <?php else: ?>

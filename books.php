@@ -432,7 +432,9 @@ include __DIR__ . '/includes/header.php';
                 <?php if ($pages > 1): ?>
                     <nav class="pagination" aria-label="Catalog pages">
                         <?php if ($page > 1): ?>
-                            <a class="pagination-link" href="<?= $h(catalogUrl('/books.php', $filters + ['page' => $page - 1 > 1 ? $page - 1 : null])) ?>">&laquo; Previous</a>
+                            <a class="pagination-link" href="<?= $h(catalogUrl('/books.php', $filters + ['page' => $page - 1 > 1 ? $page - 1 : null])) ?>" rel="prev">&laquo; Previous</a>
+                        <?php else: ?>
+                            <span class="pagination-link is-disabled" aria-disabled="true">&laquo; Previous</span>
                         <?php endif; ?>
 
                         <?php for ($p = max(1, $page - 2); $p <= min($pages, $page + 2); $p++): ?>
@@ -444,7 +446,9 @@ include __DIR__ . '/includes/header.php';
                         <?php endfor; ?>
 
                         <?php if ($page < $pages): ?>
-                            <a class="pagination-link" href="<?= $h(catalogUrl('/books.php', $filters + ['page' => $page + 1])) ?>">Next &raquo;</a>
+                            <a class="pagination-link" href="<?= $h(catalogUrl('/books.php', $filters + ['page' => $page + 1])) ?>" rel="next">Next &raquo;</a>
+                        <?php else: ?>
+                            <span class="pagination-link is-disabled" aria-disabled="true">Next &raquo;</span>
                         <?php endif; ?>
                     </nav>
                 <?php endif; ?>

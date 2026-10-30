@@ -81,6 +81,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     requireCsrfToken();
 
     $editionId  = filter_input(INPUT_POST, 'edition_id', FILTER_VALIDATE_INT) ?: 0;
+    $cartAction = requestString($_POST, 'cart_action');
     $editionIds = array_map(static fn ($e) => (int) $e['edition_id'], $editions);
 
     if (!isset($_SESSION['user_id']) || ($_SESSION['role'] ?? '') !== 'customer') {
@@ -90,14 +91,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (!in_array($editionId, $editionIds, true)) {
         $errors[] = 'Select a valid edition of this book.';
     }
+    if (!in_array($cartAction, ['add', 'buy'], true)) {
+        $cartAction = 'add';
+    }
 
     if (!$errors) {
         try {
             addEditionToCart($pdo, (int) $_SESSION['user_id'], $editionId, 1);
 
-            $_SESSION['store_flash'] = 'Book added to your cart.';
+            if ($cartAction === 'buy') {
+                unset($_SESSION['store_flash']);
+            } else {
+                $_SESSION['store_flash'] = 'Book added to your cart.';
+            }
 
-            header('Location: ' . $detailUrl);
+            header('Location: ' . ($cartAction === 'buy' ? '/checkout.php' : $detailUrl));
             exit;
 
         } catch (PDOException $e) {
@@ -238,24 +246,12 @@ include __DIR__ . '/includes/header.php';
                                     <form method="post" action="<?= $h($detailUrl) ?>" class="inline-form book-cart-form">
                                         <input type="hidden" name="csrf_token" value="<?= $h(generateCsrfToken()) ?>">
                                         <input type="hidden" name="edition_id" value="<?= (int) $edition['edition_id'] ?>">
-
-                                        <button class="catalog-action-btn catalog-add-btn book-add-btn" type="submit">
-                                            <svg class="catalog-btn-icon catalog-icon-outline" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                <circle cx="9" cy="21" r="1"/>
-                                                <circle cx="20" cy="21" r="1"/>
-                                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>
-                                            </svg>
-
-                                            <svg class="catalog-btn-icon catalog-icon-filled" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-                                                <circle cx="9" cy="21" r="1"/>
-                                                <circle cx="20" cy="21" r="1"/>
-                                                <path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6z"/>
-                                                <path d="M12 8v6" fill="none" stroke="#fff" stroke-width="2"/>
-                                                <path d="M9 11h6" fill="none" stroke="#fff" stroke-width="2"/>
-                                            </svg>
-
+                                        <button class="catalog-action-btn catalog-add-btn book-add-btn" type="submit" name="cart_action" value="add">
+                                            <svg class="catalog-btn-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/></svg>
                                             <span>Add to Cart</span>
                                         </button>
+                                        <button class="catalog-action-btn book-buy-btn" type="submit" name="cart_action" value="buy">Buy Now</button>
+
                                     </form>
                                 <?php endif; ?>
                             <?php else: ?>

@@ -341,7 +341,9 @@ include __DIR__ . '/../includes/header.php';
                 $isCancelled = $status === 'cancelled';
                 $isOnlinePayment = in_array($order['payment_method'], ['gcash', 'maya', 'qrph'], true);
                 $paymentStatus = (string) ($order['payment_status'] ?? 'not_required');
-                $canRetryPayment = $isOnlinePayment && !$isCancelled && $paymentStatus !== 'paid';
+                $canRetryPayment = $isOnlinePayment && !$isCancelled && in_array($paymentStatus, ['failed', 'expired'], true);
+                $canCancelOrder = !$isOnlinePayment
+                    && in_array($status, ['pending', 'processing'], true);
                 ?>
 
                 <article class="order-card <?= $isCancelled ? 'order-card-cancelled' : '' ?>">
@@ -357,10 +359,10 @@ include __DIR__ . '/../includes/header.php';
                                 <form method="post" action="/payments/create_checkout.php" style="margin: 0;">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                                     <input type="hidden" name="order_id" value="<?= (int) $order['order_id'] ?>">
-                                    <button type="submit" class="btn btn-primary"><?= in_array($paymentStatus, ['failed', 'expired'], true) ? 'Retry Payment' : 'Pay Now' ?></button>
+                                    <button type="submit" class="btn btn-primary">Retry Payment</button>
                                 </form>
                             <?php endif; ?>
-                            <?php if ($status === 'pending'): ?>
+                            <?php if ($canCancelOrder): ?>
                                 <form method="post" action="/account/orders.php<?= $selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : '' ?>" onsubmit="return confirm('Are you sure you want to cancel this order?');" style="margin: 0;">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                                     <input type="hidden" name="action" value="cancel_order">

@@ -42,7 +42,7 @@ if (!auditSchemaMissingColumns($pdo)) {
 }
 include __DIR__ . '/../includes/header.php';
 ?>
-<section class="container <?= $isAdmin ? 'admin-dashboard' : 'staff-dashboard' ?>">
+<section class="container admin-dashboard<?= $isAdmin ? '' : ' staff-dashboard' ?>">
     <?php if ($isAdmin): ?>
         <header class="admin-dashboard-hero">
             <div>
@@ -111,37 +111,47 @@ include __DIR__ . '/../includes/header.php';
             <?php endif; ?>
         </section>
     <?php else: ?>
-        <?php include __DIR__ . '/../includes/low_stock_widget.php'; ?>
-        <div class="card">
-            <h1 class="card-title">Staff Dashboard</h1>
-            <p class="card-text">Welcome, <?= htmlspecialchars((string) $_SESSION['full_name'], ENT_QUOTES, 'UTF-8') ?>. Your role: <strong>Staff</strong>.</p>
-            <div class="admin-shortcuts" aria-label="Bookstore operations">
-                <a class="btn btn-primary" href="/admin/products.php">Manage Books</a>
-                <a class="btn btn-secondary" href="/admin/featured.php">Manage Featured Books</a>
-                <a class="btn btn-secondary" href="/admin/genres.php">Manage categories</a>
-                <a class="btn btn-secondary" href="/admin/authors.php">Manage authors</a>
-                <a class="btn btn-secondary" href="/admin/customers.php">Customers</a>
-                <a class="btn btn-secondary" href="/admin/orders.php">Manage orders</a>
-                <a class="btn btn-secondary" href="/admin/low_stock.php">Low-stock alerts (<?= number_format($activeLowStockCount) ?>)</a>
+        <header class="admin-dashboard-hero">
+            <div><p class="admin-eyebrow">Staff Dashboard</p><h1>Good day, <?= htmlspecialchars((string) $_SESSION['full_name'], ENT_QUOTES, 'UTF-8') ?></h1><p>Manage bookstore operations, customer orders, catalog updates, and inventory from one workspace.</p></div>
+        </header>
+        <section class="admin-overview" aria-labelledby="staff-overview-title">
+            <div class="admin-section-heading"><div><p class="admin-eyebrow">At a Glance</p><h2 id="staff-overview-title">Store Overview</h2></div><span class="admin-role-pill"><span aria-hidden="true">●</span> Staff</span></div>
+            <div class="admin-metric-grid">
+                <article class="admin-metric admin-metric-orders"><span>Total Orders</span><strong><?= number_format($counts['orders']) ?></strong><small>All customer orders</small></article>
+                <article class="admin-metric admin-metric-attention"><span>Needs Attention</span><strong><?= number_format($counts['pending']) ?></strong><small>Pending orders</small></article>
+                <article class="admin-metric admin-metric-progress"><span>In Progress</span><strong><?= number_format($counts['processing']) ?></strong><small>Processing or shipped</small></article>
+                <article class="admin-metric admin-metric-books"><span>Books in Catalog</span><strong><?= number_format($counts['products']) ?></strong><small><?= number_format($counts['inventory']) ?> total stock units</small></article>
+                <article class="admin-metric admin-metric-customers"><span>Customers</span><strong><?= number_format($counts['customers']) ?></strong><small>Registered accounts</small></article>
+                <?php if ($paidSales !== null): ?><article class="admin-metric admin-metric-sales"><span>Confirmed Sales</span><strong>₱<?= number_format($paidSales, 2) ?></strong><small>Payments marked paid</small></article><?php endif; ?>
             </div>
+        </section>
+        <div class="admin-dashboard-workspace">
+            <section class="admin-management" aria-labelledby="staff-management-title">
+                <div class="admin-section-heading"><div><p class="admin-eyebrow">Daily Operations</p><h2 id="staff-management-title">Manage the Bookstore</h2></div><p>Choose a workspace to continue</p></div>
+                <div class="admin-tool-grid" aria-label="Staff operations">
+                    <a class="admin-tool-card" href="/admin/products.php"><span class="admin-tool-icon" aria-hidden="true">▤</span><span><strong>Products &amp; Inventory</strong><small>Catalog, pricing, and stock</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/bulk_import.php"><span class="admin-tool-icon" aria-hidden="true">⇧</span><span><strong>Bulk Catalog</strong><small>Prepare and publish a book batch</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/featured.php"><span class="admin-tool-icon" aria-hidden="true">☆</span><span><strong>Featured Books</strong><small>Curate customer shelves</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/authors.php"><span class="admin-tool-icon" aria-hidden="true">◎</span><span><strong>Authors</strong><small>Edit profiles and portraits</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/author_reviews.php"><span class="admin-tool-icon" aria-hidden="true">✓</span><span><strong>Author Reviews</strong><small>Review author eligibility</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/orders.php"><span class="admin-tool-icon" aria-hidden="true">▣</span><span><strong>Orders</strong><small>Payments and fulfillment</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/customers.php"><span class="admin-tool-icon" aria-hidden="true">♙</span><span><strong>Customers</strong><small>Accounts and order history</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/genres.php"><span class="admin-tool-icon" aria-hidden="true">▦</span><span><strong>Categories</strong><small>Organize the book catalog</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/catalog_review.php"><span class="admin-tool-icon" aria-hidden="true">⌕</span><span><strong>Catalog Review</strong><small>Resolve flagged or incomplete books</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/auto_restock.php"><span class="admin-tool-icon" aria-hidden="true">↻</span><span><strong>Auto-Restock</strong><small>Build a replenishment order list</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/low_stock.php"><span class="admin-tool-icon" aria-hidden="true">!</span><span><strong>Inventory Alerts</strong><small><?= number_format($activeLowStockCount) ?> active low-stock alerts</small></span><b aria-hidden="true">→</b></a>
+                    <a class="admin-tool-card" href="/admin/audit_logs.php"><span class="admin-tool-icon" aria-hidden="true">≡</span><span><strong>Audit Log</strong><small>Review staff and system actions</small></span><b aria-hidden="true">→</b></a>
+                </div>
+            </section>
+            <?php include __DIR__ . '/../includes/low_stock_widget.php'; ?>
         </div>
-        <div class="admin-stats-grid" style="display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:16px;margin:20px 0;">
-            <?php foreach ([
-                'Orders' => $counts['orders'], 'Pending orders' => $counts['pending'],
-                'Processing / shipped' => $counts['processing'], 'Delivered' => $counts['completed'],
-                'Cancelled' => $counts['cancelled'], 'Books' => $counts['products'],
-                'Inventory units' => $counts['inventory'], 'Customers' => $counts['customers'],
-            ] as $label => $value): ?>
-                <div class="card"><p class="card-text"><?= htmlspecialchars($label, ENT_QUOTES, 'UTF-8') ?></p><strong style="font-size:1.7rem;"><?= number_format((int) $value) ?></strong></div>
-            <?php endforeach; ?>
-        </div>
-        <div class="card">
-            <h2 class="card-title">Recent Bookstore Activity</h2>
-            <?php if (!$recentActivity): ?><p class="card-text">No recent activity is available.</p>
-            <?php else: ?><div style="overflow-x:auto;"><table class="table"><thead><tr><th>Date and time</th><th>User</th><th>Role</th><th>Action</th><th>Module</th><th>Activity</th></tr></thead><tbody>
+        <section class="admin-activity-panel" aria-labelledby="staff-activity-title">
+            <div class="admin-section-heading"><div><p class="admin-eyebrow">Audit Trail</p><h2 id="staff-activity-title">Recent Activity</h2></div><a href="/admin/audit_logs.php">Open Full Audit Trail <span aria-hidden="true">→</span></a></div>
+            <?php if (!$recentActivity): ?><p class="admin-empty-state">No recent activity is available yet.</p>
+            <?php else: ?><div class="admin-activity-scroll"><table class="admin-activity-table"><thead><tr><th>Date and Time</th><th>User</th><th>Role</th><th>Action</th><th>Area</th><th>Details</th></tr></thead><tbody>
                 <?php foreach ($recentActivity as $activity): ?><tr><td><?= htmlspecialchars((string) $activity['created_at'], ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) ($activity['actor_name'] ?: 'System / unknown'), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars(ucfirst((string) ($activity['actor_role'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td><td><span class="admin-action-tag audit-action-<?= htmlspecialchars(strtolower((string) $activity['action']), ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(str_replace('_', ' ', (string) $activity['action']), ENT_QUOTES, 'UTF-8') ?></span></td><td><?= htmlspecialchars(ucfirst((string) ($activity['module'] ?: 'unknown')), ENT_QUOTES, 'UTF-8') ?></td><td><?= htmlspecialchars((string) $activity['description'], ENT_QUOTES, 'UTF-8') ?></td></tr><?php endforeach; ?>
             </tbody></table></div><?php endif; ?>
-        </div>
+        </section>
     <?php endif; ?>
 </section>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

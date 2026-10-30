@@ -86,6 +86,7 @@
   width: 100%;
   height: 100%;
   object-fit: contain;
+  object-position: center;
 }
 
 .cart-cover-placeholder {
@@ -117,10 +118,19 @@
 }
 
 .cart-unit-price {
-  margin: 12px 0 5px;
+  margin: 0;
   color: #30251f;
   font-size: 0.92rem;
   font-weight: 700;
+}
+
+.cart-price-quantity-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 12px 38px 12px 0;
 }
 
 .cart-stock {
@@ -139,16 +149,14 @@
 
 .cart-item-actions {
   display: flex;
-  flex-wrap: wrap;
   align-items: flex-end;
-  gap: 10px;
   margin: 0;
 }
 
 .cart-quantity-field {
   display: flex;
-  flex-direction: column;
-  gap: 5px;
+  align-items: center;
+  gap: 9px;
 }
 
 .cart-quantity-field label {
@@ -158,9 +166,10 @@
 }
 
 .cart-quantity {
-  width: 76px;
-  min-height: 40px;
-  padding: 7px 9px;
+  width: 82px;
+  min-height: 42px;
+  padding: 7px 10px;
+  border-radius: 10px;
 }
 
 .cart-update-btn {
@@ -414,10 +423,42 @@
 }
 
 .cart-remove-btn:hover {
-    background: #f8e9e5;
+    border-color: #e5b8ae;
+    background: #fff1ed;
     color: #a83224;
     text-decoration: none;
 }
+
+.cart-remove-btn:focus-visible,
+.cart-quantity:focus-visible {
+    outline: 3px solid rgba(174, 92, 15, .24);
+    outline-offset: 2px;
+}
+
+.cart-toast {
+  position: fixed;
+  z-index: 2000;
+  left: clamp(1rem, 2.5vw, 2rem);
+  bottom: clamp(1rem, 2.5vw, 2rem);
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  width: min(370px, calc(100vw - 2rem));
+  padding: .9rem 1rem;
+  border: 1px solid #b8ddc1;
+  border-left: 5px solid #27804a;
+  border-radius: 13px;
+  color: #145c32;
+  background: #f0faf2;
+  box-shadow: 0 14px 38px rgba(34, 48, 36, .2);
+  font-size: .88rem;
+  line-height: 1.45;
+  animation: cart-toast-in .2s ease-out;
+  transition: opacity .2s ease, transform .2s ease;
+}
+.cart-toast.is-leaving { opacity: 0; transform: translateY(8px); }
+.cart-toast-mark { display:grid; flex:0 0 auto; place-items:center; width:1.45rem; height:1.45rem; border-radius:50%; color:#fff; background:#27804a; font-size:.82rem; font-weight:900; }
+@keyframes cart-toast-in { from { opacity:0; transform:translateY(8px); } to { opacity:1; transform:translateY(0); } }
 
 .cart-remove-btn:focus-visible {
     outline: 2px solid #ae5c0f;

@@ -60,6 +60,10 @@
 .staff-field-first,.staff-field-last,.staff-field-email,.staff-field-role,.staff-field-password,.staff-field-confirm { grid-column: span 6; }
 .staff-account-form .form-input { width: 100%; min-width: 0; min-height: 44px; margin: 0; border: 1px solid #dfd0c0; border-radius: 9px; background: #fff; }
 .staff-account-form .password-wrapper { display:block; width:100%; }
+.staff-account-form .staff-field-password .password-wrapper,
+.staff-account-form .staff-field-confirm .password-wrapper { box-sizing:border-box; width:100%; min-width:0; }
+.staff-account-form .staff-field-password .form-input,
+.staff-account-form .staff-field-confirm .form-input { display:block; box-sizing:border-box; width:100%; min-width:0; }
 .staff-account-form .password-toggle { right:.35rem; }
 .staff-form-footer { display: flex; grid-column: 1/-1; align-items: center; justify-content: space-between; gap: .8rem; padding-top: .8rem; border-top: 1px solid #f0e5d9; }
 .staff-form-footer p { margin: 0; color: #806d5c; font-size: .79rem; }
@@ -84,6 +88,15 @@
 .you-account-badge { background: #fff3d8; color: #805800; }
 
 /* Order filters */
+.orders-summary-grid { display:grid; grid-template-columns:repeat(5,minmax(0,1fr)); gap:.7rem; margin:0 0 .9rem; }
+.orders-summary-card { display:grid; min-width:0; grid-template-columns:minmax(0,1fr) auto; align-items:center; gap:.12rem .6rem; padding:.8rem .9rem; border:1px solid #eadbc9; border-left:4px solid #c86b16; border-radius:13px; background:#fff; box-shadow:0 4px 14px rgba(87,48,18,.04); }
+.orders-summary-card > span { min-width:0; color:#71563f; font-size:.72rem; font-weight:750; }
+.orders-summary-card > strong { grid-column:2; grid-row:1/3; color:#71300c; font-size:1.25rem; line-height:1; }
+.orders-summary-card > small { color:#8a7867; font-size:.66rem; }
+.orders-summary-processing { border-left-color:#4e83c2; }
+.orders-summary-shipped { border-left-color:#806bb7; }
+.orders-summary-delivered { border-left-color:#399260; }
+.orders-summary-cancelled { border-left-color:#c65b56; }
 .orders-filter-panel { display:grid; grid-template-columns:minmax(240px,1.4fr) minmax(180px,.8fr) auto; align-items:end; gap:.75rem; padding:.9rem 1rem .55rem; margin:0 0 .9rem; border:1px solid #eadbc9; border-radius:15px; background:#fff; box-shadow:0 4px 14px rgba(87,48,18,.04); }
 .orders-filter-panel label { display:flex; min-width:0; flex-direction:column; gap:.32rem; color:#584637; font-size:.76rem; font-weight:750; }
 .orders-filter-panel .form-input { width:100%; min-height:42px; margin:0; border:1px solid #dfd0c0; border-radius:9px; font-size:.83rem; }
@@ -119,7 +132,7 @@
 .low-stock-table td { padding:.72rem .75rem; border-top:1px solid #f0e7de; color:#514237; font-size:.8rem; line-height:1.45; vertical-align:middle; }
 .low-stock-table tr:hover td { background:#fffaf4; }
 @media(max-width:1050px) { .admin-users-workspace { grid-template-columns:minmax(0,1.1fr) minmax(340px,.9fr); } .low-stock-overview-panel { grid-template-columns:1fr; } }
-@media(max-width:850px) { .orders-filter-panel { grid-template-columns:1fr 1fr; } .orders-filter-panel .btn { justify-self:start; } .low-stock-overview-panel { grid-template-columns:1fr; } .low-stock-settings { grid-template-columns:1fr; } .low-stock-alerts-heading { align-items:flex-start; flex-direction:column; } }
+@media(max-width:850px) { .orders-summary-grid { grid-template-columns:repeat(3,minmax(0,1fr)); } .orders-filter-panel { grid-template-columns:1fr 1fr; } .orders-filter-panel .btn { justify-self:start; } .low-stock-overview-panel { grid-template-columns:1fr; } .low-stock-settings { grid-template-columns:1fr; } .low-stock-alerts-heading { align-items:flex-start; flex-direction:column; } }
 
 /* Security */
 .security-page .operations-page-heading { margin-bottom: 1rem; }
@@ -216,6 +229,7 @@
   .order-status-form label { grid-column: 1/-1; }
   .order-status-form select { width: 100%; }
   .orders-filter-panel { grid-template-columns:1fr; }
+  .orders-summary-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .orders-filter-panel > p { grid-column:1; }
   .staff-account-editor { padding: 1rem; }
   .staff-account-form { grid-template-columns: repeat(2,minmax(0,1fr)); }
@@ -229,6 +243,8 @@
   .security-locked-card .lk-wrap,.security-staff-list { max-height:260px; overflow:auto; }
 }
 @media (max-width: 460px) {
+  .orders-summary-grid { grid-template-columns:1fr 1fr; gap:.45rem; }
+  .orders-summary-card { padding:.65rem; }
   .order-detail-grid { grid-template-columns: 1fr; }
   .order-items-detail { grid-column: auto; }
   .order-status-form { grid-template-columns: 1fr; }

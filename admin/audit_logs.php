@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/auth.php';
 require_once __DIR__ . '/../includes/crypto.php';
 require_once __DIR__ . '/../includes/audit.php';
 
-requireRole(['admin']);
+requireRole(['admin', 'staff']);
 
 function auditPageEscape($value): string
 {

@@ -64,12 +64,17 @@
 .admin-authors-hero p { max-width: 660px; color: rgba(255,255,255,.86); font-size: 1rem; line-height: 1.55; }
 .admin-authors-hero small { color: rgba(255,255,255,.82); }
 .admin-authors-hero p { margin: 0; }
+.admin-authors-hero .admin-authors-scope-note { display:block; max-width:720px; margin-top:.55rem; color:rgba(255,255,255,.78); font-size:.75rem; line-height:1.45; }
 .admin-authors-hero-actions { display: flex; align-items: center; gap: 12px; }
 .admin-authors-total { display: grid; gap: 2px; color: #fff; font-size: 1.15rem; font-weight: 800; text-align: right; white-space: nowrap; }
 .admin-authors-total small { font-size: .78rem; font-weight: 500; }
 .admin-author-card[hidden] { display:none!important; }
-.authors-client-filter { display:inline-flex; min-height:38px; align-items:center; justify-content:center; padding:.45rem .7rem; border:1px solid rgba(255,255,255,.65); border-radius:999px; color:#71300c; background:#fff; font:inherit; font-size:.74rem; font-weight:750; text-decoration:none; cursor:pointer; }
-.authors-client-filter[aria-pressed="true"] { color:#fff; background:rgba(255,255,255,.16); }
+.authors-client-filter { display:inline-flex; min-height:44px; align-items:center; justify-content:center; gap:.55rem; padding:.55rem .9rem; border:1px solid #fff; border-radius:999px; color:#71300c; background:#fff; box-shadow:0 4px 14px rgba(57,29,8,.12); font:inherit; font-size:.8rem; font-weight:800; text-decoration:none; transition:background .16s ease,color .16s ease,transform .16s ease,box-shadow .16s ease; }
+.authors-client-filter:hover { transform:translateY(-1px); color:#572306; background:#fff4e5; box-shadow:0 7px 18px rgba(57,29,8,.18); }
+.authors-client-filter:focus-visible { outline:3px solid #ffe0b5; outline-offset:3px; }
+.authors-client-filter.is-active { border-color:#ffdcaa; color:#71300c; background:#ffdcaa; box-shadow:0 4px 14px rgba(57,29,8,.1); }
+.authors-filter-indicator { width:.58rem; height:.58rem; flex:0 0 auto; border-radius:50%; background:#c86b16; box-shadow:0 0 0 3px rgba(200,107,22,.13); }
+.authors-client-filter.is-active .authors-filter-indicator { background:#71300c; }
 
 .admin-authors-directory { padding: 24px; }
 .admin-authors-search {

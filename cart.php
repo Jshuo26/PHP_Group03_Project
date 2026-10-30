@@ -82,8 +82,9 @@ include __DIR__ . '/includes/header.php';
     <?php endif; ?>
 
     <?php if ($success !== ''): ?>
-        <div class="form-success" role="status">
-            <p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p>
+        <div class="cart-toast" role="status" aria-live="polite" data-cart-toast>
+            <span class="cart-toast-mark" aria-hidden="true">✓</span>
+            <span><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></span>
         </div>
     <?php endif; ?>
 
@@ -142,9 +143,28 @@ include __DIR__ . '/includes/header.php';
                                 <?= htmlspecialchars(ucfirst($item['format']), ENT_QUOTES, 'UTF-8') ?>
                             </span>
 
-                            <p class="cart-unit-price">
-                                ₱<?= number_format((float) $item['price'], 2) ?> each
-                            </p>
+                            <div class="cart-price-quantity-row">
+                                <p class="cart-unit-price">₱<?= number_format((float) $item['price'], 2) ?> each</p>
+                                <form method="post" action="/cart.php" class="cart-item-actions">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="cart_item_id" value="<?= (int) $item['cart_item_id'] ?>">
+                                    <input type="hidden" name="action" value="update">
+                                    <div class="cart-quantity-field">
+                                        <label for="quantity-<?= (int) $item['cart_item_id'] ?>">Quantity</label>
+                                        <input
+                                            class="form-input cart-quantity"
+                                            type="number"
+                                            id="quantity-<?= (int) $item['cart_item_id'] ?>"
+                                            name="quantity"
+                                            min="1"
+                                            max="<?= max(1, min(99, (int) $item['stock_quantity'])) ?>"
+                                            value="<?= (int) $item['quantity'] ?>"
+                                            required
+                                            onchange="this.form.requestSubmit()"
+                                        >
+                                    </div>
+                                </form>
+                            </div>
 
                             <?php if ($item['stock_issue'] === 'out_of_stock'): ?>
                                 <p class="cart-stock out-of-stock" role="alert">
@@ -160,26 +180,6 @@ include __DIR__ . '/includes/header.php';
                                     <?= (int) $item['stock_quantity'] ?> in stock
                                 </p>
                             <?php endif; ?>
-                        
-                                <form method="post" action="/cart.php" class="cart-item-actions">
-                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
-                                    <input type="hidden" name="cart_item_id" value="<?= (int) $item['cart_item_id'] ?>">
-                                    <input type="hidden" name="action" value="update">
-
-                                    <div class="cart-quantity-field">
-                                        <label for="quantity-<?= (int) $item['cart_item_id'] ?>">Qty</label>
-                                        <input
-                                            class="form-input cart-quantity"
-                                            type="number"
-                                            id="quantity-<?= (int) $item['cart_item_id'] ?>"
-                                            name="quantity"
-                                            min="1"
-                                            max="<?= max(1, min(99, (int) $item['stock_quantity'])) ?>"                                            value="<?= (int) $item['quantity'] ?>"
-                                            required
-                                            onchange="this.form.requestSubmit()"
-                                        >
-                                    </div>
-                                </form>
                         </div>
 
                         <div class="cart-item-total">

@@ -56,6 +56,11 @@ $sql =
 $orderStmt = $pdo->prepare($sql);
 $orderStmt->execute($customerId > 0 ? [$customerId] : []);
 $orders = $orderStmt->fetchAll();
+$orderStatusCounts = array_fill_keys($statuses, 0);
+foreach ($orders as $orderRow) {
+    $currentStatus = (string) ($orderRow['status'] ?? '');
+    if (isset($orderStatusCounts[$currentStatus])) $orderStatusCounts[$currentStatus]++;
+}
 
 foreach ($orders as &$order) {
     $order = decryptOrderPersonalFields($order);
@@ -73,6 +78,11 @@ include __DIR__ . '/../includes/header.php';
         <div><span class="admin-hero-eyebrow">STORE OPERATIONS</span><h1><?= $customerId > 0 ? 'Customer Order History' : 'Order Management' ?></h1><p><?= $customerId > 0 ? 'Review and update orders for this customer.' : 'Review incoming orders and keep fulfillment moving.' ?></p></div>
         <div class="hero-meta"><span class="operations-count"><?= count($orders) ?> <?= count($orders) === 1 ? 'order' : 'orders' ?></span><?php if ($customerId > 0): ?><a class="btn btn-secondary" href="/admin/customers.php">Back to customers</a><?php endif; ?></div>
     </header>
+    <section class="orders-summary-grid" aria-label="Order status overview">
+        <?php foreach (['pending' => 'Pending', 'processing' => 'Processing', 'shipped' => 'Shipped', 'delivered' => 'Delivered', 'cancelled' => 'Cancelled'] as $statusKey => $statusLabel): ?>
+            <article class="orders-summary-card orders-summary-<?= htmlspecialchars($statusKey, ENT_QUOTES, 'UTF-8') ?>"><span><?= htmlspecialchars($statusLabel, ENT_QUOTES, 'UTF-8') ?></span><strong><?= number_format($orderStatusCounts[$statusKey]) ?></strong><small><?= $orderStatusCounts[$statusKey] === 1 ? 'order' : 'orders' ?></small></article>
+        <?php endforeach; ?>
+    </section>
     <?php if ($errors): ?><div class="operations-alert error" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
     <?php if ($success !== ''): ?><div class="operations-alert success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
     <?php if ($orders): ?>

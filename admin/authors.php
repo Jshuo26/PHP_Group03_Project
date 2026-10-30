@@ -144,17 +144,17 @@ if ($clientVisibleOnly) {
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
 $authors = $stmt->fetchAll();
-$totalAuthors = $clientVisibleOnly
-    ? (int) $pdo->query("SELECT COUNT(*) FROM authors a WHERE EXISTS (
-          SELECT 1 FROM book_authors client_ba
-          JOIN books client_b ON client_b.book_id = client_ba.book_id
-          JOIN book_genres client_bg ON client_bg.book_id = client_b.book_id
-          JOIN genres client_g ON client_g.genre_id = client_bg.genre_id AND client_g.status = 'active'
-          JOIN book_editions client_e ON client_e.book_id = client_b.book_id
-          WHERE client_ba.author_id = a.author_id
-            AND client_b.status = 'active' AND client_b.review_status = 'approved'
-      ) AND a.verification_status = 'verified'")->fetchColumn()
-    : (int) $pdo->query('SELECT COUNT(*) FROM authors')->fetchColumn();
+$clientVisibleAuthorCount = (int) $pdo->query("SELECT COUNT(*) FROM authors a WHERE EXISTS (
+    SELECT 1 FROM book_authors client_ba
+    JOIN books client_b ON client_b.book_id = client_ba.book_id
+    JOIN book_genres client_bg ON client_bg.book_id = client_b.book_id
+    JOIN genres client_g ON client_g.genre_id = client_bg.genre_id AND client_g.status = 'active'
+    JOIN book_editions client_e ON client_e.book_id = client_b.book_id
+    WHERE client_ba.author_id = a.author_id
+      AND client_b.status = 'active' AND client_b.review_status = 'approved'
+) AND a.verification_status = 'verified'")->fetchColumn();
+$allAuthorCount = (int) $pdo->query('SELECT COUNT(*) FROM authors')->fetchColumn();
+$totalAuthors = $clientVisibleOnly ? $clientVisibleAuthorCount : $allAuthorCount;
 $csrf = generateCsrfToken();
 $authorDetails = [];
 if ($authors) {
@@ -227,8 +227,14 @@ include __DIR__ . '/../includes/header.php';
 ?>
 <main class="container admin-authors-page">
     <section class="admin-authors-hero">
-        <div><span class="admin-authors-eyebrow">AUTHOR DIRECTORY</span><h1>Manage Authors</h1><p>View author profiles, update biographies, and keep portraits current.</p></div>
-        <div class="admin-authors-hero-actions"><span class="admin-authors-total"><?= count($authors) ?> shown <small>of <?= $totalAuthors ?> <?= $clientVisibleOnly ? 'client visible authors' : 'authors' ?></small></span><a class="authors-client-filter<?= $clientVisibleOnly ? ' is-active' : '' ?>" href="/admin/authors.php?<?= adminAuthorEsc(http_build_query(array_filter(['search' => $search, 'letter' => $letter, 'client_visible' => $clientVisibleOnly ? null : '1'], static fn ($value) => $value !== null && $value !== ''))) ?>" aria-pressed="<?= $clientVisibleOnly ? 'true' : 'false' ?>"><?= $clientVisibleOnly ? 'Show All Authors' : 'Client Visible Authors' ?></a></div>
+        <div><span class="admin-authors-eyebrow">AUTHOR DIRECTORY</span><h1>Manage Authors</h1><p>View author profiles, update biographies, and keep portraits current.</p><small class="admin-authors-scope-note">All Authors includes every database record. Client-Visible Authors filters to verified authors with approved active books.</small></div>
+        <div class="admin-authors-hero-actions">
+            <span class="admin-authors-total"><?= count($authors) ?> shown <small>of <?= $totalAuthors ?> <?= $clientVisibleOnly ? 'client-visible authors' : 'authors in the directory' ?></small></span>
+            <a class="authors-client-filter<?= $clientVisibleOnly ? ' is-active' : '' ?>" href="/admin/authors.php?<?= adminAuthorEsc(http_build_query(array_filter(['search' => $search, 'letter' => $letter, 'client_visible' => $clientVisibleOnly ? null : '1'], static fn ($value) => $value !== null && $value !== ''))) ?>" aria-pressed="<?= $clientVisibleOnly ? 'true' : 'false' ?>">
+                <span class="authors-filter-indicator" aria-hidden="true"></span>
+                <?= $clientVisibleOnly ? 'Show All Authors · ' . number_format($allAuthorCount) : 'Show Client-Visible Authors · ' . number_format($clientVisibleAuthorCount) ?>
+            </a>
+        </div>
     </section>
 
     <?php if ($success !== ''): ?><div class="admin-author-flash success" role="status"><?= adminAuthorEsc($success) ?></div><?php endif; ?>
