@@ -75,6 +75,9 @@
 .authors-client-filter.is-active { border-color:#ffdcaa; color:#71300c; background:#ffdcaa; box-shadow:0 4px 14px rgba(57,29,8,.1); }
 .authors-filter-indicator { width:.58rem; height:.58rem; flex:0 0 auto; border-radius:50%; background:#c86b16; box-shadow:0 0 0 3px rgba(200,107,22,.13); }
 .authors-client-filter.is-active .authors-filter-indicator { background:#71300c; }
+.authors-client-filter { min-height:46px; padding:.62rem 1rem; border:2px solid #fff; color:#71300c; background:#fff; box-shadow:0 6px 18px rgba(45,20,4,.22); }
+.authors-client-filter:hover { border-color:#ffe0b5; color:#572306; background:#fff4e5; }
+.authors-client-filter.is-active { border-color:#fff; color:#572306; background:#ffe0b5; }
 
 .admin-authors-directory { padding: 24px; }
 .admin-authors-search {

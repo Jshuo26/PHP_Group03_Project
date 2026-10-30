@@ -17,6 +17,7 @@ if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)) {
 
 $isLoginPage = basename($_SERVER['PHP_SELF']) === 'login.php';
 $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
+$adminAssetVersion = '20261031-live-admin-3';
 
 ?>
 <!DOCTYPE html>
@@ -33,31 +34,31 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
     <link rel="icon" type="image/png" href="/images/logo/aklAAAt!-favicon.png">
     <link rel="apple-touch-icon" href="/images/logo/aklAAAt!-favicon.png">
 
-    <link rel="stylesheet" href="/css/styles.css">
-    <link rel="stylesheet" href="/css/header.css">
+    <link rel="stylesheet" href="/css/styles.css?v=<?= $adminAssetVersion ?>">
+    <link rel="stylesheet" href="/css/header.css?v=<?= $adminAssetVersion ?>">
 
     <?php if ($isAdminPortal): ?>
-        <link rel="stylesheet" href="/css/admin-ui.css">
+        <link rel="stylesheet" href="/css/admin-ui.css?v=<?= $adminAssetVersion ?>">
     <?php endif; ?>
 
     <?php if (($_SERVER['SCRIPT_NAME'] ?? '') === '/admin/index.php' && in_array(($_SESSION['role'] ?? ''), ['admin', 'staff'], true)): ?>
-        <link rel="stylesheet" href="/css/admin-dashboard.css">
+        <link rel="stylesheet" href="/css/admin-dashboard.css?v=<?= $adminAssetVersion ?>">
     <?php endif; ?>
 
     <?php if (in_array(basename($_SERVER['PHP_SELF']), ['products.php', 'catalog_review.php'], true) && $isAdminPortal): ?>
-        <link rel="stylesheet" href="/css/admin-products.css">
+        <link rel="stylesheet" href="/css/admin-products.css?v=<?= $adminAssetVersion ?>">
     <?php endif; ?>
 
     <?php if (basename($_SERVER['PHP_SELF']) === 'authors.php' && $isAdminPortal): ?>
-        <link rel="stylesheet" href="/css/admin-authors.css">
+        <link rel="stylesheet" href="/css/admin-authors.css?v=<?= $adminAssetVersion ?>">
     <?php endif; ?>
 
     <?php if (in_array(basename($_SERVER['PHP_SELF']), ['orders.php', 'users.php', 'security.php', 'featured.php', 'low_stock.php'], true) && $isAdminPortal): ?>
-        <link rel="stylesheet" href="/css/admin-operations.css">
+        <link rel="stylesheet" href="/css/admin-operations.css?v=<?= $adminAssetVersion ?>">
     <?php endif; ?>
 
     <?php if (basename($_SERVER['PHP_SELF']) === 'security.php' && $isAdminPortal): ?>
-        <link rel="stylesheet" href="/css/admin-security.css">
+        <link rel="stylesheet" href="/css/admin-security.css?v=<?= $adminAssetVersion ?>">
     <?php endif; ?>
 
     <?php if (basename($_SERVER['PHP_SELF']) === 'featured.php'): ?>

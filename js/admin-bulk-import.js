@@ -387,8 +387,8 @@
     var duplicateCount = Object.keys(seen).filter(function (isbn) { return seen[isbn] > 1; }).length;
     renderFilters(ready, needs, skipped, existing, unknown);
     if (duplicateWarning) { duplicateWarning.hidden = !duplicateCount; duplicateWarning.textContent = duplicateCount ? duplicateCount + ' ISBN duplicate group(s): combine rows before import.' : ''; }
-    if (importButton) importButton.disabled = imported || ready === 0 || duplicateCount > 0;
-    return { ready: ready, skipped: skipped, duplicateCount: duplicateCount, existing: existing, unknown: unknown };
+    if (importButton) importButton.disabled = imported || ready === 0 || needs > 0 || duplicateCount > 0;
+    return { ready: ready, needs: needs, skipped: skipped, duplicateCount: duplicateCount, existing: existing, unknown: unknown };
   }
   function renderFilters(ready, needs, skipped, existing, unknown) {
     if (!filters) return;
@@ -716,24 +716,15 @@
     row.description = synopsisPlaceholder;
     row.description_source = 'placeholder';
   }
-  function applyMissingMetadataFallbacks(row, items) {
-    var candidates = Array.isArray(items) ? items : [];
-    var exactGenreFound = candidates.some(function (item) {
-      var score = scoreCandidate(row, item);
-      return score.exactTitle && score.exactAuthor && !score.titleConflict
-        && metadataGenreIds((item.volumeInfo || {}).categories || []).length > 0;
-    });
+  function applyMissingMetadataFallbacks(row) {
     row.genre_lookup_complete = true;
-    if (!exactGenreFound && (!Array.isArray(row.genre_ids) || row.genre_ids.length === 0)
-        && Number(state.fallbackGenreId) > 0) {
+    if ((!Array.isArray(row.genre_ids) || row.genre_ids.length === 0) && Number(state.fallbackGenreId) > 0) {
       row.genre_ids = [Number(state.fallbackGenreId)];
       row.genre_assignment_source = 'fallback';
     }
 
     var hasDescription = String(row.description || '').trim() !== '' && !isSynopsisPlaceholder(row.description);
-    if (!hasDescription && !row.google_synopsis_found && !row.open_library_synopsis_found) {
-      applySynopsisPlaceholder(row);
-    }
+    if (!hasDescription) applySynopsisPlaceholder(row);
   }
   function showCandidates(index, items) {
     var box = container.querySelector('[data-online-candidates="' + index + '"]');
@@ -1325,7 +1316,7 @@
   if (imported) { showScanStatus('This batch is already complete. Reloading it is safe and will not add stock again.', 'success'); dismissScanStatusAfter(5000); }
   importButton.addEventListener('click', async function () {
     var result = refreshSummary();
-    if (!result.ready || result.duplicateCount) { showScanStatus('Complete the required fields and resolve duplicate ISBN rows before importing.', 'warning'); dismissScanStatusAfter(5000); return; }
+    if (!result.ready || result.needs > 0 || result.duplicateCount) { showScanStatus('Resolve every Needs Details row and duplicate ISBN before importing.', 'warning'); dismissScanStatusAfter(5000); return; }
     readRows(); importButton.disabled = true; progress.hidden = true; showScanStatus('Saving the batch safely…', 'info');
     try {
       var rowsJson = JSON.stringify(state.rows);

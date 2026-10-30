@@ -36,19 +36,20 @@ try {
                 if (!is_array($check) || !in_array((string) ($check['status'] ?? ''), ['needs_evidence', 'unknown', 'possible_match', 'pending', 'ambiguous'], true)) continue;
                 $unknown = true;
             }
-            $skipped = !empty($row['skip']) || !empty($row['server_excluded_existing']);
+            $skipped = !empty($row['skip']);
             $description = trim((string) ($row['description'] ?? ''));
             $language = trim((string) ($row['language'] ?? ''));
             $genres = is_array($row['genre_ids'] ?? null) ? $row['genre_ids'] : [];
+            $genrePlaceholder = (string) ($row['genre_assignment_source'] ?? '') === 'fallback';
             $placeholder = $description === '' || $description === 'A full synopsis will be added soon.'
-                || $language === '' || $language === 'Other Languages' || !$genres;
+                || $language === '' || $language === 'Other Languages' || !$genres || $genrePlaceholder;
             if (!$skipped && !$unknown && !$placeholder) continue;
             $reasons = [];
             if ($skipped) $reasons[] = 'Skipped / excluded from import';
             if ($unknown) $reasons[] = 'Author needs identity review';
             if ($description === '' || $description === 'A full synopsis will be added soon.') $reasons[] = 'Synopsis placeholder';
             if ($language === '' || $language === 'Other Languages') $reasons[] = 'Language placeholder';
-            if (!$genres) $reasons[] = 'Genre needs review';
+            if (!$genres || $genrePlaceholder) $reasons[] = $genrePlaceholder ? 'Genre placeholder' : 'Genre needs review';
             $batches[] = [
                 'batch_id' => (string) $batch['batch_id'], 'status' => (string) $batch['status'],
                 'title' => (string) ($row['title'] ?? 'Untitled book'), 'author' => (string) ($row['author'] ?? 'Author unknown'),

@@ -92,7 +92,7 @@ include __DIR__ . '/../includes/header.php';
             <button type="button" class="btn btn-secondary" id="orders-filter-clear">Clear Filters</button>
             <p id="orders-filter-count" aria-live="polite">Showing <?= count($orders) ?> of <?= count($orders) ?> orders</p>
         </section>
-        <div class="operations-empty orders-filter-empty" id="orders-filter-empty" hidden><h2>No Matching Orders</h2><p>Try a different search or status filter.</p></div>
+        <div class="operations-empty orders-filter-empty" id="orders-filter-empty" hidden aria-live="polite"><h2>No Matching Orders</h2><p>Try a different search or status filter.</p></div>
     <?php endif; ?>
     <?php if (!$orders): ?>
         <div class="operations-empty"><span aria-hidden="true">✓</span><h2>No Orders Yet</h2><p>New customer orders will appear here.</p></div>
@@ -137,10 +137,12 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     count.textContent = 'Showing ' + visible + ' of ' + cards.length + ' orders';
     empty.hidden = visible !== 0;
+    empty.setAttribute('aria-hidden', visible !== 0 ? 'true' : 'false');
   }
   search.addEventListener('input', applyFilters);
   status.addEventListener('change', applyFilters);
   clear.addEventListener('click', function () { search.value = ''; status.value = 'all'; applyFilters(); });
+  applyFilters();
 });
 </script><?php endif; ?>
 <?php include __DIR__ . '/../includes/footer.php'; ?>
