@@ -80,7 +80,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="admin-tool-grid">
                 <a class="admin-tool-card" href="/admin/products.php"><span class="admin-tool-icon" aria-hidden="true">B</span><span><strong>Books &amp; inventory</strong><small>Catalog, pricing, stock, and availability</small></span><b aria-hidden="true">→</b></a>
                 <a class="admin-tool-card" href="/admin/orders.php"><span class="admin-tool-icon" aria-hidden="true">O</span><span><strong>Orders</strong><small>Payments and fulfillment</small></span><b aria-hidden="true">→</b></a>
-                <a class="admin-tool-card" href="/admin/author_reviews.php"><span class="admin-tool-icon" aria-hidden="true">A</span><span><strong>Author reviews</strong><small>Evidence and Filipino-author eligibility</small></span><b aria-hidden="true">→</b></a>
+                <a class="admin-tool-card" href="/admin/authors.php"><span class="admin-tool-icon" aria-hidden="true">A</span><span><strong>Authors</strong><small>Edit profiles and manage eligibility</small></span><b aria-hidden="true">→</b></a>
                 <a class="admin-tool-card" href="/admin/low_stock.php"><span class="admin-tool-icon" aria-hidden="true">!</span><span><strong>Inventory alerts</strong><small><?= $lowStockReady ? number_format($activeLowStockCount) . ' active low-stock alert(s)' : 'Low-stock monitoring setup' ?></small></span><b aria-hidden="true">→</b></a>
                 <a class="admin-tool-card" href="/admin/customers.php"><span class="admin-tool-icon" aria-hidden="true">U</span><span><strong>Customers</strong><small>Accounts and order history</small></span><b aria-hidden="true">→</b></a>
                 <a class="admin-tool-card" href="/admin/genres.php"><span class="admin-tool-icon" aria-hidden="true">C</span><span><strong>Categories</strong><small>Organize the book catalog</small></span><b aria-hidden="true">→</b></a>
@@ -121,7 +121,7 @@ include __DIR__ . '/../includes/header.php';
             <div class="admin-shortcuts" aria-label="Bookstore operations">
                 <a class="btn btn-primary" href="/admin/products.php">Manage books</a>
                 <a class="btn btn-secondary" href="/admin/genres.php">Manage categories</a>
-                <a class="btn btn-secondary" href="/admin/author_reviews.php">Author reviews</a>
+                <a class="btn btn-secondary" href="/admin/authors.php">Manage authors</a>
                 <a class="btn btn-secondary" href="/admin/customers.php">Customers</a>
                 <a class="btn btn-secondary" href="/admin/orders.php">Manage orders</a>
                 <a class="btn btn-secondary" href="/admin/low_stock.php">Low-stock alerts (<?= number_format($activeLowStockCount) ?>)</a>

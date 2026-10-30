@@ -44,6 +44,18 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
         <link rel="stylesheet" href="/css/admin-products.css">
     <?php endif; ?>
 
+    <?php if (basename($_SERVER['PHP_SELF']) === 'authors.php' && $isAdminPortal): ?>
+        <link rel="stylesheet" href="/css/admin-authors.css">
+    <?php endif; ?>
+
+    <?php if (in_array(basename($_SERVER['PHP_SELF']), ['orders.php', 'users.php', 'security.php'], true) && $isAdminPortal): ?>
+        <link rel="stylesheet" href="/css/admin-operations.css">
+    <?php endif; ?>
+
+    <?php if (basename($_SERVER['PHP_SELF']) === 'security.php' && $isAdminPortal): ?>
+        <link rel="stylesheet" href="/css/admin-security.css">
+    <?php endif; ?>
+
     <?php if (basename($_SERVER['PHP_SELF']) === 'featured.php'): ?>
         <link rel="stylesheet" href="/css/featured.css">
     <?php endif; ?>
@@ -75,7 +87,7 @@ $sessionTimeoutMinutes = (int) ($_SESSION['session_timeout_minutes'] ?? 2);
                 <?php if ($isLoggedIn && in_array($userRole, ['admin', 'staff'], true)): ?>
                     <a class="nav-link" href="/admin/index.php">Dashboard</a>
                     <a class="nav-link" href="/admin/products.php">Products</a>
-                    <a class="nav-link" href="/admin/author_reviews.php">Authors</a>
+                    <a class="nav-link" href="/admin/authors.php">Authors</a>
                     <a class="nav-link" href="/admin/orders.php">Orders</a>
                     <?php if ($userRole === 'admin'): ?>
                         <a class="nav-link" href="/admin/users.php">Staff &amp; Roles</a>

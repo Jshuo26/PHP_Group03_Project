@@ -68,30 +68,33 @@ unset($order);
 
 include __DIR__ . '/../includes/header.php';
 ?>
-<section class="container">
-    <h1 class="card-title"><?= $customerId > 0 ? 'Customer Order History' : 'Order Management' ?></h1>
-    <?php if ($customerId > 0): ?><p><a class="btn btn-secondary" href="/admin/customers.php">Back to customers</a></p><?php endif; ?>
-    <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
-    <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
+<main class="container admin-operations admin-orders-page">
+    <header class="operations-page-heading">
+        <div><span class="operations-eyebrow">STORE OPERATIONS</span><h1><?= $customerId > 0 ? 'Customer Order History' : 'Order Management' ?></h1><p><?= $customerId > 0 ? 'Review and update orders for this customer.' : 'Review incoming orders and keep fulfillment moving.' ?></p></div>
+        <div class="operations-heading-actions"><span class="operations-count"><?= count($orders) ?> <?= count($orders) === 1 ? 'order' : 'orders' ?></span><?php if ($customerId > 0): ?><a class="btn btn-secondary" href="/admin/customers.php">Back to customers</a><?php endif; ?></div>
+    </header>
+    <?php if ($errors): ?><div class="operations-alert error" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
+    <?php if ($success !== ''): ?><div class="operations-alert success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
     <?php if (!$orders): ?>
-        <div class="card"><p class="card-text">There are no orders yet.</p></div>
+        <div class="operations-empty"><span aria-hidden="true">✓</span><h2>No orders yet</h2><p>New customer orders will appear here.</p></div>
     <?php else: foreach ($orders as $order): ?>
-        <article class="card admin-list-item">
-            <h2><?= htmlspecialchars($order['order_number'], ENT_QUOTES, 'UTF-8') ?></h2>
-            <p><strong>Customer:</strong> <?= htmlspecialchars($order['shipping_name'], ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars($order['email'], ENT_QUOTES, 'UTF-8') ?></p>
-            <p><strong>Ship to:</strong> <?= htmlspecialchars($order['shipping_street'] . ', ' . $order['shipping_city'] . ', ' . $order['shipping_province'] . ' ' . $order['shipping_zip'], ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars($order['shipping_mobile'], ENT_QUOTES, 'UTF-8') ?></p>
-            <p><strong>Items:</strong> <?= htmlspecialchars($order['items'], ENT_QUOTES, 'UTF-8') ?></p>
-            <p><strong>Total:</strong> ₱<?= number_format((float) $order['total_amount'], 2) ?> · <?= htmlspecialchars($order['placed_at'], ENT_QUOTES, 'UTF-8') ?></p>
-            <form method="post" action="<?= htmlspecialchars($ordersUrl, ENT_QUOTES, 'UTF-8') ?>" class="inline-form">
+        <article class="order-management-card">
+            <header class="order-management-heading"><div><span class="operations-eyebrow">ORDER</span><h2><?= htmlspecialchars($order['order_number'], ENT_QUOTES, 'UTF-8') ?></h2><p>Placed <?= htmlspecialchars($order['placed_at'], ENT_QUOTES, 'UTF-8') ?></p></div><div class="order-heading-meta"><span class="order-status-pill status-<?= htmlspecialchars($order['status'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst($order['status']), ENT_QUOTES, 'UTF-8') ?></span><strong>₱<?= number_format((float) $order['total_amount'], 2) ?></strong></div></header>
+            <div class="order-detail-grid">
+                <section><h3>Customer</h3><p><?= htmlspecialchars($order['shipping_name'], ENT_QUOTES, 'UTF-8') ?></p><a href="mailto:<?= htmlspecialchars($order['email'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars($order['email'], ENT_QUOTES, 'UTF-8') ?></a></section>
+                <section><h3>Ship to</h3><p><?= htmlspecialchars($order['shipping_street'] . ', ' . $order['shipping_city'] . ', ' . $order['shipping_province'] . ' ' . $order['shipping_zip'], ENT_QUOTES, 'UTF-8') ?></p><p><?= htmlspecialchars($order['shipping_mobile'], ENT_QUOTES, 'UTF-8') ?></p></section>
+                <section class="order-items-detail"><h3>Items</h3><p><?= htmlspecialchars($order['items'], ENT_QUOTES, 'UTF-8') ?></p></section>
+            </div>
+            <form method="post" action="<?= htmlspecialchars($ordersUrl, ENT_QUOTES, 'UTF-8') ?>" class="order-status-form">
                 <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
                 <input type="hidden" name="order_id" value="<?= (int) $order['order_id'] ?>">
                 <label for="status-<?= (int) $order['order_id'] ?>">Status</label>
                 <select class="form-input order-status" id="status-<?= (int) $order['order_id'] ?>" name="status" required>
                     <?php foreach ($statuses as $status): ?><option value="<?= htmlspecialchars($status, ENT_QUOTES, 'UTF-8') ?>" <?= $order['status'] === $status ? 'selected' : '' ?>><?= htmlspecialchars(ucfirst($status), ENT_QUOTES, 'UTF-8') ?></option><?php endforeach; ?>
                 </select>
-                <button class="btn btn-primary" type="submit">Update status</button>
+                <button class="btn btn-primary" type="submit">Update Status</button>
             </form>
         </article>
     <?php endforeach; endif; ?>
-</section>
+</main>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

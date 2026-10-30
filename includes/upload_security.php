@@ -4,6 +4,7 @@ function validatePublicImageUpload(array $file, string $purpose, int $maxBytes):
 {
     $messages = [
         'profile picture' => 'Please choose a JPG, PNG, or WebP profile picture up to 2 MB.',
+        'author portrait' => 'Please choose a JPG, PNG, or WebP author portrait up to 2 MB.',
         'book cover' => 'Please choose a JPG, PNG, or WebP book cover up to 5 MB.',
     ];
     $message = $messages[$purpose] ?? 'Please choose a supported image file.';
@@ -16,7 +17,7 @@ function validatePublicImageUpload(array $file, string $purpose, int $maxBytes):
 
     $error = (int) $file['error'];
     if ($error === UPLOAD_ERR_INI_SIZE || $error === UPLOAD_ERR_FORM_SIZE) {
-        throw new RuntimeException('The image is too large. ' . ($purpose === 'book cover' ? 'Book covers may be up to 5 MB.' : 'Profile pictures may be up to 2 MB.'));
+        throw new RuntimeException('The image is too large. ' . ($purpose === 'book cover' ? 'Book covers may be up to 5 MB.' : 'Portraits may be up to 2 MB.'));
     }
     if ($error !== UPLOAD_ERR_OK || !is_uploaded_file((string) $file['tmp_name'])) {
         throw new RuntimeException($message);

@@ -138,35 +138,39 @@ foreach ($staffUsers as &$staffUser) $staffUser = decryptUserPersonalFields($sta
 unset($staffUser);
 include __DIR__ . '/../includes/header.php';
 ?>
-<section class="container">
-    <div class="card">
-        <h1 class="card-title">Staff and Access Management</h1>
-        <p class="card-text">Administrators can create and manage staff accounts, assign roles, and suspend or reactivate access. Staff cannot access this page.</p>
+<main class="container admin-operations admin-users-page">
+    <header class="operations-page-heading">
+        <div><span class="operations-eyebrow">TEAM ACCESS</span><h1>Staff &amp; Roles</h1><p>Create staff accounts and manage access. This workspace is available to administrators.</p></div>
+        <span class="operations-count"><?= count($staffUsers) ?> team <?= count($staffUsers) === 1 ? 'account' : 'accounts' ?></span>
+    </header>
+    <section class="card staff-account-editor">
+        <div class="operations-section-heading"><div><span class="operations-eyebrow"><?= $editUser ? 'ACCOUNT SETTINGS' : 'TEAM SETUP' ?></span><h2><?= $editUser ? 'Edit staff account' : 'Create staff account' ?></h2></div><?php if ($editUser): ?><a class="btn btn-secondary" href="/admin/users.php">Cancel Edit</a><?php endif; ?></div>
         <?php if ($errors): ?><div class="form-errors" role="alert"><?php foreach ($errors as $error): ?><p><?= htmlspecialchars($error, ENT_QUOTES, 'UTF-8') ?></p><?php endforeach; ?></div><?php endif; ?>
         <?php if ($success !== ''): ?><div class="form-success" role="status"><p><?= htmlspecialchars($success, ENT_QUOTES, 'UTF-8') ?></p></div><?php endif; ?>
-        <h2><?= $editUser ? 'Edit account' : 'Create staff account' ?></h2>
-        <form method="post" action="/admin/users.php<?= $editUser && $editId ? '?edit=' . (int) $editId : '' ?>" class="form-grid">
+        <form method="post" action="/admin/users.php<?= $editUser && $editId ? '?edit=' . (int) $editId : '' ?>" class="staff-account-form">
             <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
             <input type="hidden" name="action" value="save">
             <input type="hidden" name="user_id" value="<?= (int) ($editUser['user_id'] ?? 0) ?>">
-            <label>First name<input class="form-input" name="first_name" maxlength="75" required value="<?= htmlspecialchars((string) ($editUser['first_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
-            <label>Last name<input class="form-input" name="last_name" maxlength="75" required value="<?= htmlspecialchars((string) ($editUser['last_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
-            <label>Email<input class="form-input" type="email" name="email" maxlength="255" required value="<?= htmlspecialchars((string) ($editUser['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
-            <label>Role<select class="form-input" name="role"><option value="staff" <?= ($editUser['role'] ?? 'staff') === 'staff' ? 'selected' : '' ?>>Staff</option><option value="admin" <?= ($editUser['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option></select></label>
-            <label>Account status<select class="form-input" name="account_status"><option value="active" <?= ($editUser['account_status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= ($editUser['account_status'] ?? '') === 'suspended' ? 'selected' : '' ?>>Suspended</option></select></label>
-            <label>Password <?= $editUser ? '(leave blank to keep current)' : '' ?><input class="form-input" type="password" name="password" autocomplete="new-password" <?= $editUser ? '' : 'required' ?>></label>
-            <div><button class="btn btn-primary" type="submit"><?= $editUser ? 'Save account' : 'Create account' ?></button><?php if ($editUser): ?> <a class="btn btn-secondary" href="/admin/users.php">Cancel</a><?php endif; ?></div>
+            <label class="staff-field-first">First Name<input class="form-input" name="first_name" maxlength="75" required value="<?= htmlspecialchars((string) ($editUser['first_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
+            <label class="staff-field-last">Last Name<input class="form-input" name="last_name" maxlength="75" required value="<?= htmlspecialchars((string) ($editUser['last_name'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
+            <label class="staff-field-email">Email Address<input class="form-input" type="email" name="email" maxlength="255" required value="<?= htmlspecialchars((string) ($editUser['email'] ?? ''), ENT_QUOTES, 'UTF-8') ?>"></label>
+            <label class="staff-field-role">Role<select class="form-input" name="role"><option value="staff" <?= ($editUser['role'] ?? 'staff') === 'staff' ? 'selected' : '' ?>>Staff</option><option value="admin" <?= ($editUser['role'] ?? '') === 'admin' ? 'selected' : '' ?>>Admin</option></select></label>
+            <label class="staff-field-status">Account Status<select class="form-input" name="account_status"><option value="active" <?= ($editUser['account_status'] ?? 'active') === 'active' ? 'selected' : '' ?>>Active</option><option value="suspended" <?= ($editUser['account_status'] ?? 'active') === 'suspended' ? 'selected' : '' ?>>Suspended</option></select></label>
+            <label class="staff-field-password">Password <?= $editUser ? '(leave blank to keep current)' : '' ?><input class="form-input" type="password" name="password" autocomplete="new-password" <?= $editUser ? '' : 'required' ?>></label>
+            <div class="staff-form-footer"><p>Staff and administrator accounts enroll in Google Authenticator at first sign-in.</p><button class="btn btn-primary" type="submit"><?= $editUser ? 'Save Changes' : 'Create Account' ?></button></div>
         </form>
-        <p class="card-text">Staff and administrator accounts are required to enroll in Google Authenticator at first sign-in.</p>
-    </div>
-    <h2 class="section-title">Staff and administrator accounts</h2>
-    <?php foreach ($staffUsers as $staffUser): ?>
-        <article class="card admin-list-item">
-            <h3><?= htmlspecialchars((string) $staffUser['full_name'], ENT_QUOTES, 'UTF-8') ?> <small>#<?= (int) $staffUser['user_id'] ?></small></h3>
-            <p><?= htmlspecialchars((string) $staffUser['email'], ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars(ucfirst((string) $staffUser['role']), ENT_QUOTES, 'UTF-8') ?> · <?= htmlspecialchars(ucfirst((string) $staffUser['account_status']), ENT_QUOTES, 'UTF-8') ?></p>
-            <p>Created <?= htmlspecialchars((string) $staffUser['created_at'], ENT_QUOTES, 'UTF-8') ?></p>
-            <?php if ((int) $staffUser['user_id'] === $actorId): ?><span class="card-text">Your signed-in account</span><?php else: ?><a class="btn btn-secondary" href="/admin/users.php?edit=<?= (int) $staffUser['user_id'] ?>">Edit account</a><?php endif; ?>
-        </article>
-    <?php endforeach; ?>
-</section>
+    </section>
+    <section class="staff-directory" aria-labelledby="staff-directory-title">
+        <div class="operations-section-heading"><div><span class="operations-eyebrow">ACCESS DIRECTORY</span><h2 id="staff-directory-title">Staff and administrators</h2></div><span class="operations-count"><?= count($staffUsers) ?> listed</span></div>
+        <div class="staff-account-grid">
+            <?php foreach ($staffUsers as $staffUser): ?>
+                <article class="staff-account-card">
+                    <div class="staff-account-avatar" aria-hidden="true"><?= htmlspecialchars(mb_strtoupper(mb_substr((string) $staffUser['full_name'], 0, 1)), ENT_QUOTES, 'UTF-8') ?></div>
+                    <div class="staff-account-info"><h3><?= htmlspecialchars((string) $staffUser['full_name'], ENT_QUOTES, 'UTF-8') ?></h3><p><?= htmlspecialchars((string) $staffUser['email'], ENT_QUOTES, 'UTF-8') ?></p><div class="staff-account-badges"><span class="staff-role-badge role-<?= htmlspecialchars((string) $staffUser['role'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst((string) $staffUser['role']), ENT_QUOTES, 'UTF-8') ?></span><span class="staff-state-badge state-<?= htmlspecialchars((string) $staffUser['account_status'], ENT_QUOTES, 'UTF-8') ?>"><?= htmlspecialchars(ucfirst((string) $staffUser['account_status']), ENT_QUOTES, 'UTF-8') ?></span><small>Since <?= htmlspecialchars(date('M j, Y', strtotime((string) $staffUser['created_at'])), ENT_QUOTES, 'UTF-8') ?></small></div></div>
+                    <div class="staff-account-action"><?php if ((int) $staffUser['user_id'] === $actorId): ?><span class="you-account-badge">You</span><?php else: ?><a class="btn btn-secondary" href="/admin/users.php?edit=<?= (int) $staffUser['user_id'] ?>">Edit Account</a><?php endif; ?></div>
+                </article>
+            <?php endforeach; ?>
+        </div>
+    </section>
+</main>
 <?php include __DIR__ . '/../includes/footer.php'; ?>

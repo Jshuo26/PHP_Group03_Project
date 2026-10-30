@@ -231,24 +231,16 @@ function initials($name)
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="/css/admin-security.css">
-
-<section class="container">
-
-  <div class="card">
-    <h1 class="card-title">Security Settings</h1>
-
-    <?php if ($flashOk): ?>
-      <p class="card-text" role="status"><?php echo e($flashOk); ?></p>
-    <?php endif; ?>
-    <?php if ($flashError): ?>
-      <div class="form-errors" role="alert"><p><?php echo e($flashError); ?></p></div>
-    <?php endif; ?>
-
-    <h2>Account lockout</h2>
-    <p class="card-text">
-      An account is locked after this many failed logins in a row. It stays locked until an administrator unlocks it.
-    </p>
+<main class="container admin-operations security-page">
+  <header class="operations-page-heading">
+    <div><span class="operations-eyebrow">ACCOUNT PROTECTION</span><h1>Security Settings</h1><p>Set login protections, session limits, and password rules for the bookstore.</p></div>
+    <span class="operations-security-badge"><span aria-hidden="true">✓</span> Protected</span>
+  </header>
+  <?php if ($flashOk): ?><div class="operations-alert success" role="status"><p><?php echo e($flashOk); ?></p></div><?php endif; ?>
+  <?php if ($flashError): ?><div class="operations-alert error" role="alert"><p><?php echo e($flashError); ?></p></div><?php endif; ?>
+  <div class="security-settings-grid">
+  <section class="card security-settings-card security-lockout-card">
+    <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">01</span><div><h2>Account Lockout</h2><p>Control failed sign-in attempts before an account is locked.</p></div></div>
 
     <form method="POST" action="/admin/security.php">
       <input type="hidden" name="csrf_token" value="<?php echo e($csrf); ?>">
@@ -263,15 +255,10 @@ include __DIR__ . '/../includes/header.php';
 
       <button type="submit" class="btn btn-primary">Save</button>
     </form>
-  </div>
+  </section>
 
-  <div class="card">
-    <h2>Session Timeout</h2>
-
-    <p class="card-text">
-      Automatically log users out after the selected period of inactivity.
-      This setting applies to customers, staff, and administrators.
-    </p>
+  <section class="card security-settings-card security-timeout-card">
+    <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">02</span><div><h2>Session Timeout</h2><p>Sign out inactive customer and staff sessions automatically.</p></div></div>
 
     <form method="POST" action="/admin/security.php">
       <input type="hidden" name="csrf_token"
@@ -304,14 +291,10 @@ include __DIR__ . '/../includes/header.php';
         Save session timeout
       </button>
     </form>
-  </div>
+  </section>
 
-  <div class="card">
-    <h2>Password complexity</h2>
-    <p class="card-text">
-      Set what a password must contain. These rules apply when someone registers or changes their password.
-      Existing passwords are not affected. Set a character type to 0 to make it optional.
-    </p>
+  <section class="card security-settings-card security-password-card">
+    <div class="security-card-heading"><span class="security-card-icon" aria-hidden="true">03</span><div><h2>Password Rules</h2><p>Apply complexity rules to new accounts and future password changes. Existing passwords are not changed.</p></div></div>
 
     <form method="POST" action="/admin/security.php">
       <input type="hidden" name="csrf_token" value="<?php echo e($csrf); ?>">
@@ -361,9 +344,9 @@ include __DIR__ . '/../includes/header.php';
 
       <button type="submit" class="btn btn-primary">Save password rules</button>
     </form>
-  </div>
+  </section>
 
-  <div class="card">
+  <section class="card security-settings-card security-locked-card">
     <div class="lk-head">
       <h2>Locked accounts</h2>
       <span class="lk-count<?php echo $lockedAccounts ? '' : ' is-zero'; ?>">
@@ -430,9 +413,10 @@ include __DIR__ . '/../includes/header.php';
         </table>
       </div>
     <?php endif; ?>
+  </section>
   </div>
 
-</section>
+</main>
 
 <script>
 document.querySelectorAll('.lk-unlock-form').forEach(function (form) {
