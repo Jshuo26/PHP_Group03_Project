@@ -120,3 +120,28 @@
 .mfa-actions { display: flex; flex-wrap: wrap; gap: .75rem; align-items: center; margin-top: 1rem; }
 .mfa-danger-zone { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid #e3e3e3; }
 .mfa-note { font-size: .85rem; color: #5b5b5b; margin-top: .75rem; }
+
+.mfa-page .mfa-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .75rem;
+  margin-top: 22px;
+}
+.mfa-page .mfa-actions .btn {
+  display: inline-flex;
+  width: 100%;
+  min-height: 50px;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: .75rem 1rem;
+  border-radius: 10px;
+  font-size: .96rem;
+  font-weight: 700;
+  text-align: center;
+}
+.mfa-page .mfa-cancel-form { display: none; }
+
+@media (max-width: 480px) {
+  .mfa-page .mfa-actions { grid-template-columns: 1fr; }
+}

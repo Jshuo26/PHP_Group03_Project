@@ -131,7 +131,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 include __DIR__ . '/../includes/header.php';
 ?>
 
-<link rel="stylesheet" href="/css/mfa.css">
+<link rel="stylesheet" href="/css/mfa.css?v=20261031-mfa-3">
 
 <section class="container auth-section mfa-page">
   <div class="card mfa-wrap">
@@ -167,14 +167,14 @@ include __DIR__ . '/../includes/header.php';
       </div>
 
       <div class="mfa-actions">
-        <button class="btn btn-primary" type="submit">Verify And Continue</button>
+        <button class="btn btn-primary" type="submit">Verify &amp; Continue</button>
+        <button class="btn btn-outline" type="submit" form="mfa-cancel-form">Cancel</button>
       </div>
     </form>
 
-    <form method="POST" action="/auth/mfa.php" class="mfa-note">
+    <form id="mfa-cancel-form" method="POST" action="/auth/mfa.php" class="mfa-cancel-form">
       <input type="hidden" name="csrf_token" value="<?php echo htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8'); ?>">
       <input type="hidden" name="action" value="cancel">
-      <button class="btn btn-outline btn-sm" type="submit">Cancel And Return To Login</button>
     </form>
 
     <div class="mfa-help-note">
