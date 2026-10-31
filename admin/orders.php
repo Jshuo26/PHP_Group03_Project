@@ -42,7 +42,9 @@ $sql =
             MAX(o.shipping_city) AS shipping_city,
             MAX(o.shipping_province) AS shipping_province,
             MAX(o.shipping_zip) AS shipping_zip,
-            o.status, o.total_amount, o.placed_at, MAX(u.email) AS email,
+            o.status, o.total_amount,
+            COALESCE(CONVERT_TZ(o.placed_at, 'SYSTEM', '+08:00'), o.placed_at) AS placed_at,
+            MAX(u.email) AS email,
             GROUP_CONCAT(CONCAT(b.title, " × ", oi.quantity) ORDER BY b.title SEPARATOR ", ") AS items
      FROM orders o
      JOIN users u ON u.user_id = o.user_id

@@ -307,7 +307,8 @@ class PaymongoController
         $attrs = $session['attributes'] ?? [];
         if (($session['type'] ?? '') !== 'checkout_session'
             || !preg_match('/^cs_[A-Za-z0-9]+$/', $sessionId)
-            || ($attrs['livemode'] ?? null) !== paymongoIsLiveMode($this->config)) {
+            || (array_key_exists('livemode', $attrs)
+                && $attrs['livemode'] !== paymongoIsLiveMode($this->config))) {
             throw new UnexpectedValueException('Checkout session mode does not match the configured PayMongo mode.');
         }
 
@@ -641,7 +642,8 @@ class PaymongoController
         $attrs = $session['attributes'] ?? [];
         return ($session['type'] ?? '') === 'checkout_session'
             && ($session['id'] ?? '') === ($payment['checkout_session_id'] ?? '')
-            && ($attrs['livemode'] ?? null) === paymongoIsLiveMode($this->config)
+            && (!array_key_exists('livemode', $attrs)
+                || $attrs['livemode'] === paymongoIsLiveMode($this->config))
             && (string) ($attrs['reference_number'] ?? '') === (string) $order['order_number'];
     }
 

@@ -55,9 +55,9 @@ try {
     http_response_code(200);
     echo json_encode(['received' => true, 'result' => $result]);
 } catch (UnexpectedValueException $e) {
-    error_log('A signed PayMongo webhook failed order/payment validation.');
-    http_response_code(202);
-    echo '{"received":true,"result":"ignored"}';
+    error_log('A signed PayMongo webhook failed order/payment validation: ' . $e->getMessage());
+    http_response_code(500);
+    echo '{"error":"processing_failed"}';
 } catch (Throwable $e) {
     error_log('PayMongo webhook processing failed; provider retry is required.');
     http_response_code(500);

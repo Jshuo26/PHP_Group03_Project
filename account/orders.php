@@ -53,6 +53,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cance
     exit;
 }
 
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'refresh_payment') {
+    requireCsrfToken();
+    $orderId = filter_input(INPUT_POST, 'order_id', FILTER_VALIDATE_INT) ?: 0;
+    try {
+        $result = (new PaymongoController($pdo, $config))->refreshPaymentStatus($orderId, $userId);
+        $_SESSION['order_flash_success'] = $result['payment_status'] === 'paid'
+            ? 'PayMongo confirmed your payment.'
+            : 'PayMongo still reports this payment as pending. Try again shortly.';
+    } catch (Throwable $e) {
+        $_SESSION['order_flash_error'] = $e->getMessage();
+    }
+    header('Location: /account/orders.php' . ($selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : ''));
+    exit;
+}
+
 $hasPaymentOrderColumns = paymentSchemaHasColumn($pdo, 'orders', 'payment_method')
     && paymentSchemaHasColumn($pdo, 'orders', 'payment_status');
 $paymentOrderColumns = $hasPaymentOrderColumns
@@ -65,7 +80,7 @@ $stmt = $pdo->prepare(
         o.status,
         ' . $paymentOrderColumns . '
         o.total_amount,
-        o.placed_at,
+        COALESCE(CONVERT_TZ(o.placed_at, 'SYSTEM', '+08:00'), o.placed_at) AS placed_at,
         GROUP_CONCAT(
             CONCAT(b.title, " × ", oi.quantity)
             ORDER BY b.title
@@ -342,6 +357,7 @@ include __DIR__ . '/../includes/header.php';
                 $isOnlinePayment = in_array($order['payment_method'], ['gcash', 'maya', 'qrph'], true);
                 $paymentStatus = (string) ($order['payment_status'] ?? 'not_required');
                 $canRetryPayment = $isOnlinePayment && !$isCancelled && in_array($paymentStatus, ['failed', 'expired'], true);
+                $canVerifyPayment = $isOnlinePayment && !$isCancelled && $paymentStatus === 'pending';
                 $canCancelOrder = !$isOnlinePayment
                     && in_array($status, ['pending', 'processing'], true);
                 ?>
@@ -355,6 +371,14 @@ include __DIR__ . '/../includes/header.php';
                         </div>
 
                         <div class="order-card-actions">
+                            <?php if ($canVerifyPayment): ?>
+                                <form method="post" action="/account/orders.php<?= $selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : '' ?>" style="margin: 0;">
+                                    <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
+                                    <input type="hidden" name="action" value="refresh_payment">
+                                    <input type="hidden" name="order_id" value="<?= (int) $order['order_id'] ?>">
+                                    <button type="submit" class="btn btn-secondary">Check Payment Status</button>
+                                </form>
+                            <?php endif; ?>
                             <?php if ($canRetryPayment): ?>
                                 <form method="post" action="/payments/create_checkout.php" style="margin: 0;">
                                     <input type="hidden" name="csrf_token" value="<?= htmlspecialchars(generateCsrfToken(), ENT_QUOTES, 'UTF-8') ?>">
@@ -423,7 +447,7 @@ include __DIR__ . '/../includes/header.php';
                         <div class="order-meta-col">
                             <div class="order-meta-box">
                                 <span class="order-detail-label">Order Date</span>
-                                <span class="order-meta-value"><?= e(date('M d, Y · h:i A', strtotime($order['placed_at']))) ?></span>
+                                <span class="order-meta-value"><?= e((new DateTimeImmutable((string) $order['placed_at'], new DateTimeZone('Asia/Manila')))->format('M d, Y · h:i A')) ?></span>
                             </div>
                             <div class="order-meta-box order-meta-total">
                                 <span class="order-detail-label">Total Amount</span>
