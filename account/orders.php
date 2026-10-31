@@ -47,7 +47,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'cance
         }
         $_SESSION['order_flash_success'] = 'Order cancelled successfully. Stock has been restored.';
     } catch (Throwable $e) {
-        $_SESSION['order_flash_error'] = $e->getMessage();
+        $_SESSION['order_flash_error'] = $e instanceof PaymongoApiException
+            ? paymongoSafeCheckoutDiagnostic($e)
+            : $e->getMessage();
     }
     header('Location: /account/orders.php' . ($selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : ''));
     exit;
@@ -62,7 +64,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'refre
             ? 'PayMongo confirmed your payment.'
             : 'PayMongo still reports this payment as pending. Try again shortly.';
     } catch (Throwable $e) {
-        $_SESSION['order_flash_error'] = $e->getMessage();
+        $_SESSION['order_flash_error'] = $e instanceof PaymongoApiException
+            ? paymongoSafeCheckoutDiagnostic($e)
+            : $e->getMessage();
     }
     header('Location: /account/orders.php' . ($selectedStatus !== 'all' ? '?status=' . urlencode($selectedStatus) : ''));
     exit;

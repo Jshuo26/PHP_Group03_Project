@@ -1,2 +1,0 @@
--- Retained as a no-op migration for databases that already ran version 010.
--- The generic fallback genre was retired; see migration 011.

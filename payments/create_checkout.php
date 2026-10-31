@@ -31,7 +31,9 @@ try {
     exit;
 } catch (Throwable $e) {
     error_log('Unable to start PayMongo checkout for order #' . $orderId . '.');
-    $_SESSION['order_flash_error'] = $e->getMessage();
+    $_SESSION['order_flash_error'] = $e instanceof PaymongoApiException
+        ? paymongoSafeCheckoutDiagnostic($e)
+        : $e->getMessage();
     header('Location: /account/orders.php');
     exit;
 }
